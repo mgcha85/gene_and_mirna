@@ -1,6 +1,8 @@
 import pandas as pd
 import socket
 import os
+import sqlite3
+
 
 
 class Search_TSSs:
@@ -18,6 +20,7 @@ class Search_TSSs:
         else:
             print('wrong option')
             return
+        self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293', 'MCF-7']
 
     def split_table_by_cell_lines(self, cell_lines):
         fname__ = 'hg19.cage_peak_phase1and2combined_counts.osc'
@@ -29,6 +32,7 @@ class Search_TSSs:
         #     f.write('\n'.join(columns))
         # exit(1)
 
+        con = sqlite3.connect(os.path.join(dirname, 'hg19_cage_peak_phase1and2combined_counts_osc.db'))
         for cline in cell_lines:
             print(cline)
             columns = ['chromosome', 'start', 'end', 'strand']
@@ -36,11 +40,36 @@ class Search_TSSs:
                 if cline in col:
                     columns.append(col)
 
-            out_path = os.path.join(dirname, fname__ + '_{}.csv'.format(cline))
-            df[columns].to_csv(out_path, index=None)
+            df[columns].to_sql(cline, con)
+
+    def load_miRNA_tss(self):
+        fpath = os.path.join(self.root, 'database', 'fantom5.db')
+        con = sqlite3.connect(fpath)
+        return pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con)
+
+    def load_gene_tss(self):
+        fpath = os.path.join(self.root, 'database', 'fantom5.db')
+        con = sqlite3.connect(fpath)
+        return pd.read_sql_query("SELECT * FROM 'TSS_human'", con)
+
+    def main(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5')
+        fname__ = 'hg19.cage_peak_phase1and2combined_counts.osc'
+        df_mir = self.load_gene_tss()
+        df_gene = self.load_gene_tss()
+
+        for idx in df_mir.index:
+            chromosome = df_mir.loc[idx, 'chromosome']
+            tss = df_mir.loc[idx, 'tss']
+            strand = df_mir.loc[idx, 'strand']
+
+        for cline in self.cell_lines:
+            fpath = os.path.join(dirname, fname__.format(cline))
+            df = pd.read_csv(fpath)
+
+
 
 
 if __name__ == '__main__':
     st = Search_TSSs()
-    cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293', 'MCF-7']
-    st.split_table_by_cell_lines(cell_lines)
+    st.main()
