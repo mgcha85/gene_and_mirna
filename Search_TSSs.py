@@ -22,9 +22,10 @@ class Search_TSSs:
     def load_cnt_table(self):
         fpath = os.path.join(self.root, 'database', 'Fantom', 'v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
         df = pd.read_csv(fpath)
-        print(df.columns)
-
-
+        columns = list(df.columns)
+        contents = '\n'.join(columns)
+        with open('cell_lines.txt', 'wt') as f:
+            f.write(contents)
 
 
 if __name__ == '__main__':
