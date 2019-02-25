@@ -22,16 +22,21 @@ class Search_TSSs:
     def split_table_by_cell_lines(self, cell_lines):
         fname__ = 'hg19.cage_peak_phase1and2combined_counts.osc'
         dirname = os.path.join(self.root, 'database/Fantom/v5')
-        fpath = os.path.join(dirname, fname__ + '.txt')
-        df = pd.read_csv(fpath, comment='#')
+        fpath = os.path.join(dirname, fname__ + '.csv')
+        df = pd.read_csv(fpath)
+        # columns = list(df.columns)
+        # with open('columns.txt', 'wt') as f:
+        #     f.write('\n'.join(columns))
+        # exit(1)
 
         for cline in cell_lines:
+            print(cline)
             columns = ['chromosome', 'start', 'end', 'strand']
             for col in df.columns:
                 if cline in col:
                     columns.append(col)
 
-            out_path = os.path.join(dirname, fname__ + '_{}.txt'.format(cline))
+            out_path = os.path.join(dirname, fname__ + '_{}.csv'.format(cline))
             df[columns].to_csv(out_path, index=None)
 
 
