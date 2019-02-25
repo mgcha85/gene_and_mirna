@@ -1,8 +1,3 @@
-chromosome
-strand
-start
-end
-length
 counts.293SLAM%20rinderpest%20infection%2c%2000hr%2c%20biol_rep1.CNhs14406.13541-145H4
 counts.293SLAM%20rinderpest%20infection%2c%2000hr%2c%20biol_rep2.CNhs14407.13542-145H5
 counts.293SLAM%20rinderpest%20infection%2c%2000hr%2c%20biol_rep3.CNhs14408.13543-145H6

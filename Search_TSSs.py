@@ -19,15 +19,23 @@ class Search_TSSs:
             print('wrong option')
             return
 
-    def load_cnt_table(self):
-        fpath = os.path.join(self.root, 'database', 'Fantom', 'v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
-        df = pd.read_csv(fpath)
-        columns = list(df.columns)
-        contents = '\n'.join(columns)
-        with open('cell_lines.txt', 'wt') as f:
-            f.write(contents)
+    def split_table_by_cell_lines(self, cell_lines):
+        fname__ = 'hg19.cage_peak_phase1and2combined_counts.osc'
+        dirname = os.path.join(self.root, 'database/Fantom/v5')
+        fpath = os.path.join(dirname, fname__ + '.txt')
+        df = pd.read_csv(fpath, comment='#')
+
+        for cline in cell_lines:
+            columns = ['chromosome', 'start', 'end', 'strand']
+            for col in df.columns:
+                if cline in col:
+                    columns.append(col)
+
+            out_path = os.path.join(dirname, fname__ + '_{}.txt'.format(cline))
+            df[columns].to_csv(out_path, index=None)
 
 
 if __name__ == '__main__':
     st = Search_TSSs()
-    st.load_cnt_table()
+    cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293', 'MCF-7']
+    st.split_table_by_cell_lines(cell_lines)
