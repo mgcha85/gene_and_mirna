@@ -40,7 +40,7 @@ class Search_TSSs:
                 if cline in col:
                     columns.append(col)
 
-            df[columns].to_sql(cline, con)
+            df[columns].to_sql(cline, con, if_exists='replace', index=None)
 
     def load_miRNA_tss(self):
         fpath = os.path.join(self.root, 'database', 'fantom5.db')
