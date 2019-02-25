@@ -74,7 +74,7 @@ class Search_TSSs:
                 if df_tags.empty:
                     continue
                 df_gene_chr = df_gene_grp.get_group(chromosome)
-                midx = (df_gene_chr['start'] - tss).idxmin()
+                midx = (df_gene_chr['start'] - tss).abs().idxmin()
                 if strand == '+':
                     gene_tss = df_gene_chr.loc[midx, 'start']
                 else:
@@ -99,8 +99,9 @@ class Search_TSSs:
             if len(row) > 0:
                 contents.append(row)
 
-        df_rep = pd.DataFrame(data=contents, columns=['chromosome', 'tss', 'strand', 'gene_tss', 'tag_starts', 'tag_ends', 'length'])
+        df_rep = pd.DataFrame(data=contents, columns=['chromosome', 'tss', 'strand', 'gene_tss', 'tag_starts', 'tag_ends', 'length', 'cell_line'])
         df_rep.to_excel(os.path.join(self.root, 'database/Fantom/v5', self.__class__.__name__ + '.xlsx'), index=None)
+
 
 if __name__ == '__main__':
     st = Search_TSSs()
