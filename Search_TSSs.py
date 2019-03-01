@@ -44,13 +44,12 @@ class Search_TSSs:
     def load_miRNA_tss(self):
         fpath = os.path.join(self.root, 'database', 'fantom5.db')
         con = sqlite3.connect(fpath)
-        return pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con)
+        return pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE Type='intronic'", con)
 
     def load_gene_tss(self):
         fpath = os.path.join(self.root, 'database', 'fantom5.db')
         con = sqlite3.connect(fpath)
-        df = pd.read_sql_query("SELECT * FROM 'TSS_human'", con)
-        return df.groupby('chromosome')
+        return pd.read_sql_query("SELECT * FROM 'human_gene'", con, index_col='gene')
 
     def main(self):
         df_mir = self.load_miRNA_tss()
@@ -58,6 +57,8 @@ class Search_TSSs:
 
         con_tag = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc.db'))
         contents = []
+        columns = ['chromosome', 'pre_start', 'pre_end', 'tss', 'strand', 'gene_tss', 'gene_start', 'gene_end',
+                   'tag_starts', 'tag_ends', 'length', 'gene', 'cell_line']
 
         N = df_mir.shape[0]
         for idx in df_mir.index:
@@ -66,40 +67,55 @@ class Search_TSSs:
             chromosome = df_mir.loc[idx, 'chromosome']
             tss = int(df_mir.loc[idx, 'tss'])
             strand = df_mir.loc[idx, 'strand']
+            genes = df_mir.loc[idx, 'Gene']
+            pre_start = df_mir.loc[idx, 'start']
+            pre_end = df_mir.loc[idx, 'end']
+            genes = genes.split(',')
 
             row = []
-            for cline in self.cell_lines:
-                df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND start<={tss} AND end>={tss}"
-                                            "".format(cline, chromosome, tss=tss), con_tag)
-                if df_tags.empty:
-                    continue
-                df_gene_chr = df_gene_grp.get_group(chromosome)
-                midx = (df_gene_chr['start'] - tss).abs().idxmin()
-                if strand == '+':
-                    gene_tss = df_gene_chr.loc[midx, 'start']
-                else:
-                    gene_tss = df_gene_chr.loc[midx, 'end']
+            for gene in genes:
+                for cline in self.cell_lines:
+                    df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND start<={tss} AND end>={tss}"
+                                                "".format(cline, chromosome, tss=tss), con_tag)
+                    if df_tags.empty:
+                        continue
+                    try:
+                        df_gene_name = df_gene_grp.loc[gene]
+                    except Exception as e:
+                        print(e)
+                        continue
 
-                df_gene_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start>{tss} AND NOT "
-                                            "end<{tss}".format(cline, chromosome, tss=gene_tss), con_tag)
-                if df_gene_tags.empty:
-                    continue
+                    gene_start = df_gene_name['start']
+                    gene_end = df_gene_name['end']
+                    if strand == '+':
+                        gene_tss = df_gene_name['start']
+                    else:
+                        gene_tss = df_gene_name['end']
 
-                tsss = sorted([gene_tss, tss])
-                start = tsss[0]
-                end = tsss[1]
-                length = end - start
-                df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start<={} AND NOT "
-                                            "end>={}".format(cline, chromosome, start, end), con_tag)
+                    df_gene_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start>{tss} AND NOT "
+                                                "end<{tss}".format(cline, chromosome, tss=gene_tss), con_tag)
+                    if df_gene_tags.empty:
+                        continue
+                    df_gene_tags = df_gene_tags[df_gene_tags.iloc[:, 4:].sum(axis=1) > 0]
+                    if df_gene_tags.empty:
+                        continue
 
-                starts = ';'.join(list(df_tags['start'].values.astype(str)))
-                ends = ';'.join(list(df_tags['end'].values.astype(str)))
-                row = [chromosome, tss, strand, gene_tss, starts, ends, length, cline]
+                    tsss = sorted([gene_tss, tss])
+                    start = tsss[0]
+                    end = tsss[1]
+                    length = end - start
+                    df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start<={} AND NOT "
+                                                "end>={}".format(cline, chromosome, start, end), con_tag)
+
+                    starts = ';'.join(list(df_tags['start'].values.astype(str)))
+                    ends = ';'.join(list(df_tags['end'].values.astype(str)))
+                    row.append([chromosome, pre_start, pre_end, tss, strand, gene_tss, gene_start, gene_end, starts,
+                                ends, length, gene, cline])
 
             if len(row) > 0:
-                contents.append(row)
+                contents.extend(row)
 
-        df_rep = pd.DataFrame(data=contents, columns=['chromosome', 'tss', 'strand', 'gene_tss', 'tag_starts', 'tag_ends', 'length', 'cell_line'])
+        df_rep = pd.DataFrame(data=contents, columns=columns)
         df_rep.to_excel(os.path.join(self.root, 'database/Fantom/v5', self.__class__.__name__ + '.xlsx'), index=None)
 
 
