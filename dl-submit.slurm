@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=4
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=10
 #SBATCH --cpus-per-task=1
 #SBATCH --time=6:00:00
 #SBATCH --error=mchajobresults-%J.err
