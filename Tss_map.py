@@ -14,11 +14,9 @@ class Tss_map:
             self.root = 'D:/Bioinformatics'
         elif hostname == 'mingyu-Inspiron-7559':
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
-        elif 'evc' in hostname:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         else:
-            print('wrong option')
-            return
+            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+
         self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293']
         self.chrom = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12',
                       'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrM',
@@ -72,6 +70,7 @@ class Tss_map:
         # con_ctag = self.connect_cage_tags()
 
         fpath_out = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '.db')
+        print(fpath_out)
         con_out = sqlite3.connect(fpath_out)
 
         for cline in self.cell_lines:
@@ -92,7 +91,7 @@ class Tss_map:
                     df_gencode.loc[:, 'type'] = 'gene'
 
                     df_res = pd.concat([df_ctag, df_mtss, df_gencode])
-                    df_res.to_sql('{}_{}_{}'.format(cline, chrom, strand), con_out)
+                    df_res.to_sql('{}_{}_{}'.format(cline, chrom, strand), con_out, index=None)
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@
 #SBATCH --time=6:00:00
 #SBATCH --error=mchajobresults-%J.err
 #SBATCH --output=mchajobresults-%J.out
-#SBATCH --job-name=mcha_tensorflowjop
+#SBATCH --job-name=mcha_tss_map
 
 
 # Load modules

@@ -20,7 +20,7 @@ class Search_TSSs:
         else:
             print('wrong option')
             return
-        self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293']
+        self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293', 'MCF7']
 
     def split_table_by_cell_lines(self):
         fname__ = 'hg19.cage_peak_phase1and2combined_counts.osc'
