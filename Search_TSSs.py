@@ -39,6 +39,7 @@ class Search_TSSs:
             for col in df.columns:
                 if cline in col:
                     columns.append(col)
+            df = df.drop_duplicates()
             df[columns].to_sql(cline, con, if_exists='replace', index=None)
 
     def load_miRNA_tss(self):
