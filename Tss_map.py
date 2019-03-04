@@ -44,7 +44,8 @@ class Tss_map:
         fpath = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '.db')
         con = sqlite3.connect(fpath)
 
-        out_path = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '.xlsx')
+        out_path = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '_final' + '.db')
+        out_con = sqlite3.connect(out_path)
         N = len(self.cell_lines)
         dfs = []
         for chrom in self.chrom:
@@ -59,10 +60,15 @@ class Tss_map:
                 df_buffer['type'] = df['type'].values
                 dfs.append([self.fill_table(df, df_buffer), tname])
 
-        with pd.ExcelWriter(out_path) as writer:
-            for ele in dfs:
-                df, tname = ele
-                df.to_excel(writer, sheet_name=tname)
+        for ele in dfs:
+            df, tname = ele
+            df.index.name = 'location'
+            df.to_sql(tname, out_con)
+        
+        # with pd.ExcelWriter(out_path) as writer:
+        #     for ele in dfs:
+        #         df, tname = ele
+        #         df.to_excel(writer, sheet_name=tname)
 
     def run(self):
         fpath = os.path.join(self.root, 'Papers/Tss_map', 'Tss_map_table' + '.db')
