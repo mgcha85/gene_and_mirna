@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=10
+#SBATCH --cpus-per-task=1
 #SBATCH --time=2:00:00
 #SBATCH --error=mchajobresults-%J.err
 #SBATCH --output=mchajobresults-%J.out
@@ -10,4 +11,4 @@
 # Load modules
 echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"
 module load anaconda/anaconda3-5.3.0
-python Tss_map.py
+python Tss_map_table.py

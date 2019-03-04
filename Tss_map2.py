@@ -41,7 +41,7 @@ class Tss_map:
         return df_buffer
 
     def to_table(self):
-        fpath = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '.db')
+        fpath = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '2.db')
         con = sqlite3.connect(fpath)
 
         out_path = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '.xlsx')
@@ -68,7 +68,7 @@ class Tss_map:
         fpath = os.path.join(self.root, 'Papers/Tss_map', 'Tss_map_table' + '.db')
         con = sqlite3.connect(fpath)
 
-        out_fpath = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '.db')
+        out_fpath = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '2.db')
         out_con = sqlite3.connect(out_fpath)
 
         for chrom in self.chrom:
