@@ -3,12 +3,12 @@ from Database import Database
 import pandas as pd
 
 
-fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/Papers/Tss_map/Tss_map.db'
+fpath = '/media/mingyu/A4A4C965A4C93B16/Tss_map_table.db'
 con = sqlite3.connect(fpath)
 tlist = Database.load_tableList(con)
-cell_line = 'HEK293'
+cell_line = 'K562'
 
-out_fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/Papers/Tss_map/Tss_map_table2.db'
+out_fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/Papers/Tss_map/Tss_map_table.db'
 out_con = sqlite3.connect(out_fpath)
 tlist = [x for x in tlist if cell_line in x]
 for tname in tlist:
