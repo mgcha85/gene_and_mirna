@@ -18,7 +18,7 @@ class Tss_map:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
-        self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293']
+        self.cell_lines = ['K562', 'GM12878']
         self.chrom = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12',
                       'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX']
 
@@ -28,9 +28,8 @@ class Tss_map:
 
         df_res = []
         for group, df_sub in df_grp:
-            df_sub.iloc[-1, 'cell_line'] = df_sub['cell_line'].str.join(';')
-            df_res.append(df_sub.iloc[-1:, :])
-        return pd.concat(df_res)
+            df_res.append([*df_sub.iloc[0]['start': 'type'], ';'.join(df_sub['cell_line'])])
+        return pd.DataFrame(df_res, columns=['start', 'end', 'type', 'cell_ines'])
 
     def run(self):
         fpath = os.path.join(self.root, 'Papers/Tss_map', 'Tss_map_table' + '.db')
@@ -49,8 +48,9 @@ class Tss_map:
                     df_strand.append(df)
 
                 df_strand = pd.concat(df_strand)
-                df_strand = df_strand.sort_values(by='start')
                 df_res = self.grouping_by_loc(df_strand)
+                df_res[['start', 'end']] = df_res[['start', 'end']].astype(int)
+                df_res = df_res.sort_values(by='start')
                 df_res.to_sql('{}_{}'.format(chrom, strand), out_con, if_exists='replace')
 
 
