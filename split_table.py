@@ -21,29 +21,27 @@ class Split_table:
         with open('cell_lines.txt', 'rt') as f:
             contents = f.read()
         contents = contents.split('\n')
-        keys = set([x.split('%20')[0][7:] for x in contents])
-
-        map = {}
-        for k in keys:
-            if len(k) == 0:
-                continue
-            for con in contents:
-                if k in con:
-                    if k in map:
-                        map[k].append(con)
-                    else:
-                        map[k] = [con]
-        return map
+        data = [[x.split('%20')[0][7:], x] for x in contents]
+        df = pd.DataFrame(data=data, columns=['key', 'columns'])
+        df_grp = df.groupby('key')
+        return df_grp
 
     def run(self):
-        map = self.categorizing()
+        df_grp = self.categorizing()
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc.db')
         con = sqlite3.connect(fpath)
 
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
         df = pd.read_csv(fpath)
-        for key, cols in map.items():
-            df[cols].to_sql(key, con, if_exists='replace', index=None)
+        for group, df_cols in df_grp:
+            if len(group) == 0:
+                continue
+
+            try:
+                df[df_cols['columns']].to_sql(group, con, if_exists='append', index=None)
+            except Exception as e:
+                print(e)
+                continue
 
 
 if __name__ == '__main__':

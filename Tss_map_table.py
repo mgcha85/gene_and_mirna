@@ -78,7 +78,7 @@ class Tss_map_table:
         others = set(df_tags.index) - set(df.index)
         df_tags = df_tags.loc[others]
         df_tags.loc[:, 'type'] = 'oTag'
-        df = pd.concat([df, df_tags])
+        df = pd.concat([df, df_tags[df.columns]])
         return df.sort_values(by='start')
 
     def set_type(self, df):
@@ -113,7 +113,7 @@ class Tss_map_table:
                         pkl.dump(df_ctag, f)
 
                     df_ctag = self.set_type(df_ctag)
-                    df_ctag = self.get_others(df_ctag)
+                    df_ctag = self.get_others(df_ctag, cline, chrom)
                     df_ctag.to_sql('{}_{}_{}'.format(cline, chrom, strand), con_out, index=None, if_exists='replace')
 
 
@@ -121,9 +121,3 @@ if __name__ == '__main__':
     tm = Tss_map_table()
     tm.search_table()
 
-    # with open('temp.cha', 'rb') as f:
-    #     df_ctag = pkl.load(f)
-    #
-    # df_ctag = tm.set_type(df_ctag)
-    # df_ctag = tm.get_others(df_ctag, 'HEK293', 'chr1')
-    # df_ctag.to_excel('test.xlsx')
