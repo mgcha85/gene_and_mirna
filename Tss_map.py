@@ -48,6 +48,7 @@ class Tss_map:
         con = sqlite3.connect(fpath)
 
         print(chrom)
+        contents = []
         for strand in ['+', '-']:
             tname = '{}_{}'.format(chrom, strand)
             df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
@@ -56,7 +57,8 @@ class Tss_map:
 
             df_buffer = pd.DataFrame(data=buffer, columns=self.cell_lines, index=index)
             df_buffer['type'] = df['type'].values
-            return [self.fill_table(df, df_buffer), tname]
+            contents.append([self.fill_table(df, df_buffer), tname])
+        return contents
 
     def processInput_run(self, chrom):
         fpath = os.path.join(self.root, 'Papers/Tss_map', 'Tss_map_table' + '.db')
@@ -71,6 +73,7 @@ class Tss_map:
             for cline in self.cell_lines:
                 tname = '{}_{}_{}'.format(cline, chrom, strand)
                 df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                df = df.drop_duplicates(subset=['start', 'end'])
                 df.loc[:, 'cell_line'] = cline
                 df_strand.append(df)
 
@@ -85,15 +88,20 @@ class Tss_map:
         num_cores = multiprocessing.cpu_count()
         if num_cores > 10:
             num_cores = 10
+        
+        # dfs = []
+        # for chrom in self.chrom:
+        #     dfs.append(self.processInput_to_table(chrom, N))
         dfs = Parallel(n_jobs=num_cores)(delayed(self.processInput_to_table)(chrom, N) for chrom in self.chrom)
 
-        for ele in dfs:
-            df, tname = ele
-            df.index.name = 'location'
-            # df.to_sql(tname, out_con)
+        for eles in dfs:
+            for ele in eles:
+                df, tname = ele
+                df.index.name = 'location'
+                # df.to_sql(tname, out_con)
 
-            out_path = os.path.join(self.root, 'Papers/Tss_map', tname + '.xlsx')
-            df.to_excel(out_path, sheet_name=tname)
+                out_path = os.path.join(self.root, 'Papers/Tss_map', tname + '.xlsx')
+                df.to_excel(out_path, sheet_name=tname)
 
         # out_path = os.path.join(self.root, 'Papers/Tss_map', self.__class__.__name__ + '_final' + '.db')
         # out_con = sqlite3.connect(out_path)
@@ -106,6 +114,9 @@ class Tss_map:
         num_cores = multiprocessing.cpu_count()
         if num_cores > 10:
             num_cores = 10
+
+        # for chrom in self.chrom:
+        #     self.processInput_run(chrom)
         Parallel(n_jobs=num_cores)(delayed(self.processInput_run)(chrom) for chrom in self.chrom)
 
 
