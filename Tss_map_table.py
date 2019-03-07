@@ -62,6 +62,9 @@ class Tss_map_table:
         from joblib import Parallel, delayed
         import multiprocessing
         num_cores = multiprocessing.cpu_count()
+        if num_cores > 10:
+            num_cores = 10
+
         # tags = []
         # for idx in df_gencode.index:
         #     tags.append(self.processInput_search_neighbor_tag(df_gencode, idx, tss_label, cline))
@@ -109,8 +112,6 @@ class Tss_map_table:
                     print(cline, chrom, strand)
                     df_gencode = pd.read_sql_query("SELECT * FROM '{}'".format(self.tnames['gencode'].format(chrom, slabel)), con_gencode)
                     df_ctag = self.search_neighbor_tag(df_gencode, tss_label, cline)
-                    with open('temp.cha', 'wb') as f:
-                        pkl.dump(df_ctag, f)
 
                     df_ctag = self.set_type(df_ctag)
                     df_ctag = self.get_others(df_ctag, cline, chrom)
