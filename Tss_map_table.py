@@ -23,16 +23,21 @@ class Tss_map_table:
         self.chrom = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12',
                       'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX']
 
-        self.cell_lines = ['GM12878']
+        # self.cell_lines = ['GM12878']
+        self.cell_lines = self.get_cell_lines()
         # self.chrom = ['chr9', 'chr10', 'chr11', 'chr12']
         self.tnames = {'gencode': 'gencode_v28_transcripts_{}_{}'}
+
+    def get_cell_lines(self):
+        from Database import Database
+        return Database.load_tableList(self.connect_cage_tags())
 
     def connect_gencode(self):
         fpath = os.path.join(self.root, 'database', 'genecode.db')
         return sqlite3.connect(fpath, check_same_thread=False)
 
     def connect_cage_tags(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc.db')
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc_full.db')
         return sqlite3.connect(fpath, check_same_thread=False)
 
     def connect_mirTSS(self):
@@ -46,7 +51,7 @@ class Tss_map_table:
         chrom = df_gencode.loc[idx, 'chromosome']
         start = tss - 100
         end = tss + 100
-        df_tags = pd.read_sql_query("SELECT * FROM {} WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} AND "
+        df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} AND "
                                     "NOT end<{start}".format(cline, chrom, strand, start=start, end=end), con_ctag)
         df_tags = df_tags[df_tags.iloc[:, 4:].sum(axis=1) > 0]
         if not df_tags.empty:
@@ -58,17 +63,19 @@ class Tss_map_table:
                 df_tags.loc[:, 'type'] = 'gTags'
                 return df_tags
 
-    def search_neighbor_tag(self, df_gencode, tss_label, cline, strand):
-        from joblib import Parallel, delayed
-        import multiprocessing
-        num_cores = multiprocessing.cpu_count()
-        if num_cores > 10:
-            num_cores = 10
+    def search_neighbor_tag(self, df_gencode, tss_label, cline, strand, par=False):
+        if par is False:
+            tags = []
+            for idx in df_gencode.index:
+                tags.append(self.processInput_search_neighbor_tag(df_gencode, idx, tss_label, cline, strand))
+        else:
+            from joblib import Parallel, delayed
+            import multiprocessing
+            num_cores = multiprocessing.cpu_count()
+            if num_cores > 10:
+                num_cores = 10
 
-        # tags = []
-        # for idx in df_gencode.index:
-        #     tags.append(self.processInput_search_neighbor_tag(df_gencode, idx, tss_label, cline))
-        tags = Parallel(n_jobs=num_cores)(delayed(self.processInput_search_neighbor_tag)(df_gencode, idx, tss_label, cline, strand) for idx in df_gencode.index)
+            tags = Parallel(n_jobs=num_cores)(delayed(self.processInput_search_neighbor_tag)(df_gencode, idx, tss_label, cline, strand) for idx in df_gencode.index)
         return pd.concat(tags)
 
     def get_others(self, df, cline, chrom):

@@ -41,17 +41,19 @@ class Tss_map:
         for chrom in self.chrom:
             df_sub__ = df_grp__.get_group(chrom)
 
-            for strand in ['+', '-']:
-                df_sub = df_sub__[df_sub__['strand'] == strand].sort_values('start')
-                df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
+            # for strand in ['+', '-']:
+            df_sub = df_sub__.sort_values('start')
+            df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
 
-                for cline in self.cell_lines:
-                    df = pd.read_sql_query("SELECT * FROM '{}_{}_{}'".format(cline, chrom, strand), con)
-                    df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
+            for cline in self.cell_lines:
+                df = pd.read_sql_query("SELECT * FROM '{}_{}_{}'".format(cline, chrom, '+'), con)
+                df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
 
-                    df_sub.loc[df.index, cline] = 1
-            tname = '{}_{}'.format(chrom, strand)
-            df__.to_sql(tname, con_out, if_exists='replace', index=None)
+                df_sub[cline] = df['type']
+
+            tname = '{}'.format(chrom)
+            # tname = '{}_{}'.format(chrom, strand)
+            df_sub.to_sql(tname, con_out, if_exists='replace', index=None)
 
 
 if __name__ == '__main__':

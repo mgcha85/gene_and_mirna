@@ -38,7 +38,7 @@ class Split_table:
                 continue
 
             try:
-                columns = ['chromosome', 'start', 'end'] + list(df_cols['columns'].values)
+                columns = ['chromosome', 'start', 'end', 'strand'] + list(df_cols['columns'].values)
                 df_cell = df[columns]
                 df_cell = df_cell[df_cell.iloc[:, 3:].sum(axis=1) > 0]
                 df_cell[columns].to_sql(group, con, if_exists='replace', index=None)
