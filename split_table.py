@@ -28,7 +28,7 @@ class Split_table:
 
     def run(self):
         df_grp = self.categorizing()
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc.db')
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc_full.db')
         con = sqlite3.connect(fpath)
 
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
@@ -38,7 +38,10 @@ class Split_table:
                 continue
 
             try:
-                df[['chromosome', 'start', 'end'] + list(df_cols['columns'].values)].to_sql(group, con, if_exists='replace', index=None)
+                columns = ['chromosome', 'start', 'end'] + list(df_cols['columns'].values)
+                df_cell = df[columns]
+                df_cell = df_cell[df_cell.iloc[:, 3:].sum(axis=1) > 0]
+                df_cell[columns].to_sql(group, con, if_exists='replace', index=None)
             except Exception as e:
                 print(e)
                 continue
