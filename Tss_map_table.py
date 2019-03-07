@@ -39,15 +39,15 @@ class Tss_map_table:
         fpath = os.path.join(self.root, 'database', 'fantom5.db')
         return sqlite3.connect(fpath, check_same_thread=False)
 
-    def processInput_search_neighbor_tag(self, df_gencode, idx, tss_label, cline):
+    def processInput_search_neighbor_tag(self, df_gencode, idx, tss_label, cline, strand):
         con_ctag = self.connect_cage_tags()
         tss = df_gencode.loc[idx, tss_label]
         gene = df_gencode.loc[idx, 'gene']
         chrom = df_gencode.loc[idx, 'chromosome']
         start = tss - 100
         end = tss + 100
-        df_tags = pd.read_sql_query("SELECT * FROM {} WHERE chromosome='{}' AND NOT start>{end} AND NOT end<{start}"
-                                    "".format(cline, chrom, start=start, end=end), con_ctag)
+        df_tags = pd.read_sql_query("SELECT * FROM {} WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} AND "
+                                    "NOT end<{start}".format(cline, chrom, strand, start=start, end=end), con_ctag)
         df_tags = df_tags[df_tags.iloc[:, 4:].sum(axis=1) > 0]
         if not df_tags.empty:
             df_tags = df_tags[['start', 'end']]
@@ -58,7 +58,7 @@ class Tss_map_table:
                 df_tags.loc[:, 'type'] = 'gTags'
                 return df_tags
 
-    def search_neighbor_tag(self, df_gencode, tss_label, cline):
+    def search_neighbor_tag(self, df_gencode, tss_label, cline, strand):
         from joblib import Parallel, delayed
         import multiprocessing
         num_cores = multiprocessing.cpu_count()
@@ -68,7 +68,7 @@ class Tss_map_table:
         # tags = []
         # for idx in df_gencode.index:
         #     tags.append(self.processInput_search_neighbor_tag(df_gencode, idx, tss_label, cline))
-        tags = Parallel(n_jobs=num_cores)(delayed(self.processInput_search_neighbor_tag)(df_gencode, idx, tss_label, cline) for idx in df_gencode.index)
+        tags = Parallel(n_jobs=num_cores)(delayed(self.processInput_search_neighbor_tag)(df_gencode, idx, tss_label, cline, strand) for idx in df_gencode.index)
         return pd.concat(tags)
 
     def get_others(self, df, cline, chrom):
@@ -111,7 +111,7 @@ class Tss_map_table:
                 for slabel, strand, tss_label in zip(['plus', 'minus'], ['+', '-'], ['start', 'end']):
                     print(cline, chrom, strand)
                     df_gencode = pd.read_sql_query("SELECT * FROM '{}'".format(self.tnames['gencode'].format(chrom, slabel)), con_gencode)
-                    df_ctag = self.search_neighbor_tag(df_gencode, tss_label, cline)
+                    df_ctag = self.search_neighbor_tag(df_gencode, tss_label, cline, strand)
 
                     df_ctag = self.set_type(df_ctag)
                     df_ctag = self.get_others(df_ctag, cline, chrom)

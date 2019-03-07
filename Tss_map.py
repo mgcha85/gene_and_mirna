@@ -26,8 +26,8 @@ class Tss_map:
                       'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX']
 
     def load_all_tags(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.tsv')
-        return pd.read_csv(fpath, sep='\t')
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc_loc.csv')
+        return pd.read_csv(fpath)
 
     def run(self):
         df__ = self.load_all_tags()
@@ -40,11 +40,12 @@ class Tss_map:
         con_out = sqlite3.connect(out_path)
         for chrom in self.chrom:
             df_sub__ = df_grp__.get_group(chrom)
-            for strand in ['+', '-']:
-                for cline in self.cell_lines:
-                    df_sub = df_sub__[df_sub__['strand'] == strand]
-                    df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
 
+            for strand in ['+', '-']:
+                df_sub = df_sub__[df_sub__['strand'] == strand].sort_values('start')
+                df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
+
+                for cline in self.cell_lines:
                     df = pd.read_sql_query("SELECT * FROM '{}_{}_{}'".format(cline, chrom, strand), con)
                     df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
 
