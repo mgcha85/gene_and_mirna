@@ -38,7 +38,7 @@ class Split_table:
                 continue
 
             try:
-                df[df_cols['columns']].to_sql(group, con, if_exists='append', index=None)
+                df[['chromosome', 'start', 'end'] + list(df_cols['columns'].values)].to_sql(group, con, if_exists='replace', index=None)
             except Exception as e:
                 print(e)
                 continue
