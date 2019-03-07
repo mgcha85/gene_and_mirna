@@ -82,7 +82,7 @@ class Tss_map_table:
         con_ctag = self.connect_cage_tags()
         df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
 
-        df_tags = pd.read_sql_query("SELECT * FROM {} WHERE chromosome='{}'".format(cline, chrom), con_ctag)
+        df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}'".format(cline, chrom), con_ctag)
         df_tags.index = df_tags['start'].astype(str) + ';' + df_tags['end'].astype(str)
 
         others = set(df_tags.index) - set(df.index)
