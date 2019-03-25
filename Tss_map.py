@@ -21,9 +21,17 @@ class Tss_map:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         # self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293']
-        self.cell_lines = ['K562', 'HEK293']
+        self.cell_lines = self.get_cell_lines()[200:300]
         self.chrom = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12',
                       'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX']
+
+    def get_cell_lines(self):
+        from Database import Database
+        return Database.load_tableList(self.connect_cage_tags())
+
+    def connect_cage_tags(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19_cage_peak_phase1and2combined_counts_osc_full.db')
+        return sqlite3.connect(fpath, check_same_thread=False)
 
     def load_all_tags(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc_loc.csv')
@@ -41,19 +49,20 @@ class Tss_map:
         for chrom in self.chrom:
             df_sub__ = df_grp__.get_group(chrom)
 
-            # for strand in ['+', '-']:
-            df_sub = df_sub__.sort_values('start')
-            df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
+            for strand in ['+', '-']:
+                print(chrom, strand)
+                df_sub = df_sub__[df_sub__['strand'] == strand]
+                df_sub = df_sub.sort_values('start')
+                df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
 
-            for cline in self.cell_lines:
-                df = pd.read_sql_query("SELECT * FROM '{}_{}_{}'".format(cline, chrom, '+'), con)
-                df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
+                for cline in self.cell_lines:
+                    df = pd.read_sql_query("SELECT * FROM '{}_{}_{}'".format(cline, chrom, '+'), con)
+                    df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
+                    df = df[~df.index.duplicated(keep='first')]
+                    df_sub[cline] = df['type']
 
-                df_sub[cline] = df['type']
-
-            tname = '{}'.format(chrom)
-            # tname = '{}_{}'.format(chrom, strand)
-            df_sub.to_sql(tname, con_out, if_exists='replace', index=None)
+                tname = '{}_{}'.format(chrom, strand)
+                df_sub.to_sql(tname, con_out, if_exists='replace', index=None)
 
 
 if __name__ == '__main__':

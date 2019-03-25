@@ -12,13 +12,13 @@ class Tss_map_table:
         print(hostname)
         if hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-            self.cell_lines = self.get_cell_lines()[200:300]
+            self.cell_lines = self.get_cell_lines()[:200]
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
             self.cell_lines = self.get_cell_lines()[300:]
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-            self.cell_lines = self.get_cell_lines()[100:200]
+            self.cell_lines = self.get_cell_lines()[:200]
 
         # self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293']
         self.chrom = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12',
@@ -119,7 +119,7 @@ class Tss_map_table:
                 for slabel, strand, tss_label in zip(['plus', 'minus'], ['+', '-'], ['start', 'end']):
                     print(chrom, strand)
                     df_gencode = pd.read_sql_query("SELECT * FROM '{}'".format(self.tnames['gencode'].format(chrom, slabel)), con_gencode)
-                    df_ctag = self.search_neighbor_tag(df_gencode, tss_label, cline, strand, par=True)
+                    df_ctag = self.search_neighbor_tag(df_gencode, tss_label, cline, strand)
 
                     df_ctag = self.set_type(df_ctag)
                     df_ctag = self.get_others(df_ctag, cline, chrom)
