@@ -15,20 +15,21 @@ class Correlation:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
-    def load_fantom(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
-        return pd.read_csv(fpath)
-
     def run(self):
-        strand = {'+': 'plus', '-': 'minus'}
-        df_fantom = self.load_fantom()
+        str_map = {'+': 'plus', '-': 'minus'}
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
+        df_fantom = pd.read_csv(fpath)
 
-        fpath = os.path.join(self.root, 'database', 'fantom5.db')
-        con = sqlite3.connect(fpath)
+        fpath_fan = os.path.join(self.root, 'database', 'fantom5.db')
+        con = sqlite3.connect(fpath_fan)
 
         contents = []
         for idx in df_fantom.index:
+            if idx % 1000 == 0 or idx == df_fantom.shape[0] - 1:
+                print('{:0.2f}%'.format(100 * (idx + 1) / df_fantom.shape[0]))
+
             chromosome = df_fantom.loc[idx, 'chromosome']
+            strand = df_fantom.loc[idx, 'strand']
             start = df_fantom.loc[idx, 'start']
             end = df_fantom.loc[idx, 'end']
 
@@ -36,7 +37,7 @@ class Correlation:
                                        "strand='{}' AND NOT start>{end} AND NOT end<{start}"
                                        "".format(chromosome, strand, start=start, end=end), con)
 
-            df_gene = pd.read_sql_query("SELECT * FROM 'human_gene' WHERE chromosome='{}' AND strand='{}' AND NOT "
+            df_gene = pd.read_sql_query("SELECT * FROM 'human_gene' WHERE chromosome='{}' AND NOT "
                                        "start>{end} AND NOT end<{start}"
                                        "".format(chromosome, strand, start=start, end=end), con)
             if not df_mir.empty:
@@ -46,6 +47,7 @@ class Correlation:
             else:
                 contents.append('other')
         df_fantom.loc[:, 'tss-type'] = contents
+        df_fantom.to_csv(fpath.replace('.csv', '2.csv'), index=None)
 
 
 if __name__ == '__main__':
