@@ -60,6 +60,8 @@ class Correlation:
 
         df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']
         df_fantom_gene = df_fantom[df_fantom['tss-type'] == 'gene']
+        df_fantom_mir.to_excel('miRNA.xlsx', index=None)
+        df_fantom_gene.to_excel('gene.xlsx', index=None)
 
         matrix = np.zeros((df_fantom_mir.shape[0], df_fantom_gene.shape[0]))
         index = []
@@ -71,7 +73,7 @@ class Correlation:
                 columns.append(df_fantom_gene.loc[gidx, 'name'])
                 grow = df_fantom_gene.loc[gidx].iloc[4:-2]
 
-                matrix[i, j] = scipy.stats.spearmanr(mrow, grow)
+                matrix[i, j] = scipy.stats.spearmanr(mrow, grow)[0]
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
         df_rep.to_excel('correlation_report.xlsx')
 
