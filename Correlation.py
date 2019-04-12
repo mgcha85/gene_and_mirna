@@ -16,14 +16,20 @@ class Correlation:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     def load_fantom(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.txt')
-        df = pd.read_csv(fpath, comment='#', sep='\t')
-        return df
-        
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
+        return pd.read_csv(fpath)
+
     def run(self):
         con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db'))
         df_fantom = self.load_fantom()
-        df_fantom.to_sql('hg19.cage_peak_phase1and2combined_counts.osc', con, if_exists='replace', index=None)
+
+        index = df_fantom[['chromosome', 'start', 'end', 'strand']]
+        df1 = df_fantom.iloc[:, :900]
+        df2 = df_fantom.iloc[:, 900:]
+        df2 = pd.concat([index, df2], axis=1)
+
+        df1.to_sql('hg19.cage_peak_phase1and2combined_counts.osc1', con, if_exists='replace', index=None)
+        df2.to_sql('hg19.cage_peak_phase1and2combined_counts.osc2', con, if_exists='replace', index=None)
 
         # fpath = os.path.join(self.root, 'database', 'genecode.db')
         # con = sqlite3.connect(fpath)
