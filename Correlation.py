@@ -45,6 +45,7 @@ class Correlation:
                 contents.append('gene')
             else:
                 contents.append('other')
+        df_fantom.loc[:, 'tss-type'] = contents
 
 
 if __name__ == '__main__':
