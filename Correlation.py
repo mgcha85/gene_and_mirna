@@ -35,12 +35,11 @@ class Correlation:
             end = df_fantom.loc[idx, 'end']
 
             df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE chromosome='{}' AND "
-                                       "strand='{}' AND NOT start>{end} AND NOT end<{start}"
+                                       "strand='{}' AND tss>={start} AND tss<{end}"
                                        "".format(chromosome, strand, start=start, end=end), con)
 
-            df_gene = pd.read_sql_query("SELECT * FROM 'human_gene' WHERE chromosome='{}' AND NOT "
-                                       "start>{end} AND NOT end<{start}"
-                                       "".format(chromosome, strand, start=start, end=end), con)
+            df_gene = pd.read_sql_query("SELECT * FROM 'human_gene' WHERE chromosome='{}' AND start>={start} AND "
+                                        "start<{end}".format(chromosome, strand, start=start, end=end), con)
             if not df_mir.empty:
                 mirna = ';'.join(df_mir['premiRNA'])
                 contents.append(['miRNA', mirna])
@@ -60,8 +59,8 @@ class Correlation:
 
         df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']
         df_fantom_gene = df_fantom[df_fantom['tss-type'] == 'gene']
-        df_fantom_mir.to_excel('miRNA.xlsx', index=None)
-        df_fantom_gene.to_excel('gene.xlsx', index=None)
+        # df_fantom_mir.to_excel('miRNA.xlsx', index=None)
+        # df_fantom_gene.to_excel('gene.xlsx', index=None)
 
         matrix = np.zeros((df_fantom_mir.shape[0], df_fantom_gene.shape[0]))
         index = []
