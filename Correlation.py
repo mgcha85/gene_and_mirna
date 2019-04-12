@@ -66,10 +66,10 @@ class Correlation:
         columns = []
         for i, midx in enumerate(df_fantom_mir.index):
             index.append(df_fantom_mir.loc[midx, 'name'])
-            mrow = df_fantom_mir.loc[midx].iloc[4:]
+            mrow = df_fantom_mir.loc[midx].iloc[4:-2]
             for j, gidx in enumerate(df_fantom_gene.index):
                 columns.append(df_fantom_gene.loc[gidx, 'name'])
-                grow = df_fantom_gene.loc[gidx].iloc[4:]
+                grow = df_fantom_gene.loc[gidx].iloc[4:-2]
 
                 matrix[i, j] = scipy.stats.spearmanr(mrow, grow)
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
