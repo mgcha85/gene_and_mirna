@@ -55,7 +55,7 @@ class Correlation:
         df_fantom.to_csv(fpath.replace('.csv', '2.csv'), index=None)
 
     def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc2.csv')
         df_fantom = pd.read_csv(fpath)
 
         df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']

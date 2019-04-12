@@ -10,4 +10,4 @@
 # Load modules
 echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"
 module load anaconda/anaconda3-5.3.0
-python Tss_map_table.py
+python Correlation.py
