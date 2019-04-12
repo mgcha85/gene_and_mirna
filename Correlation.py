@@ -20,19 +20,21 @@ class Correlation:
         return pd.read_csv(fpath)
 
     def run(self):
-        con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db'))
+        strand = {'+': 'plus', '-': 'minus'}
         df_fantom = self.load_fantom()
 
-        index = df_fantom[['chromosome', 'start', 'end', 'strand']]
-        df1 = df_fantom.iloc[:, :900]
-        df2 = df_fantom.iloc[:, 900:]
-        df2 = pd.concat([index, df2], axis=1)
+        fpath = os.path.join(self.root, 'database', 'genecode.db')
+        con = sqlite3.connect(fpath)
 
-        df1.to_sql('hg19.cage_peak_phase1and2combined_counts.osc1', con, if_exists='replace', index=None)
-        df2.to_sql('hg19.cage_peak_phase1and2combined_counts.osc2', con, if_exists='replace', index=None)
+        for idx in df_fantom.index:
+            chromosome = df_fantom.loc[idx, 'chromosome']
+            start = df_fantom.loc[idx, 'start']
+            end = df_fantom.loc[idx, 'end']
 
-        # fpath = os.path.join(self.root, 'database', 'genecode.db')
-        # con = sqlite3.connect(fpath)
+            tname = 'gencode_v28_transcripts_{}_{}'.format(chromosome, strand[df_fantom.loc[idx, 'strand']])
+            df_mir = pd.read_sql_query("SELECT * FROM '{}' WHERE 'MIR' IN gene".format(tname), con)
+            print(df_mir)
+            exit(1)
 
 
 if __name__ == '__main__':
