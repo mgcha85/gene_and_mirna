@@ -42,10 +42,10 @@ class Correlation:
                                        "start>{end} AND NOT end<{start}"
                                        "".format(chromosome, strand, start=start, end=end), con)
             if not df_mir.empty:
-                mirna = df_mir['premiRNA'].str.join(';')
+                mirna = ';'.join(df_mir['premiRNA'])
                 contents.append(['miRNA', mirna])
             elif not df_gene.empty:
-                gene = df_gene['gene'].str.join(';')
+                gene = ';'.join(df_gene['gene'])
                 contents.append(['gene', gene])
             else:
                 contents.append(['other', None])
@@ -80,4 +80,4 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    cor.run()
+    cor.add_type()
