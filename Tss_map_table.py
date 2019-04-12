@@ -12,7 +12,7 @@ class Tss_map_table:
         print(hostname)
         if hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-            self.cell_lines = self.get_cell_lines()[:200]
+            self.cell_lines = self.get_cell_lines()[300:]
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
             self.cell_lines = self.get_cell_lines()[300:]

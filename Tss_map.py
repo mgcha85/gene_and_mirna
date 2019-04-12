@@ -21,9 +21,10 @@ class Tss_map:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         # self.cell_lines = ['K562', 'HepG2', 'A549', 'GM12878', 'HEK293']
-        self.cell_lines = self.get_cell_lines()[200:300]
+        self.cell_lines = self.get_cell_lines()[300:]
         self.chrom = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11', 'chr12',
                       'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21', 'chr22', 'chrX']
+        # 26
 
     def get_cell_lines(self):
         from Database import Database
