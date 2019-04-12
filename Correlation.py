@@ -17,7 +17,7 @@ class Correlation:
 
     def load_fantom(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.txt')
-        df = pd.read_csv(fpath, comment='#')
+        df = pd.read_csv(fpath, comment='#', sep='\t')
         return df
         
     def run(self):

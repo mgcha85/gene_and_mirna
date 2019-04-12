@@ -15,7 +15,7 @@ class Tss_map_table:
             self.cell_lines = self.get_cell_lines()[300:]
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
-            self.cell_lines = self.get_cell_lines()[300:]
+            self.cell_lines = self.get_cell_lines()[100:200]
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
             self.cell_lines = self.get_cell_lines()[:200]
