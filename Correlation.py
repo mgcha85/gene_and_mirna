@@ -18,7 +18,6 @@ class Correlation:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     def add_type(self):
-        str_map = {'+': 'plus', '-': 'minus'}
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
         df_fantom = pd.read_csv(fpath)
 
@@ -46,7 +45,7 @@ class Correlation:
                 mirna = df_mir['premiRNA'].str.join(';')
                 contents.append(['miRNA', mirna])
             elif not df_gene.empty:
-                gene = df_mir['gene'].str.join(';')
+                gene = df_gene['gene'].str.join(';')
                 contents.append(['gene', gene])
             else:
                 contents.append(['other', None])
