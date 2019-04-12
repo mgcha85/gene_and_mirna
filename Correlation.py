@@ -32,9 +32,7 @@ class Correlation:
             end = df_fantom.loc[idx, 'end']
 
             tname = 'gencode_v28_transcripts_{}_{}'.format(chromosome, strand[df_fantom.loc[idx, 'strand']])
-            df_mir = pd.read_sql_query("SELECT * FROM '{}' WHERE 'MIR' IN gene".format(tname), con)
-            print(df_mir)
-            exit(1)
+            df_mir = pd.read_sql_query("SELECT * FROM '{}' WHERE instr(gene, 'MIR')>0".format(tname), con)
 
 
 if __name__ == '__main__':
