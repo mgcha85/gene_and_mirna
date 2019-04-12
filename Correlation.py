@@ -2,6 +2,8 @@ import socket
 import os
 import sqlite3
 import pandas as pd
+import scipy.stats
+import numpy as np
 
 
 class Correlation:
@@ -15,7 +17,7 @@ class Correlation:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
-    def run(self):
+    def add_type(self):
         str_map = {'+': 'plus', '-': 'minus'}
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
         df_fantom = pd.read_csv(fpath)
@@ -41,13 +43,33 @@ class Correlation:
                                        "start>{end} AND NOT end<{start}"
                                        "".format(chromosome, strand, start=start, end=end), con)
             if not df_mir.empty:
-                contents.append('miRNA')
+                mirna = df_mir['premiRNA'].str.join(';')
+                contents.append(['miRNA', mirna])
             elif not df_gene.empty:
-                contents.append('gene')
+                gene = df_mir['gene'].str.join(';')
+                contents.append(['gene', gene])
             else:
-                contents.append('other')
-        df_fantom.loc[:, 'tss-type'] = contents
+                contents.append(['other', None])
+
+        df_type = pd.DataFrame(contents, columns=['tss-type', 'name'])
+        df_fantom = pd.concat([df_fantom, df_type], axis=1)
         df_fantom.to_csv(fpath.replace('.csv', '2.csv'), index=None)
+
+    def run(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
+        df_fantom = pd.read_csv(fpath)
+
+        df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']
+        df_fantom_gene = df_fantom[df_fantom['tss-type'] == 'gene']
+
+        matrix = np.zeros((df_fantom_mir.shape[0], df_fantom_gene.shape[0]))
+        for i, midx in enumerate(df_fantom_mir.index):
+            mrow = df_fantom_mir.loc[midx].iloc[4:]
+            for j, gidx in enumerate(df_fantom_gene.index):
+                grow = df_fantom_gene.loc[midx].iloc[4:]
+                matrix[i, j] = scipy.stats.spearmanr(mrow, grow)
+        df_rep = pd.DataFrame(matrix)
+        df_rep.to_excel('correlation_report.xlsx')
 
 
 if __name__ == '__main__':
