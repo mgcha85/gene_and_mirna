@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --nodes=10
-#SBATCH --ntasks-per-node=2
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=10
 #SBATCH --time=48:00:00
 #SBATCH --error=mchajobresults-%J.err
 #SBATCH --output=mchajobresults-%J.out

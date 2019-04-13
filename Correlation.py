@@ -54,23 +54,28 @@ class Correlation:
         df_fantom.to_csv(fpath.replace('.csv', '2.csv'), index=None)
 
     def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc2.csv')
-        df_fantom = pd.read_csv(fpath)
+        # fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc2.csv')
+        # df_fantom = pd.read_csv(fpath)
 
-        df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']
-        df_fantom_gene = df_fantom[df_fantom['tss-type'] == 'gene']
+        # df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']
+        # df_fantom_gene = df_fantom[df_fantom['tss-type'] == 'gene']
         # df_fantom_mir.to_excel('miRNA.xlsx', index=None)
         # df_fantom_gene.to_excel('gene.xlsx', index=None)
+
+        df_fantom_mir = pd.read_excel('miRNA.xlsx')
+        df_fantom_gene = pd.read_excel('gene.xlsx')
 
         matrix = np.zeros((df_fantom_mir.shape[0], df_fantom_gene.shape[0]))
         index = []
         columns = []
+
         for i, midx in enumerate(df_fantom_mir.index):
+            print(i)
             index.append(df_fantom_mir.loc[midx, 'name'])
-            mrow = df_fantom_mir.loc[midx].iloc[4:-2]
+            mrow = df_fantom_mir.loc[midx].iloc[4:-3]
             for j, gidx in enumerate(df_fantom_gene.index):
                 columns.append(df_fantom_gene.loc[gidx, 'name'])
-                grow = df_fantom_gene.loc[gidx].iloc[4:-2]
+                grow = df_fantom_gene.loc[gidx].iloc[4:-3]
 
                 matrix[i, j] = scipy.stats.spearmanr(mrow, grow)[0]
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
@@ -79,4 +84,5 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    cor.add_type()
+    # cor.add_type()
+    cor.run()
