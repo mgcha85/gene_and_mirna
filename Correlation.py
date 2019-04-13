@@ -74,7 +74,8 @@ class Correlation:
             index.append(df_fantom_mir.loc[midx, 'name'])
             mrow = df_fantom_mir.loc[midx].iloc[4:-3]
             for j, gidx in enumerate(df_fantom_gene.index):
-                columns.append(df_fantom_gene.loc[gidx, 'name'])
+                if i == 0:
+                    columns.append(df_fantom_gene.loc[gidx, 'name'])
                 grow = df_fantom_gene.loc[gidx].iloc[4:-3]
 
                 matrix[i, j] = scipy.stats.spearmanr(mrow, grow)[0]
