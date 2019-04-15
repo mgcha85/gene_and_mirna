@@ -4,6 +4,8 @@ import sqlite3
 import pandas as pd
 import scipy.stats
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 
 class Correlation:
@@ -81,8 +83,26 @@ class Correlation:
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
         df_rep.to_excel('correlation_report.xlsx')
 
+    def figure(self):
+        df = pd.read_excel('correlation_report.xlsx', index_col=0)
+
+        fig = plt.figure()
+        # ax = Axes3D(fig)
+        ax1 = fig.add_subplot(111, projection='3d')
+
+        x = range(df.shape[1])
+        y = range(df.shape[0])
+        X, Y = np.meshgrid(x, y)
+        values = df.values.flatten()
+        Z = np.zeros_like(values)
+
+        # color_values = plt.cm.jet(df.values.tolist())
+        # ax1.bar3d(X, Y, df.values, dx=1, dy=1, dz=1, color=color_values)
+        ax1.bar3d(X.flatten(), Y.flatten(), Z, dx=1, dy=1, dz=values)
+        plt.show()
+
 
 if __name__ == '__main__':
     cor = Correlation()
     # cor.add_type()
-    cor.run()
+    cor.figure()

@@ -1,14 +1,28 @@
-import pandas as pd
-import sqlite3
-from Database import Database
+import numpy as np
+import matplotlib.pyplot as plt
+# This import registers the 3D projection, but is otherwise unused.
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 
-fpath = '/home/mingyu/Dropbox/Tss_map_table.db'
-con = sqlite3.connect(fpath)
-tlist = Database.load_tableList(con)
+# setup the figure and axes
+fig = plt.figure(figsize=(8, 3))
+ax1 = fig.add_subplot(121, projection='3d')
+ax2 = fig.add_subplot(122, projection='3d')
 
-out_path = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/Papers/Tss_map/Tss_map_table2.db'
-out_con = sqlite3.connect(out_path)
-for tname in tlist:
-    df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-    df.to_sql(tname, out_con, if_exists='replace', index=None)
+# fake data
+_x = np.arange(4)
+_y = np.arange(5)
+_xx, _yy = np.meshgrid(_x, _y)
+x, y = _xx.ravel(), _yy.ravel()
+
+top = x + y
+bottom = np.zeros_like(top)
+width = depth = 1
+
+ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
+ax1.set_title('Shaded')
+
+ax2.bar3d(x, y, bottom, width, depth, top, shade=False)
+ax2.set_title('Not Shaded')
+
+plt.show()
