@@ -99,10 +99,16 @@ class Correlation:
         # color_values = plt.cm.jet(df.values.tolist())
         # ax1.bar3d(X, Y, df.values, dx=1, dy=1, dz=1, color=color_values)
         ax1.bar3d(X.flatten(), Y.flatten(), Z, dx=1, dy=1, dz=values)
-        plt.show()
+        plt.savefig('correlation_report.png')
+
+    def filter(self):
+        df = pd.read_excel('correlation_report.xlsx', index_col=0)
+
+        ridx, cidx = np.where(df.values > 0.7)
+        df.iloc[ridx, cidx].to_excel('correlation_report2.xlsx')
 
 
 if __name__ == '__main__':
     cor = Correlation()
     # cor.add_type()
-    cor.figure()
+    cor.filter()
