@@ -4,6 +4,8 @@ import sqlite3
 import pandas as pd
 import scipy.stats
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 
 class Correlation:
@@ -74,16 +76,39 @@ class Correlation:
             index.append(df_fantom_mir.loc[midx, 'name'])
             mrow = df_fantom_mir.loc[midx].iloc[4:-3]
             for j, gidx in enumerate(df_fantom_gene.index):
-                if i == 0:
-                    columns.append(df_fantom_gene.loc[gidx, 'name'])
+                columns.append(df_fantom_gene.loc[gidx, 'name'])
                 grow = df_fantom_gene.loc[gidx].iloc[4:-3]
 
                 matrix[i, j] = scipy.stats.spearmanr(mrow, grow)[0]
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
         df_rep.to_excel('correlation_report.xlsx')
 
+    def figure(self):
+        df = pd.read_excel('correlation_report.xlsx', index_col=0)
+
+        fig = plt.figure()
+        # ax = Axes3D(fig)
+        ax1 = fig.add_subplot(111, projection='3d')
+
+        x = range(df.shape[1])
+        y = range(df.shape[0])
+        X, Y = np.meshgrid(x, y)
+        values = df.values.flatten()
+        Z = np.zeros_like(values)
+
+        # color_values = plt.cm.jet(df.values.tolist())
+        # ax1.bar3d(X, Y, df.values, dx=1, dy=1, dz=1, color=color_values)
+        ax1.bar3d(X.flatten(), Y.flatten(), Z, dx=1, dy=1, dz=values)
+        plt.savefig('correlation_report.png')
+
+    def filter(self):
+        df = pd.read_excel('correlation_report.xlsx', index_col=0)
+
+        ridx, cidx = np.where(df.values > 0.7)
+        df.iloc[ridx, cidx].to_excel('correlation_report2.xlsx')
+
 
 if __name__ == '__main__':
     cor = Correlation()
     # cor.add_type()
-    cor.run()
+    cor.filter()
