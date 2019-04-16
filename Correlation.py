@@ -72,13 +72,13 @@ class Correlation:
         index = []
         columns = []
 
-        for i, midx in enumerate(df_fantom_mir.index):
+        for i, gidx in enumerate(df_fantom_gene.index):
             print(i)
-            index.append(df_fantom_mir.loc[midx, 'name'])
-            mrow = df_fantom_mir.loc[midx].iloc[4:-3]
-            for j, gidx in enumerate(df_fantom_gene.index):
-                columns.append(df_fantom_gene.loc[gidx, 'name'])
-                grow = df_fantom_gene.loc[gidx].iloc[4:-3]
+            index.append(df_fantom_gene.loc[gidx, 'name'])
+            mrow = df_fantom_gene.loc[gidx].iloc[4:-3]
+            for j, midx in enumerate(df_fantom_mir.index):
+                columns.append(df_fantom_mir.loc[midx, 'name'])
+                grow = df_fantom_mir.loc[midx].iloc[4:-3]
 
                 matrix[i, j] = scipy.stats.spearmanr(mrow, grow)[0]
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
@@ -148,4 +148,6 @@ class Correlation:
 if __name__ == '__main__':
     cor = Correlation()
     # cor.add_type()
+    cor.run()
+    cor.split()
     cor.filter()
