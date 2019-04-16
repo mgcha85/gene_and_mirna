@@ -6,6 +6,7 @@ import scipy.stats
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d, Axes3D
+import pickle as pkl
 
 
 class Correlation:
@@ -83,6 +84,23 @@ class Correlation:
         df_rep = pd.DataFrame(matrix, index=index, columns=columns)
         df_rep.to_excel('correlation_report.xlsx')
 
+    def split(self):
+        fname = 'correlation_report'
+        df = pd.read_excel('{}.xlsx'.format(fname), index_col=0)
+        df.index.name = 'miRNA'
+
+        N = 500  # number of split tables
+
+        out_path = os.path.join(self.root, 'database', '{}.db'.format(fname))
+        con = sqlite3.connect(out_path)
+
+        M = int((df.shape[1] + N - 1) / N)
+        k = len(str(M))
+        for i in range(M):
+            idx = i * N
+            df_spt = df.iloc[:, idx: idx + N]
+            df_spt.to_sql(fname + '_{}'.format(str(i).zfill(k)), con, if_exists='replace')
+
     def figure(self):
         df = pd.read_excel('correlation_report.xlsx', index_col=0)
 
@@ -102,10 +120,29 @@ class Correlation:
         plt.savefig('correlation_report.png')
 
     def filter(self):
-        df = pd.read_excel('correlation_report.xlsx', index_col=0)
+        from Database import Database
 
-        ridx, cidx = np.where(df.values > 0.7)
-        df.iloc[ridx, cidx].to_excel('correlation_report2.xlsx')
+        fpath = os.path.join(self.root, 'database', 'correlation_report.db')
+        con = sqlite3.connect(fpath)
+        tableList = Database.load_tableList(con)
+
+        dfs = {'GENE': [], 'miRNA': [], 'value': []}
+        for tname in tableList:
+            print(tname)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
+            df = df[~df.index.duplicated(keep='first')]
+
+            for idx in df.index:
+                for col in df.columns:
+                    val = df.loc[idx, col]
+                    # if not isinstance(val, float):
+                    #     print('see')
+                    if abs(val) > 0.9:
+                        dfs['miRNA'].append(idx)
+                        dfs['GENE'].append(col)
+                        dfs['value'].append(val)
+        df_res = pd.DataFrame(dfs)
+        df_res.to_excel('correlation_report2.xlsx', index=None)
 
 
 if __name__ == '__main__':
