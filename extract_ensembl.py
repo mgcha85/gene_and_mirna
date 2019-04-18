@@ -41,8 +41,42 @@ class Extract_Ensembl:
         df_ens__ = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
 
         contents = []
+        df_mir = pd.read_excel('gene.xlsx')
+        for idx in df_mir.index:
+            print('{} / {}'.format(idx + 1, df_mir.shape[0]))
+            gene = df_mir.loc[idx, 'name']
+
+            df_ens = df_ens__[df_ens__['Gene name'] == gene.upper()]
+            if not df_ens.empty:
+                mir_start = df_mir.loc[idx, 'start']
+                mir_end = df_mir.loc[idx, 'end']
+                chromosome = df_mir.loc[idx, 'chromosome']
+
+                ens_tss = df_ens.iloc[0]['Transcription start site (TSS)']
+                strand = df_ens.iloc[0]['Strand']
+                ens_chromosome = 'chr' + df_ens.iloc[0]['Chromosome/scaffold name']
+
+                if chromosome != ens_chromosome:
+                    print(gene, chromosome, ens_chromosome)
+
+                if strand > 0:
+                    mir_tss = mir_start
+                else:
+                    mir_tss = mir_end
+                contents.append([gene, abs(mir_tss - ens_tss)])
+
+        df_rep = pd.DataFrame(contents, columns=['mirna', 'distance'])
+        df_rep.to_excel('compare_fantom_ensembl.xlsx', index=None)
+
+    def compare_mir(self):
+        fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export.db')
+        con = sqlite3.connect(fpath)
+        df_ens__ = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+
+        contents = []
         df_mir = pd.read_excel('miRNA.xlsx')
         for idx in df_mir.index:
+            print('{} / {}'.format(idx + 1, df_mir.shape[0]))
             mirna = df_mir.loc[idx, 'name']
             mirna = mirna.replace('hsa', '')
             mirna = mirna.replace('-', '')
@@ -55,6 +89,10 @@ class Extract_Ensembl:
 
                 ens_tss = df_ens.iloc[0]['Transcription start site (TSS)']
                 strand = df_ens.iloc[0]['Strand']
+                ens_chromosome = 'chr' + df_ens.iloc[0]['Chromosome/scaffold name']
+
+                if chromosome != ens_chromosome:
+                    print(mirna, chromosome, ens_chromosome)
 
                 if strand > 0:
                     mir_tss = mir_start
