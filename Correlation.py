@@ -125,6 +125,7 @@ class Correlation:
         fpath = os.path.join(self.root, 'database', 'correlation_report.db')
         con = sqlite3.connect(fpath)
         tableList = Database.load_tableList(con)
+        thres = 0.8
 
         dfs = {'GENE': [], 'miRNA': [], 'value': []}
         for tname in tableList:
@@ -137,17 +138,17 @@ class Correlation:
                     val = df.loc[idx, col]
                     # if not isinstance(val, float):
                     #     print('see')
-                    if abs(val) > 0.9:
+                    if abs(val) > thres:
                         dfs['miRNA'].append(idx)
                         dfs['GENE'].append(col)
                         dfs['value'].append(val)
         df_res = pd.DataFrame(dfs)
-        df_res.to_excel('correlation_report2.xlsx', index=None)
+        df_res.to_excel('correlation_report2_{:.1f}.xlsx'.format(thres), index=None)
 
 
 if __name__ == '__main__':
     cor = Correlation()
     # cor.add_type()
-    cor.run()
-    cor.split()
+    # cor.run()
+    # cor.split()
     cor.filter()

@@ -1,28 +1,20 @@
+import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-# This import registers the 3D projection, but is otherwise unused.
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
+from scipy.stats import spearmanr
 
+n_rows = 2500
+cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 
-# setup the figure and axes
-fig = plt.figure(figsize=(8, 3))
-ax1 = fig.add_subplot(121, projection='3d')
-ax2 = fig.add_subplot(122, projection='3d')
+df = pd.DataFrame(np.random.random(size=(n_rows, len(cols))), columns=cols)
+v = np.random.random(size=len(cols))
 
-# fake data
-_x = np.arange(4)
-_y = np.arange(5)
-_xx, _yy = np.meshgrid(_x, _y)
-x, y = _xx.ravel(), _yy.ravel()
+# original implementation
+corr, _ = zip(*df.apply(lambda x: spearmanr(x,v), axis=1))
+corr = pd.Series(corr)
 
-top = x + y
-bottom = np.zeros_like(top)
-width = depth = 1
+# modified implementation
+df1 = df.rank(axis=1)
+v1 = pd.Series(v, index=df.columns).rank()
+corr1 = df1.corrwith(v1, axis=1)
 
-ax1.bar3d(x, y, bottom, width, depth, top, shade=True)
-ax1.set_title('Shaded')
-
-ax2.bar3d(x, y, bottom, width, depth, top, shade=False)
-ax2.set_title('Not Shaded')
-
-plt.show()
+print(corr1)
