@@ -53,8 +53,8 @@ class Extract_Ensembl:
                 mir_end = df_mir.loc[idx, 'end']
                 chromosome = df_mir.loc[idx, 'chromosome']
 
-                ens_tss = df_ens['Transcription start site (TSS)']
-                strand = df_ens['Strand']
+                ens_tss = df_ens.iloc[0]['Transcription start site (TSS)']
+                strand = df_ens.iloc[0]['Strand']
 
                 if strand > 0:
                     mir_tss = mir_start
