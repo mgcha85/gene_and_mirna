@@ -7,3 +7,5 @@ openpyxl
 xlrd
 scipy
 networkx
+CrossMap
+pyBigWig

@@ -145,10 +145,80 @@ class Correlation:
         df_res = pd.DataFrame(dfs)
         df_res.to_excel('correlation_report2_{:.1f}.xlsx'.format(thres), index=None)
 
+    def profile_gene_mirna(self):
+        fname = 'correlation_report2_0.7.xlsx'
+        df = pd.read_excel(fname, index_col=0)
+
+        con = sqlite3.connect(os.path.join(self.root, 'database', 'fantom5.db'))
+        df_gene = pd.read_sql_query("SELECT * FROM 'human_gene'", con, index_col='gene')
+
+        report = []
+        for i, gene in enumerate(df.index):
+            if i % 100 == 0 or i + 1 == df.shape[0]:
+                print('{:.2f}%'.format(100 * (i + 1) / df.shape[0]))
+
+            if ';' in gene:
+                continue
+
+            gene_chromosome = df_gene.loc[gene, 'chromosome']
+            gene_start = df_gene.loc[gene, 'start']
+            gene_end = df_gene.loc[gene, 'end']
+            mirna = df.loc[gene, 'miRNA']
+
+            for mir in mirna:
+                df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mir), con)
+                mir_gene = ';'.join(df_mir['Gene'].astype(str))
+                mirna_chromosome = ';'.join(df_mir['chromosome'])
+                mirna_start = ';'.join(df_mir['start'].astype(str))
+                mirna_end = ';'.join(df_mir['end'].astype(str))
+                mirna_tss = ';'.join(df_mir['tss'].astype(str))
+                mirna_strand = ';'.join(df_mir['strand'])
+
+                report.append([gene, gene_chromosome, gene_start, gene_end, mir_gene, mir, mirna_chromosome, mirna_start, mirna_end, mirna_tss, mirna_strand])
+
+        df_rep = pd.DataFrame(data=report, columns=['gene', 'gene_chromosome', 'gene_start', 'gene_end', 'mir_gene', 'mir', 'mirna_chromosome', 'mirna_start', 'mirna_end', 'mirna_tss', 'mirna_strand'])
+        df_rep.to_excel(fname, index=None)
+
+    def loc_info_analysis(self):
+        fname = 'correlation_loc_info_0.7.xlsx'
+        df = pd.read_excel(fname)
+        for idx in df.index:
+            gene_chromosome = df.loc[idx, 'gene_chromosome']
+            mirna_chromosome = df.loc[idx, 'mirna_chromosome']
+
+            gene = df.loc[idx, 'gene']
+            mir_gene = df.loc[idx, 'mir_gene']
+
+            mirna_tss = df.loc[idx, 'mirna_tss']
+            mirna_strand = df.loc[idx, 'mirna_strand']
+
+            if gene == mir_gene:
+                df.loc[idx, 'same gene'] = 'yes'
+                df.loc[idx, 'same chrom'] = 'yes'
+
+                if mirna_strand == '+':
+                    df.loc[idx, 'distance'] = abs(mirna_tss - df.loc[idx, 'gene_start'])
+                else:
+                    df.loc[idx, 'distance'] = abs(mirna_tss - df.loc[idx, 'gene_end'])
+
+            elif gene_chromosome == mirna_chromosome:
+                df.loc[idx, 'same chrom'] = 'yes'
+                df.loc[idx, 'same gene'] = 'no'
+                if mirna_strand == '+':
+                    df.loc[idx, 'distance'] = abs(mirna_tss - df.loc[idx, 'gene_start'])
+                else:
+                    df.loc[idx, 'distance'] = abs(mirna_tss - df.loc[idx, 'gene_end'])
+            else:
+                df.loc[idx, 'same gene'] = 'no'
+                df.loc[idx, 'same chrom'] = 'no'
+        
+        df.to_excel(fname, index=None)
+        
 
 if __name__ == '__main__':
     cor = Correlation()
     # cor.add_type()
     # cor.run()
     # cor.split()
-    cor.filter()
+    cor.profile_gene_mirna()
+    cor.loc_info_analysis()
