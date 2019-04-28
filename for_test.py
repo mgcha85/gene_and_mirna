@@ -47,6 +47,3 @@ import os
 #
 # out_con = sqlite3.connect(os.path.join(dirname, 'mart_export2.db'))
 # df.to_sql('Ensembl', out_con, index=None)
-
-df = pd.read_csv('/home/mingyu/Downloads/FPKM_allsamples.txt', sep='\t')
-
