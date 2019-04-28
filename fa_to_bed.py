@@ -24,7 +24,7 @@ class fa2bed:
 
     def bowtie2_init(self, fa_file):
         bowtie2 = os.path.join(self.bowtie_root, './bowtie2-build')
-        dbname = os.path.join(self.bowtie_root, 'sample')
+        dbname = os.path.join(self.bowtie_root, 'lambda_virus')
         command = '%s -f %s %s'%(bowtie2, fa_file, dbname)
         self.command_exe(command)
 
@@ -45,9 +45,3 @@ class fa2bed:
         command = '/usr/local/bin/sam2bed < %s > %s' % (sam_file, bed_file)
         self.command_exe(command)
         print('done with fasta to bed')
-
-
-if __name__ == '__main__':
-    f2b = fa2bed()
-    fa_path = os.path.join(f2b.root, 'database/temp', 'ERR315335.fastq')
-    f2b.bowtie2_init('/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics/software/bowtie2-2.3.5.1-sra-linux-x86_64/example/reference/SP1.fq')

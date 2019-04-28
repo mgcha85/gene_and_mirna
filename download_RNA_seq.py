@@ -41,7 +41,7 @@ class Download_RNA_seq:
         page_size = 25
         iter = int((N + page_size - 1) // page_size)
 
-        for i in range(iter):
+        for i in range(1, iter):
             url = self.url + '?s_page={}&s_pagesize=25'.format(i)
             page = self.get_script(url)
 
@@ -87,8 +87,8 @@ class Download_RNA_seq:
             os.remove(out_path)
 
     def to_bed(self, fa_path, init=False):
-        # if init is True:
-        #     self.f2b.bowtie2_init(fa_path)
+        if init is True:
+            self.f2b.bowtie2_init(fa_path)
         sam_path = fa_path.replace('.fastq', '.sam')
 
         self.f2b.fa_to_sam(fa_path, sam_path)
@@ -97,4 +97,4 @@ class Download_RNA_seq:
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    drs.to_bed('/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics/database/RNA-seq/ERR315335_1.fastq')
+    drs.unzip()
