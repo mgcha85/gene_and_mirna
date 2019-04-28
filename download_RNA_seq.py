@@ -2,6 +2,7 @@ import urllib
 from bs4 import BeautifulSoup
 import socket
 import os
+from fa_to_bed import fa2bed
 
 
 class Download_RNA_seq:
@@ -15,7 +16,9 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+        self.rna_dir = os.path.join(self.root, 'database/temp')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
+        self.f2b = fa2bed()
 
     def get_script(self, url):
         try:
@@ -37,7 +40,6 @@ class Download_RNA_seq:
         N = self.get_header(page)
         page_size = 25
         iter = int((N + page_size - 1) // page_size)
-        down_dir = os.path.join(self.root, 'database/RNA-seq')
 
         for i in range(iter):
             url = self.url + '?s_page={}&s_pagesize=25'.format(i)
@@ -49,9 +51,50 @@ class Download_RNA_seq:
                 for item in items:
                     download_url = item.findAll("a")[0].attrs['href']
                     ulr_dir, fname = os.path.split(download_url)
-                    urllib.request.urlretrieve(download_url, os.path.join(down_dir, fname))
+                    urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
+
+    def get_file_pair(self, ext='.gz'):
+        fileList = os.listdir(self.rna_dir)
+        contents = {}
+        for fname in fileList:
+            if ext not in fname:
+                continue
+            fpath = os.path.join(self.rna_dir, fname)
+            fname, ext = os.path.splitext(fname)
+            fid = fname.split('_')[0]
+            if fid in contents:
+                contents[fid].append(fpath)
+            else:
+                contents[fid] = [fpath]
+        return contents
+
+    def unzip(self):
+        import gzip
+
+        file_pair = self.get_file_pair()
+        for fid, fnames in file_pair.items():
+            input = gzip.GzipFile(fnames[0], 'rb')
+            s = input.read()
+            input.close()
+
+            dirname, fname = os.path.split(fnames[0])
+            out_path = os.path.join(dirname, fid + '.fastq')
+            with open(out_path, 'wb') as output:
+                output.write(s)
+                output.close()
+
+            self.to_bed(out_path)
+            os.remove(out_path)
+
+    def to_bed(self, fa_path, init=False):
+        # if init is True:
+        #     self.f2b.bowtie2_init(fa_path)
+        sam_path = fa_path.replace('.fastq', '.sam')
+
+        self.f2b.fa_to_sam(fa_path, sam_path)
+        # self.f2b.sam_to_bed(sam_path)
 
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    drs.run()
+    drs.to_bed('/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics/database/RNA-seq/ERR315335_1.fastq')
