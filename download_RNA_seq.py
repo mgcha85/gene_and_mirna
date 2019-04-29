@@ -16,7 +16,7 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.root, 'database/temp')
+        self.rna_dir = os.path.join(self.root, 'database/RNA-seq')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
 
@@ -68,33 +68,14 @@ class Download_RNA_seq:
                 contents[fid] = [fpath]
         return contents
 
-    def unzip(self):
-        import gzip
-
-        file_pair = self.get_file_pair()
-        for fid, fnames in file_pair.items():
-            input = gzip.GzipFile(fnames[0], 'rb')
-            s = input.read()
-            input.close()
-
-            dirname, fname = os.path.split(fnames[0])
-            out_path = os.path.join(dirname, fid + '.fastq')
-            with open(out_path, 'wb') as output:
-                output.write(s)
-                output.close()
-
-            self.to_bed(out_path)
-            os.remove(out_path)
-
-    def to_bed(self, fa_path, init=False):
-        if init is True:
-            self.f2b.bowtie2_init(fa_path)
-        sam_path = fa_path.replace('.fastq', '.sam')
-
-        self.f2b.fa_to_sam(fa_path, sam_path)
-        # self.f2b.sam_to_bed(sam_path)
+    def to_bed(self):
+        contents = self.get_file_pair()
+        for fid, fpath in contents.items():
+            sam_path = os.path.join(self.rna_dir, fid + '.sam')
+            self.f2b.comp_fa_to_sam(fpath, sam_path)
+            self.f2b.sam_to_bed(sam_path, remove=False)
 
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    drs.unzip()
+    drs.to_bed()

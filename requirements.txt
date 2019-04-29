@@ -9,3 +9,4 @@ scipy
 networkx
 CrossMap
 pyBigWig
+bs4

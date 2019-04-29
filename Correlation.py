@@ -146,7 +146,7 @@ class Correlation:
         df_res.to_excel('correlation_report2_{:.1f}.xlsx'.format(thres), index=None)
 
     def profile_gene_mirna(self):
-        fname = 'correlation_report2_0.7.xlsx'
+        fname = 'correlation_report2_0.9.xlsx'
         df = pd.read_excel(fname, index_col=0)
 
         con = sqlite3.connect(os.path.join(self.root, 'database', 'fantom5.db'))
@@ -158,6 +158,8 @@ class Correlation:
                 print('{:.2f}%'.format(100 * (i + 1) / df.shape[0]))
 
             if ';' in gene:
+                continue
+            if gene not in df_gene.index:
                 continue
 
             gene_chromosome = df_gene.loc[gene, 'chromosome']
@@ -180,7 +182,7 @@ class Correlation:
         df_rep.to_excel(fname, index=None)
 
     def loc_info_analysis(self):
-        fname = 'correlation_loc_info_0.7.xlsx'
+        fname = 'correlation_loc_info_0.9.xlsx'
         df = pd.read_excel(fname)
         for idx in df.index:
             gene_chromosome = df.loc[idx, 'gene_chromosome']
@@ -213,12 +215,28 @@ class Correlation:
                 df.loc[idx, 'same chrom'] = 'no'
         
         df.to_excel(fname, index=None)
-        
+
+    def stats(self):
+        df = pd.read_excel('correlation_loc_info_0.9.xlsx')
+        df_grp = df.groupby('same chrom')
+
+        report = {}
+        for tf, df_sub in df_grp:
+            report[tf] = df_sub.shape[0]
+
+        df_sub = df_grp.get_group('yes')
+        ele_hist, ele_bin = np.histogram(df_sub['distance'], bins=10)
+        print(ele_hist)
+        xaxis = range(len(ele_hist))
+        plt.bar(xaxis, ele_hist)
+        plt.xticks(xaxis, ele_bin[1:], rotation=30, fontsize=6)
+        plt.show()
+
 
 if __name__ == '__main__':
     cor = Correlation()
-    # cor.add_type()
+    cor.stats()
     # cor.run()
     # cor.split()
-    cor.profile_gene_mirna()
-    cor.loc_info_analysis()
+    # cor.profile_gene_mirna()
+    # cor.loc_info_analysis()
