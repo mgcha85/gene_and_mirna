@@ -1,8 +1,8 @@
 import pandas as pd
 
 columns = ['chromosome', 'start', 'stop', 'id', 'score', 'strand', 'dum1', 'dum2', 'dum3', 'dum4', 'dum5', 'dum6', 'dum7', 'dum8', 'dum9', 'dum10', 'flag', 'cigar', 'rnext', 'pnext', 'tlen', 'seq', 'qual', 'attr']
-df = pd.read_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/ERR315326.gtf', sep='\t', names=columns)
-df.loc[:, columns[0]:columns[5]].to_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/ERR315326.bed', sep='\t', index=None, header=False)
+df = pd.read_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp/temp.bed', sep='\t', names=columns)
+df.loc[:, columns[0]:columns[5]].to_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp/ERR315335_2.bed', sep='\t', index=None, header=False)
 
 # import numpy as np
 # from scipy.stats import spearmanr

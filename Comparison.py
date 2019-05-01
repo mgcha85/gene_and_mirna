@@ -2,6 +2,7 @@ import sqlite3
 import pandas as pd
 import socket
 import os
+import numpy as np
 
 
 class Comparison:
@@ -33,7 +34,7 @@ class Comparison:
 
         contents = []
         for idx in df_ens.index:
-            if idx % 100 == 0 or idx + 1 == df_ens.shape[0]:
+            if idx % 1000 == 0 or idx + 1 == df_ens.shape[0]:
                 print('{:0.2f}%'.format((100 * idx + 1) / df_ens.shape[0]))
 
             start = df_ens.loc[idx, 'Transcript start (bp)']
@@ -76,7 +77,41 @@ class Comparison:
         df_res = pd.DataFrame(contents, columns=['chrom', 'start', 'end', 'strand', 'tname', 'closest_fan', 'distance_fan', 'closest_ucsc', 'distance_ucsc'])
         df_res.to_excel(os.path.join(self.root, 'database', 'tss_comparison.xlsx'), index=None)
 
+    def plot_distance_histogram(self):
+        import matplotlib.pyplot as plt
+
+        fpath = os.path.join(self.root, 'database', 'tss_comparison.xlsx')
+        df = pd.read_excel(fpath)
+        df_fan = df[df['distance_fan'] < 1000]
+        df_ucsc = df[df['distance_ucsc'] < 1000]
+
+        print('FANTOM & Ensembl: {:0.2f}% [<1kb]'.format(100 * df_fan.shape[0] / df.shape[0]))
+        print('UCSC & Ensembl: {:0.2f}% [<1kb]'.format(100 * df_ucsc.shape[0] / df.shape[0]))
+
+        bins = [1]
+        for i in range(2, 6):
+            bins.append(10 ** i)
+        bins.append(10 ** 10)
+
+        hist_fan, bin_fan = np.histogram(df['distance_fan'].values, bins=bins)
+        hist_ucsc, bin_ucsc = np.histogram(df['distance_ucsc'].values, bins=bins)
+
+        plt.subplot(211)
+        xaxis = np.log10(bins[:-1])
+        plt.bar(xaxis, hist_fan / df.shape[0])
+        plt.xticks(xaxis, bins[:-1])
+        plt.title('Ensembl vs. Fantom')
+        plt.grid()
+        plt.legend()
+
+        plt.subplot(212)
+        plt.bar(xaxis, hist_ucsc / df.shape[0])
+        plt.xticks(xaxis, bins[:-1])
+        plt.title('Ensembl vs. UCSC')
+        plt.grid()
+        plt.show()
+
 
 if __name__ == '__main__':
     comp = Comparison()
-    comp.run()
+    comp.plot_distance_histogram()

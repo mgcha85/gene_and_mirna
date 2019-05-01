@@ -10,3 +10,4 @@ networkx
 CrossMap
 pyBigWig
 bs4
+lxml
