@@ -17,7 +17,7 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.root, 'database/RNA-seq')
+        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/9')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
 
@@ -100,19 +100,21 @@ class Download_RNA_seq:
         return contents
 
     def to_bed(self):
+        from time import time
+
         contents = self.get_file_pair()
         for fid, fpath in contents.items():
+            start = time()
             sam_path = os.path.join(self.rna_dir, fid + '.sam')
             ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
             if ret == 0:
-                sam_path = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp/ERR315335.sam'
                 self.f2b.sam_to_bam(sam_path)
                 self.f2b.bam_to_gtf(sam_path.replace('.sam', '.bam'))
-                # self.f2b.sam_to_bed(sam_path)
+
+            elapsed = time() - start
+            print('[{}] {:.0f}:{}'.format(fid, elapsed // 60, elapsed % 60))
 
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-
-    sam_path = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp/ERR315335.sam'
     drs.to_bed()

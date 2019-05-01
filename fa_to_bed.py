@@ -51,6 +51,7 @@ class fa2bed:
         for i, fa in enumerate(fa_file):
             command = command + ' -{} {}'.format(i + 1, fa)
         command += ' -S {}'.format(sam_file)
+        print(command)
         self.command_exe(command)
         print('done with fasta to sam')
         return 0
@@ -63,11 +64,13 @@ class fa2bed:
 
         samtool_root = os.path.join(self.root, 'software/samtools-1.9')
         command = '{}/./samtools sort -@ 8 -o {} {}'.format(samtool_root, bam_file, sam_file)
+        print(command)
         self.command_exe(command)
+        os.remove(sam_file)
         print('done with fasta to bam')
 
-    def bam_to_gtf(self, bam_file):
-        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.5.Linux_x86_64')
+    def bam_to_gtf(self, bam_file, to_db=True):
+        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
         current_dir = os.getcwd()
 
         os.chdir(string_tie_root)
@@ -78,8 +81,23 @@ class fa2bed:
         gtf_file = os.path.join(dirname, fname)
 
         command = './stringtie -p 8 -G genes.gtf -o {} {}'.format(gtf_file, bam_file)
+        print(command)
         self.command_exe(command)
 
+        os.remove(bam_file)
+
+        columns = ['chromosome', 'source', 'feature', 'start', 'stop', 'score', 'strand', 'frame', 'attribute']
+        chunksize = 1 << 29     # 512 MB
+        con = sqlite3.connect(gtf_file.replace('.gtf', '.db'))
+
+        if os.path.exists(gtf_file):
+            for df_chunk in pd.read_csv(gtf_file, sep='\t', chunksize=chunksize, names=columns, comment='#'):
+                df_chunk['chromosome'] = 'chr' + df_chunk['chromosome'].astype(str)
+                if to_db is True:
+                    df_sub = df_chunk[columns[:-1]]
+                    df_sub.to_sql(os.path.splitext(fname)[0], con, if_exists='append', index=None)
+
+        os.remove(gtf_file)
         os.chdir(current_dir)
         print('done with bam to gtf')
 
@@ -89,30 +107,27 @@ class fa2bed:
         fname = os.path.splitext(fname)[0] + '.bed'
         bed_file = os.path.join(dirname, fname)
 
-        samtool_root = os.path.join(self.root, 'software/samtools')
-        command = '{}/./convert2bed --input=SAM --output=BED < {} > {}'.format(samtool_root, sam_file, bed_file)
-        self.command_exe(command)
-        print('done with fasta to bed')
+        # samtool_root = os.path.join(self.root, 'software/samtools')
+        # command = '{}/./convert2bed --input=SAM --output=BED < {} > {}'.format(samtool_root, sam_file, bed_file)
+        # self.command_exe(command)
+        # print('done with fasta to bed')
 
-        columns = ['chromosome', 'start', 'stop', 'id', 'score', 'strand', 'dum1', 'dum2', 'dum3', 'dum4', 'dum5',
-                   'dum6', 'dum7', 'dum8', 'dum9', 'dum10', 'flag', 'cigar', 'rnext', 'pnext', 'tlen', 'seq', 'qual',
-                   'attr']
+        columns = ['chromosome', 'source', 'feature', 'start', 'stop', 'score', 'strand', 'frame', 'attribute']
+
+        chunksize = 1 << 29     # 512 MB
+        con = sqlite3.connect(bed_file.replace('.bed', '.db'))
 
         if os.path.exists(bed_file):
-            df = pd.read_csv(bed_file, sep='\t', names=columns)
-            df['chromosome'] = 'chr' + df['chromosome'].astype(str)
-            # df.loc[:, columns[0]:columns[5]].to_csv(bed_file, sep='\t', index=None, header=False)
+            for df_chunk in pd.read_csv(bed_file, sep='\t', chunksize=chunksize, names=columns):
+                df_chunk['chromosome'] = 'chr' + df_chunk['chromosome'].astype(str)
+                if to_db is True:
+                    df_chunk.to_sql(fname, con, if_exists='append', index=None)
 
-        if to_db is True:
-            con = sqlite3.connect(bed_file.replace('.bed', '.db'))
-            df.to_sql(fname, con, if_exists='replace', index=None)
         if remove is True:
             os.remove(sam_file)
 
 
 if __name__ == '__main__':
     f2b = fa2bed()
-    fa_file = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/software/bowtie2-2.3.5.1-sra-linux-x86_64/example/reference/SP1.fq'
-    sam_file = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/software/bowtie2-2.3.5.1-sra-linux-x86_64/example/reference/SP1.sam'
-    f2b.fa_to_sam(fa_file, sam_file)
-    f2b.sam_to_bed(sam_file)
+    gtf_file = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/1/ERR315325.bam'
+    f2b.bam_to_gtf(gtf_file)
