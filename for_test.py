@@ -1,54 +1,164 @@
-import pandas as pd
-
-columns = ['chromosome', 'start', 'stop', 'id', 'score', 'strand', 'dum1', 'dum2', 'dum3', 'dum4', 'dum5', 'dum6', 'dum7', 'dum8', 'dum9', 'dum10', 'flag', 'cigar', 'rnext', 'pnext', 'tlen', 'seq', 'qual', 'attr']
-df = pd.read_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp/temp.bed', sep='\t', names=columns)
-df.loc[:, columns[0]:columns[5]].to_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp/ERR315335_2.bed', sep='\t', index=None, header=False)
-
-# import numpy as np
-# from scipy.stats import spearmanr
-#
-# n_rows = 2500
-# cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-#
-# df = pd.DataFrame(np.random.random(size=(n_rows, len(cols))), columns=cols)
-# v = np.random.random(size=len(cols))
-#
-# # original implementation
-# corr, _ = zip(*df.apply(lambda x: spearmanr(x,v), axis=1))
-# corr = pd.Series(corr)
-#
-# # modified implementation
-# df1 = df.rank(axis=1)
-# v1 = pd.Series(v, index=df.columns).rank()
-# corr1 = df1.corrwith(v1, axis=1)
-#
-# print(corr1)
-
-import sqlite3
-import pandas as pd
+import urllib
+from bs4 import BeautifulSoup
+import socket
 import os
+from fa_to_bed import fa2bed
+import pandas as pd
+import sqlite3
 
-# dirname = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/ensembl/TSS'
-# columns = ['Chromosome/scaffold name', 'Transcript start (bp)', 'Transcript end (bp)']
-#
-# con = sqlite3.connect(os.path.join(dirname, 'mart_export.db'))
-# df = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
-#
-# df_hg19 = pd.read_csv(os.path.join(dirname, 'Ensembl_hg19.bed'), sep='\t', names=columns)
-#
-# df[columns] = df_hg19[columns]
-# df_str = df.groupby('Strand')
-#
-# dfs = []
-# for str, df_sub in df_str:
-#     if str > 0:
-#         df_sub['Transcription start site (TSS)'] = df_sub['Transcript start (bp)']
-#     else:
-#         df_sub['Transcription start site (TSS)'] = df_sub['Transcript end (bp)']
-#     dfs.append(df_sub)
-#
-# df = pd.concat(dfs)
-# df['Chromosome/scaffold name'] = 'chr' + df['Chromosome/scaffold name']
-#
-# out_con = sqlite3.connect(os.path.join(dirname, 'mart_export2.db'))
-# df.to_sql('Ensembl', out_con, index=None)
+
+class Download_RNA_seq:
+    def __init__(self):
+        hostname = socket.gethostname()
+        if hostname == 'mingyu-Precision-Tower-7810':
+            self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
+        elif hostname == 'DESKTOP-DLOOJR6':
+            self.root = 'D:/Bioinformatics'
+        elif hostname == 'mingyu-Inspiron-7559':
+            self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+        else:
+            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/3')
+        self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
+        self.f2b = fa2bed()
+
+    def get_script(self, url):
+        try:
+            with urllib.request.urlopen(url) as response:
+                html = response.read().decode('utf-8')
+                return html
+        except Exception as e:
+            raise e
+
+    def get_header(self, page):
+        soup = BeautifulSoup(page, "lxml")
+        script = soup.findAll("div", {"class": "ae-stats"})
+        for scr in script:
+            contents = scr.findAll("span")[1]
+            return int(contents.text)
+
+    def get_cell_info(self):
+        page = self.get_script(self.url)
+
+        contents = []
+        url = self.url + '?s_page=1&s_pagesize=500'
+        page = self.get_script(url)
+
+        soup = BeautifulSoup(page, "lxml")
+
+        items = soup.findAll("table", {"class": "src_name_table"})
+        src_name = []
+        for item in items:
+            td = item.findAll("td")
+            for t in td:
+                src_name.append(t.text)
+
+        items = soup.findAll("table", {"class": "links_table"})
+        links_table = []
+        for item in items:
+            td = item.findAll("td")
+            for t in td:
+                if t.attrs['class'][1] == 'col_28':
+                    links_table.append(t.contents[0].attrs['href'])
+
+        for src, link in zip(src_name, links_table):
+            contents.append([src, link])
+
+        df = pd.DataFrame(contents, columns=['src', 'link'])
+        df.to_csv('E-MTAB-1733.xlsx', index=None)
+
+    def run(self):
+        page = self.get_script(self.url)
+        N = self.get_header(page)
+        page_size = 25
+        iter = int((N + page_size - 1) // page_size)
+
+        contents = []
+        for i in range(1, iter):
+            url = self.url + '?s_page={}&s_pagesize=25'.format(i)
+            page = self.get_script(url)
+
+            soup = BeautifulSoup(page, "lxml")
+            for col in ["odd col_28", "even col_28"]:
+                items = soup.findAll("td", {"class": col})
+                for item in items:
+                    contents.append(item.findAll("a")[0].attrs['href'])
+                    download_url = item.findAll("a")[0].attrs['href']
+                    ulr_dir, fname = os.path.split(download_url)
+                    urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
+
+        with open('temp.csv', 'wt') as f:
+            f.write('\n'.join(sorted(contents)))
+
+    def check_not_download(self):
+        with open('temp.csv') as f:
+            down_list__ = f.read().split('\n')
+
+        down_list = {}
+        for dl in down_list__:
+            dirname, fname = os.path.split(dl)
+            down_list[fname] = dirname
+
+        dirname = os.path.join(self.root, 'database', 'RNA-seq')
+        flist = os.listdir(dirname)
+        remains = list(set(down_list.keys()) - set(flist))
+
+        N = len(remains)
+        if N == 0:
+            print('download completed!!')
+            return
+
+        for i, fname in enumerate(remains):
+            print('{} / {} [{}]'.format(i + 1, N, fname))
+            dirname = down_list[fname]
+            download_url = os.path.join(dirname, fname)
+            ulr_dir, fname = os.path.split(download_url)
+            urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
+
+    def get_file_pair(self, ext='.gz'):
+        fileList = os.listdir(self.rna_dir)
+        contents = {}
+        for fname in fileList:
+            if ext not in fname:
+                continue
+            fpath = os.path.join(self.rna_dir, fname)
+            fname, ext = os.path.splitext(fname)
+            fid = fname.split('_')[0]
+            if fid in contents:
+                contents[fid].append(fpath)
+            else:
+                contents[fid] = [fpath]
+        return contents
+
+    def to_bed(self):
+        from time import time
+
+        contents = self.get_file_pair()
+        for fid, fpath in contents.items():
+            start = time()
+            sam_path = os.path.join(self.rna_dir, fid + '.sam')
+            ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
+            if ret == 0:
+                self.f2b.sam_to_bam(sam_path)
+                self.f2b.bam_to_gtf(sam_path.replace('.sam', '.bam'))
+
+            elapsed = time() - start
+            print('[{}] {:.0f}:{}'.format(fid, elapsed // 60, elapsed % 60))
+
+    def merge_rna_seq(self):
+        dirname = os.path.join(self.root, 'database', 'RNA-seq')
+        flist = os.listdir(dirname)
+        flist = [x for x in flist if x.endswith('.db')]
+
+        con_out = sqlite3.connect(os.path.join(dirname, 'RNA_seq.db'))
+        for fname in flist:
+            con = sqlite3.connect(os.path.join(dirname, fname))
+            tname = os.path.splitext(fname)[0]
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = df[df['chromosome'].str.len > 5]
+            df.to_sql(tname, con_out)
+
+
+if __name__ == '__main__':
+    drs = Download_RNA_seq()
+    drs.get_cell_info()

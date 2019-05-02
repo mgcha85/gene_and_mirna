@@ -10,4 +10,4 @@
 # Load modules
 echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"
 module load anaconda/anaconda3-5.3.0
-python download_RNA_seq.py
+python Fantom_RNA.py

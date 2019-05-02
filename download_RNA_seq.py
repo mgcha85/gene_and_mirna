@@ -4,6 +4,7 @@ import socket
 import os
 from fa_to_bed import fa2bed
 import pandas as pd
+import sqlite3
 
 
 class Download_RNA_seq:
@@ -17,9 +18,41 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/9')
+        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/5')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
+
+    def sort_to_done(self):
+        import shutil
+
+        root = os.path.join(self.root, 'database/RNA-seq')
+        # flist = os.listdir(root)
+        # flist = [os.path.splitext(x)[0] for x in flist if x.endswith('.db')]
+
+        with open('flist.txt', 'rt') as f:
+            flist = f.read().split('\n')
+
+        sub_flists = []
+        for i in range(1, 9):
+            sub_dirname = os.path.join(root, str(i))
+            sub_flist = os.listdir(sub_dirname)
+            sub_flist = [os.path.join(sub_dirname, x) for x in sub_flist]
+            sub_flists.extend(sub_flist)
+
+        contents = []
+        for db_fname in flist:
+            for sfname in sub_flists:
+                if db_fname in sfname:
+                    contents.append(sfname)
+
+        contents = sorted(contents)
+        for con in contents:
+            dirname, fname = os.path.split(con)
+            print('remove: ', con)
+            os.remove(con)
+            # out_path = os.path.join(root, 'done', fname)
+            # print(con, ' --> ', out_path)
+            # shutil.move(con, out_path)
 
     def get_script(self, url):
         try:
@@ -35,6 +68,30 @@ class Download_RNA_seq:
         for scr in script:
             contents = scr.findAll("span")[1]
             return int(contents.text)
+
+    def get_cell_info(self):
+        page = self.get_script(self.url)
+        N = self.get_header(page)
+        page_size = 25
+        iter = int((N + page_size - 1) // page_size)
+
+        contents = []
+        for i in range(1, iter):
+            url = self.url + '?s_page={}&s_pagesize=25'.format(i)
+            page = self.get_script(url)
+
+            soup = BeautifulSoup(page, "lxml")
+            items = soup.findAll("table")
+            for item in items:
+                td = item.findAll("td")
+
+                contents.append(item.findAll("a")[0].attrs['href'])
+                download_url = item.findAll("a")[0].attrs['href']
+                ulr_dir, fname = os.path.split(download_url)
+                urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
+
+        with open('temp.csv', 'wt') as f:
+            f.write('\n'.join(sorted(contents)))
 
     def run(self):
         page = self.get_script(self.url)
@@ -113,6 +170,19 @@ class Download_RNA_seq:
 
             elapsed = time() - start
             print('[{}] {:.0f}:{}'.format(fid, elapsed // 60, elapsed % 60))
+
+    def merge_rna_seq(self):
+        dirname = os.path.join(self.root, 'database', 'RNA-seq')
+        flist = os.listdir(dirname)
+        flist = [x for x in flist if x.endswith('.db')]
+
+        con_out = sqlite3.connect(os.path.join(dirname, 'RNA_seq.db'))
+        for fname in flist:
+            con = sqlite3.connect(os.path.join(dirname, fname))
+            tname = os.path.splitext(fname)[0]
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = df[df['chromosome'].str.len > 5]
+            df.to_sql(tname, con_out)
 
 
 if __name__ == '__main__':
