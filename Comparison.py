@@ -21,7 +21,7 @@ class Comparison:
 
     def processInput(self, df_ref, idx, df_ens_grp):
         if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
-            print('{:0.2f}%'.format((100 * idx + 1) / df_ref.shape[0]))
+            print('{:0.2f}%'.format(100 * (idx + 1) / df_ref.shape[0]))
 
         chromosome = df_ref.loc[idx, 'chromosome']
         strand = df_ref.loc[idx, 'strand']
@@ -54,6 +54,7 @@ class Comparison:
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
         ref_con = sqlite3.connect(ref_path)
         df_ref = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format('gencode.v30lift37'), ref_con)
+        df_ref = df_ref[:100]
 
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
         con = sqlite3.connect(fpath)
