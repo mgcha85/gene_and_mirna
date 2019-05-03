@@ -96,6 +96,24 @@ class Fantom_RNA:
                                    con_rna)
         return self.fpkm(df.loc[idx], df_rna)
 
+    def check_empty(self):
+        df = pd.read_csv('E-MTAB-1733.csv')
+        fid = []
+        for idx in df.index:
+            url = df.loc[idx, 'link']
+            _, fname = os.path.split(url)
+            fname, _ = os.path.splitext(fname)
+            fname = fname.split('_')[0]
+            fid.append(fname)
+        fid = np.unique(np.array(fid))
+
+        dirname = os.path.join(self.root, 'database/RNA-seq')
+        flist = os.listdir(dirname)
+        flist = [os.path.splitext(x)[0] for x in flist if x.endswith('.db')]
+
+        remains = list(set(fid) - set(flist))
+        print(remains)
+
     def run(self):
         from Database import Database
         # from joblib import Parallel, delayed
@@ -124,4 +142,4 @@ class Fantom_RNA:
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.run()
+    fr.check_empty()

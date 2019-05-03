@@ -18,7 +18,7 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/5')
+        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/1')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
 
@@ -142,12 +142,13 @@ class Download_RNA_seq:
             urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
 
     def get_file_pair(self, ext='.gz'):
-        fileList = os.listdir(self.rna_dir)
+        dirname = os.getcwd()
+        fileList = os.listdir(dirname)
         contents = {}
         for fname in fileList:
             if ext not in fname:
                 continue
-            fpath = os.path.join(self.rna_dir, fname)
+            fpath = os.path.join(dirname, fname)
             fname, ext = os.path.splitext(fname)
             fid = fname.split('_')[0]
             if fid in contents:
@@ -162,7 +163,7 @@ class Download_RNA_seq:
         contents = self.get_file_pair()
         for fid, fpath in contents.items():
             start = time()
-            sam_path = os.path.join(self.rna_dir, fid + '.sam')
+            sam_path = os.path.join(fid + '.sam')
             ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
             if ret == 0:
                 self.f2b.sam_to_bam(sam_path)
@@ -176,12 +177,12 @@ class Download_RNA_seq:
         flist = os.listdir(dirname)
         flist = [x for x in flist if x.endswith('.db')]
 
-        con_out = sqlite3.connect(os.path.join(dirname, 'RNA_seq.db'))
+        con_out = sqlite3.connect(os.path.join(dirname, 'out', 'RNA_seq.db'))
         for fname in flist:
             con = sqlite3.connect(os.path.join(dirname, fname))
             tname = os.path.splitext(fname)[0]
             df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-            df = df[df['chromosome'].str.len > 5]
+            df = df[df['chromosome'].str.len() <= 5]
             df.to_sql(tname, con_out)
 
 

@@ -17,65 +17,60 @@ class Comparison:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.bed_columns = ['chromosome', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'rgb']
+        self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
     def run(self):
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
+        ref_con = sqlite3.connect(ref_path)
+        df_ref = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format('gencode.v30lift37'), ref_con)
+
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
         con = sqlite3.connect(fpath)
         df_ens = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+        df_ens_grp = df_ens.groupby('Chromosome/scaffold name')
 
-        fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
-        con = sqlite3.connect(fpath)
-        df_ucsc = pd.read_sql_query("SELECT * FROM protein_coding", con)
-        df_ucsc_grp = df_ucsc.groupby('seqname')
+        # fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
+        # df_ucsc = pd.read_csv(fpath, sep='\t', names=self.gtf_columns)
+        # df_ucsc_grp = df_ucsc.groupby('chromosome')
+        #
+        # fpath = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.bed')
+        # df_fan = pd.read_csv(fpath, sep='\t', names=self.bed_columns)
+        # df_fan_grp = df_fan.groupby('chromosome')
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.bed')
-        df_fan = pd.read_csv(fpath, sep='\t', names=self.bed_columns)
-        df_fan_grp = df_fan.groupby('chromosome')
+        corr_idx = []
+        non_corr_idx = []
+        for idx in df_ref.index:
+            if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
+                print('{:0.2f}%'.format((100 * idx + 1) / df_ref.shape[0]))
 
-        contents = []
-        for idx in df_ens.index:
-            if idx % 1000 == 0 or idx + 1 == df_ens.shape[0]:
-                print('{:0.2f}%'.format((100 * idx + 1) / df_ens.shape[0]))
-
-            start = df_ens.loc[idx, 'Transcript start (bp)']
-            end = df_ens.loc[idx, 'Transcript end (bp)']
-            if df_ens.loc[idx, 'Strand'] < 0:
-                strand = '-'
+            chromosome = df_ref.loc[idx, 'chromosome']
+            strand = df_ref.loc[idx, 'strand']
+            
+            if strand == '+':
+                ref_tss = df_ref.loc[idx, 'start']
             else:
-                strand = '+'
-            tname = df_ens.loc[idx, 'Transcript name']
+                ref_tss = df_ref.loc[idx, 'end']
 
-            chrom = df_ens.loc[idx, 'Chromosome/scaffold name']
-            if len(chrom) > 5:
-                continue
-
-            df_fan_chr = df_fan_grp.get_group(chrom)
-            df_fan_chr_str = df_fan_chr[df_fan_chr['strand'] == strand]
-
-            df_ucsc_chr = df_ucsc_grp.get_group(chrom)
-            df_ucsc_chr_str = df_ucsc_chr[df_ucsc_chr['strand'] == strand]
+            df_ens_chr = df_ens_grp.get_group(chromosome)
+            df_ens_chr_str = df_ens_chr[df_ens_chr['Strand'] == strand]
 
             if strand == '+':
-                distance_fan = (df_fan_chr_str['start'] - start).abs()
-                midx_fan = distance_fan.idxmin()
-                closest_fan = df_fan_chr_str.loc[midx_fan, 'start']
-
-                distance_ucsc = (df_ucsc_chr_str['start'] - start).abs()
-                midx_ucsc = distance_ucsc.idxmin()
-                closest_ucsc = df_ucsc_chr_str.loc[midx_ucsc, 'start']
-
+                src_tss = df_ens_chr_str['Transcript start (bp)']
             else:
-                distance_fan = (df_fan_chr_str['end'] - end).abs()
-                midx_fan = distance_fan.idxmin()
-                closest_fan = df_fan_chr_str.loc[midx_fan, 'end']
+                src_tss = df_ens_chr_str['Transcript end (bp)']
 
-                distance_ucsc = (df_ucsc_chr_str['end'] - end).abs()
-                midx_ucsc = distance_ucsc.idxmin()
-                closest_ucsc = df_ucsc_chr_str.loc[midx_ucsc, 'end']
+            df_ens_chr_str_corr = df_ens_chr_str[(src_tss - ref_tss).abs() < 100]
+            if not df_ens_chr_str_corr.empty:
+                corr_idx.append(idx)
+            else:
+                non_corr_idx.append(idx)
 
-            contents.append([chrom, start, end, strand, tname, closest_fan, distance_fan[midx_fan], closest_ucsc, distance_ucsc[midx_ucsc]])
-        df_res = pd.DataFrame(contents, columns=['chrom', 'start', 'end', 'strand', 'tname', 'closest_fan', 'distance_fan', 'closest_ucsc', 'distance_ucsc'])
-        df_res.to_excel(os.path.join(self.root, 'database', 'tss_comparison.xlsx'), index=None)
+        out_path = os.path.join(self.__class__.__name__ + '.xlsx')
+        writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
+        df_ref.loc[corr_idx].to_excel(writer, sheet_name='corresponding')
+        df_ref.loc[non_corr_idx].to_excel(writer, sheet_name='non-corresponding')
+        writer.save()
+        writer.close()
 
     def plot_distance_histogram(self):
         import matplotlib.pyplot as plt
@@ -114,4 +109,4 @@ class Comparison:
 
 if __name__ == '__main__':
     comp = Comparison()
-    comp.plot_distance_histogram()
+    comp.run()

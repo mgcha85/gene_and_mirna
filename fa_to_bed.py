@@ -71,16 +71,14 @@ class fa2bed:
 
     def bam_to_gtf(self, bam_file, to_db=True):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
-        current_dir = os.getcwd()
-
-        os.chdir(string_tie_root)
 
         print('bam to gtf...')
         dirname, fname = os.path.split(bam_file)
         fname = os.path.splitext(fname)[0] + '.gtf'
         gtf_file = os.path.join(dirname, fname)
 
-        command = './stringtie -p 8 -G genes.gtf -o {} {}'.format(gtf_file, bam_file)
+        command = '{str_root}/./stringtie -p 8 -G {str_root}/genes.gtf -o {gtf} {bam}'.format(str_root=string_tie_root,
+                                                                                        gtf=gtf_file, bam=bam_file)
         print(command)
         self.command_exe(command)
 
@@ -98,7 +96,6 @@ class fa2bed:
                     df_sub.to_sql(os.path.splitext(fname)[0], con, if_exists='append', index=None)
 
         os.remove(gtf_file)
-        os.chdir(current_dir)
         print('done with bam to gtf')
 
     def sam_to_bed(self, sam_file, to_db=True, remove=True):
