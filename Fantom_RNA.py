@@ -84,7 +84,7 @@ class Fantom_RNA:
         con_rna = sqlite3.connect(fpath)
 
         if idx % 1000 == 0 or idx + 1 == df.shape[0]:
-            print('{:,d} / {:,d}'.format(idx + 1, df.shape[0]))
+            print('{:0.2f}%'.format(100 * (idx + 1) / df.shape[0]))
 
         chromosome = df.loc[idx, 'chromosome']
         start = df.loc[idx, 'start']
@@ -135,7 +135,7 @@ class Fantom_RNA:
             if df.shape[1] <= 5:
                 continue
 
-            fpkm = np.zeros(df.shape[0])
+            # fpkm = np.zeros(df.shape[0])
             # for idx in df.index:
             #     fpkm[idx] = self.processInput(df, tissue, idx)
             df['FPKM'] = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df, tissue, idx) for idx in df.index)

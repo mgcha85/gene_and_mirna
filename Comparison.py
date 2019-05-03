@@ -34,12 +34,12 @@ class Comparison:
         if chromosome not in df_ens_grp:
             return
         df_ens_chr = df_ens_grp.get_group(chromosome)
-        df_ens_chr_str = df_ens_chr[df_ens_chr['Strand'] == strand]
+        df_ens_chr_str = df_ens_chr[df_ens_chr['strand'] == strand]
 
         if strand == '+':
-            src_tss = df_ens_chr_str['Transcript start (bp)']
+            src_tss = df_ens_chr_str['start']
         else:
-            src_tss = df_ens_chr_str['Transcript end (bp)']
+            src_tss = df_ens_chr_str['end']
 
         df_ens_chr_str_corr = df_ens_chr_str[(src_tss - ref_tss).abs() < 100]
         if not df_ens_chr_str_corr.empty:
@@ -58,29 +58,37 @@ class Comparison:
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
         con = sqlite3.connect(fpath)
         df_ens = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+
         df_ens_grp = df_ens.groupby('Chromosome/scaffold name')
+        df_ens_grp = df_ens_grp.rename(columns={'Strand': 'strand', 'Transcript start (bp)': 'start',
+                                                'Transcript end (bp)': 'end'})
 
-        # fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
-        # df_ucsc = pd.read_csv(fpath, sep='\t', names=self.gtf_columns)
-        # df_ucsc_grp = df_ucsc.groupby('chromosome')
-        #
-        # fpath = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.bed')
-        # df_fan = pd.read_csv(fpath, sep='\t', names=self.bed_columns)
-        # df_fan_grp = df_fan.groupby('chromosome')
+        fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
+        df_ucsc = pd.read_csv(fpath, sep='\t', names=self.gtf_columns)
+        df_ucsc_grp = df_ucsc.groupby('chromosome')
 
-        num_cores = multiprocessing.cpu_count()
-        results = Parallel(n_jobs=num_cores)(delayed(self.processInput)(idx) for idx in df_ref.index)
+        fpath = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.bed')
+        df_fan = pd.read_csv(fpath, sep='\t', names=self.bed_columns)
+        df_fan_grp = df_fan.groupby('chromosome')
 
-        corr_idx = []
-        non_corr_idx = []
-        for res in results:
-            if res is None:
-                continue
+        dfs_rsc = {'Ensembl': df_ens_grp, 'UCSC': df_ucsc_grp, 'FANTOM': df_fan_grp}
 
-            if res[0] is not None:
-                corr_idx.append(res[0])
-            else:
-                non_corr_idx.append(res[0])
+        num_cores = multiprocessing.cpu_count() // 2
+
+        for key, df_rsc in dfs_rsc.items():
+            print(key)
+            results = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df_ref, idx, df_rsc) for idx in df_ref.index)
+
+            corr_idx = []
+            non_corr_idx = []
+            for res in results:
+                if res is None:
+                    continue
+
+                if res[0] is not None:
+                    corr_idx.append(res[0])
+                else:
+                    non_corr_idx.append(res[0])
         #
         # for idx in df_ref.index:
         #     if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
@@ -110,10 +118,12 @@ class Comparison:
         #     else:
         #         non_corr_idx.append(idx)
 
-        out_path = os.path.join(self.__class__.__name__ + '.xlsx')
+            df_ref.loc[corr_idx, '<100bp ({})'.format(key)] = 'O'
+            df_ref.loc[non_corr_idx, '<100bp ({})'.format(key)] = 'X'
+
+        out_path = os.path.join('{}_{}.xlsx'.format(self.__class__.__name__, key))
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
-        df_ref.loc[corr_idx].to_excel(writer, sheet_name='corresponding')
-        df_ref.loc[non_corr_idx].to_excel(writer, sheet_name='non-corresponding')
+        df_ref.to_excel(writer, sheet_name='corresponding')
         writer.save()
         writer.close()
 
