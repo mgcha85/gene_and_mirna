@@ -31,7 +31,7 @@ class Comparison:
         else:
             ref_tss = df_ref.loc[idx, 'end']
 
-        if chromosome not in df_ens_grp:
+        if chromosome not in df_ens_grp.groups:
             return
         df_ens_chr = df_ens_grp.get_group(chromosome)
         df_ens_chr_str = df_ens_chr[df_ens_chr['strand'] == strand]
@@ -62,6 +62,10 @@ class Comparison:
 
         df_ens = df_ens.rename(columns={'Chromosome/scaffold name': 'chromosome', 'Strand': 'strand',
                                         'Transcript start (bp)': 'start', 'Transcript end (bp)': 'end'})
+        pstr = df_ens[df_ens['strand'] > 0].index
+        nstr = df_ens[df_ens['strand'] < 0].index
+        df_ens.loc[pstr, 'strand'] = '+'
+        df_ens.loc[nstr, 'strand'] = '-'
         df_ens_grp = df_ens.groupby('chromosome')
 
         fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
@@ -89,7 +93,7 @@ class Comparison:
                 if res[0] is not None:
                     corr_idx.append(res[0])
                 else:
-                    non_corr_idx.append(res[0])
+                    non_corr_idx.append(res[1])
         #
         # for idx in df_ref.index:
         #     if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
@@ -122,9 +126,9 @@ class Comparison:
             df_ref.loc[corr_idx, '<100bp ({})'.format(key)] = 'O'
             df_ref.loc[non_corr_idx, '<100bp ({})'.format(key)] = 'X'
 
-        out_path = os.path.join('{}_{}.xlsx'.format(self.__class__.__name__, key))
+        out_path = os.path.join('{}.xlsx'.format(self.__class__.__name__))
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
-        df_ref.to_excel(writer, sheet_name='corresponding')
+        df_ref.to_excel(writer, sheet_name='corresponding', index=None)
         writer.save()
         writer.close()
 
