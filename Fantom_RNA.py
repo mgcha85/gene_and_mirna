@@ -116,8 +116,11 @@ class Fantom_RNA:
 
     def run(self):
         from Database import Database
-        # from joblib import Parallel, delayed
+        from joblib import Parallel, delayed
+        import multiprocessing
         # num_cores = 6
+        num_cores = multiprocessing.cpu_count() // 2
+        print('num_cores: {}'.format(num_cores))
 
         fpath_out = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.out.db')
         con_out = sqlite3.connect(fpath_out)
@@ -133,13 +136,12 @@ class Fantom_RNA:
                 continue
 
             fpkm = np.zeros(df.shape[0])
-            for idx in df.index:
-                fpkm[idx] = self.processInput(df, tissue, idx)
-            # df['FPKM'] = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df, tissue, idx) for idx in df.index)
-            df['FPKM'] = fpkm
+            # for idx in df.index:
+            #     fpkm[idx] = self.processInput(df, tissue, idx)
+            df['FPKM'] = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df, tissue, idx) for idx in df.index)
             df.to_sql(tissue, con_out, index=None, if_exists='replace')
 
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.check_empty()
+    fr.run()

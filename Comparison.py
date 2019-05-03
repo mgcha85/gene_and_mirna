@@ -19,7 +19,38 @@ class Comparison:
         self.bed_columns = ['chromosome', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'rgb']
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
+    def processInput(self, df_ref, idx, df_ens_grp):
+        if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
+            print('{:0.2f}%'.format((100 * idx + 1) / df_ref.shape[0]))
+
+        chromosome = df_ref.loc[idx, 'chromosome']
+        strand = df_ref.loc[idx, 'strand']
+
+        if strand == '+':
+            ref_tss = df_ref.loc[idx, 'start']
+        else:
+            ref_tss = df_ref.loc[idx, 'end']
+
+        if chromosome not in df_ens_grp:
+            return
+        df_ens_chr = df_ens_grp.get_group(chromosome)
+        df_ens_chr_str = df_ens_chr[df_ens_chr['Strand'] == strand]
+
+        if strand == '+':
+            src_tss = df_ens_chr_str['Transcript start (bp)']
+        else:
+            src_tss = df_ens_chr_str['Transcript end (bp)']
+
+        df_ens_chr_str_corr = df_ens_chr_str[(src_tss - ref_tss).abs() < 100]
+        if not df_ens_chr_str_corr.empty:
+            return idx, None
+        else:
+            return None, idx
+
     def run(self):
+        from joblib import Parallel, delayed
+        import multiprocessing
+
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
         ref_con = sqlite3.connect(ref_path)
         df_ref = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format('gencode.v30lift37'), ref_con)
@@ -37,33 +68,47 @@ class Comparison:
         # df_fan = pd.read_csv(fpath, sep='\t', names=self.bed_columns)
         # df_fan_grp = df_fan.groupby('chromosome')
 
+        num_cores = multiprocessing.cpu_count()
+        results = Parallel(n_jobs=num_cores)(delayed(self.processInput)(idx) for idx in df_ref.index)
+
         corr_idx = []
         non_corr_idx = []
-        for idx in df_ref.index:
-            if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
-                print('{:0.2f}%'.format((100 * idx + 1) / df_ref.shape[0]))
+        for res in results:
+            if res is None:
+                continue
 
-            chromosome = df_ref.loc[idx, 'chromosome']
-            strand = df_ref.loc[idx, 'strand']
-            
-            if strand == '+':
-                ref_tss = df_ref.loc[idx, 'start']
+            if res[0] is not None:
+                corr_idx.append(res[0])
             else:
-                ref_tss = df_ref.loc[idx, 'end']
-
-            df_ens_chr = df_ens_grp.get_group(chromosome)
-            df_ens_chr_str = df_ens_chr[df_ens_chr['Strand'] == strand]
-
-            if strand == '+':
-                src_tss = df_ens_chr_str['Transcript start (bp)']
-            else:
-                src_tss = df_ens_chr_str['Transcript end (bp)']
-
-            df_ens_chr_str_corr = df_ens_chr_str[(src_tss - ref_tss).abs() < 100]
-            if not df_ens_chr_str_corr.empty:
-                corr_idx.append(idx)
-            else:
-                non_corr_idx.append(idx)
+                non_corr_idx.append(res[0])
+        #
+        # for idx in df_ref.index:
+        #     if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
+        #         print('{:0.2f}%'.format((100 * idx + 1) / df_ref.shape[0]))
+        #
+        #     chromosome = df_ref.loc[idx, 'chromosome']
+        #     strand = df_ref.loc[idx, 'strand']
+        #
+        #     if strand == '+':
+        #         ref_tss = df_ref.loc[idx, 'start']
+        #     else:
+        #         ref_tss = df_ref.loc[idx, 'end']
+        #
+        #     if chromosome not in df_ens_grp:
+        #         continue
+        #     df_ens_chr = df_ens_grp.get_group(chromosome)
+        #     df_ens_chr_str = df_ens_chr[df_ens_chr['Strand'] == strand]
+        #
+        #     if strand == '+':
+        #         src_tss = df_ens_chr_str['Transcript start (bp)']
+        #     else:
+        #         src_tss = df_ens_chr_str['Transcript end (bp)']
+        #
+        #     df_ens_chr_str_corr = df_ens_chr_str[(src_tss - ref_tss).abs() < 100]
+        #     if not df_ens_chr_str_corr.empty:
+        #         corr_idx.append(idx)
+        #     else:
+        #         non_corr_idx.append(idx)
 
         out_path = os.path.join(self.__class__.__name__ + '.xlsx')
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')

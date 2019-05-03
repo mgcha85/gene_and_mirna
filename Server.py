@@ -57,7 +57,7 @@ class Server:
         src_root = os.path.join(self.server, 'source/gene_and_mirna')
         self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))
 
-        for i in range(9):
+        for i in range(1):
             dirname = self.rna_dir.format(i + 1)
             stdin, stdout, stderr = self.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(dirname, src_root))
             job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
