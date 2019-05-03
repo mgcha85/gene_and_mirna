@@ -59,9 +59,9 @@ class Comparison:
         con = sqlite3.connect(fpath)
         df_ens = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
 
-        df_ens_grp = df_ens.groupby('Chromosome/scaffold name')
-        df_ens_grp = df_ens_grp.rename(columns={'Strand': 'strand', 'Transcript start (bp)': 'start',
-                                                'Transcript end (bp)': 'end'})
+        df_ens = df_ens.rename(columns={'Chromosome/scaffold name': 'chromosome', 'Strand': 'strand',
+                                        'Transcript start (bp)': 'start', 'Transcript end (bp)': 'end'})
+        df_ens_grp = df_ens.groupby('chromosome')
 
         fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
         df_ucsc = pd.read_csv(fpath, sep='\t', names=self.gtf_columns)
@@ -73,7 +73,7 @@ class Comparison:
 
         dfs_rsc = {'Ensembl': df_ens_grp, 'UCSC': df_ucsc_grp, 'FANTOM': df_fan_grp}
 
-        num_cores = multiprocessing.cpu_count() // 2
+        num_cores = multiprocessing.cpu_count() - 1
 
         for key, df_rsc in dfs_rsc.items():
             print(key)
