@@ -19,30 +19,28 @@ class Comparison:
         self.bed_columns = ['chromosome', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'rgb']
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
-    def processInput(self, df_ref, idx, df_ens_grp):
+    def processInput(self, df_ref, idx, fpath_rsc):
         if idx % 1000 == 0 or idx + 1 == df_ref.shape[0]:
             print('{:0.2f}%'.format(100 * (idx + 1) / df_ref.shape[0]))
 
         chromosome = df_ref.loc[idx, 'chromosome']
         strand = df_ref.loc[idx, 'strand']
 
+        fpath, tname = fpath_rsc
+        con = sqlite3.connect(fpath)
         if strand == '+':
             ref_tss = df_ref.loc[idx, 'start']
+            rsc_tss = 'start'
         else:
             ref_tss = df_ref.loc[idx, 'end']
+            rsc_tss = 'end'
 
-        if chromosome not in df_ens_grp.groups:
-            return
-        df_ens_chr = df_ens_grp.get_group(chromosome)
-        df_ens_chr_str = df_ens_chr[df_ens_chr['strand'] == strand]
+        ref_start = ref_tss - 100
+        ref_end = ref_tss + 100
+        df_rsc = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand ='{}' AND {} BETWEEN {} AND "
+                               "{}".format(tname, chromosome, strand, rsc_tss, ref_start, ref_end), con)
 
-        if strand == '+':
-            src_tss = df_ens_chr_str['start']
-        else:
-            src_tss = df_ens_chr_str['end']
-
-        df_ens_chr_str_corr = df_ens_chr_str[(src_tss - ref_tss).abs() < 100]
-        if not df_ens_chr_str_corr.empty:
+        if not df_rsc.empty:
             return idx, None
         else:
             return None, idx
@@ -54,35 +52,17 @@ class Comparison:
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
         ref_con = sqlite3.connect(ref_path)
         df_ref = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format('gencode.v30lift37'), ref_con)
-        df_ref = df_ref[:100]
 
-        fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
-        con = sqlite3.connect(fpath)
-        df_ens = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+        fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
+        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.db')
 
-        df_ens = df_ens.rename(columns={'Chromosome/scaffold name': 'chromosome', 'Strand': 'strand',
-                                        'Transcript start (bp)': 'start', 'Transcript end (bp)': 'end'})
-        pstr = df_ens[df_ens['strand'] > 0].index
-        nstr = df_ens[df_ens['strand'] < 0].index
-        df_ens.loc[pstr, 'strand'] = '+'
-        df_ens.loc[nstr, 'strand'] = '-'
-        df_ens_grp = df_ens.groupby('chromosome')
-
-        fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
-        df_ucsc = pd.read_csv(fpath, sep='\t', names=self.gtf_columns)
-        df_ucsc_grp = df_ucsc.groupby('chromosome')
-
-        fpath = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.bed')
-        df_fan = pd.read_csv(fpath, sep='\t', names=self.bed_columns)
-        df_fan_grp = df_fan.groupby('chromosome')
-
-        dfs_rsc = {'Ensembl': df_ens_grp, 'UCSC': df_ucsc_grp, 'FANTOM': df_fan_grp}
+        dfs_rsc = {'Ensembl': (fpath_ens, 'Ensembl'), 'UCSC': (fpath_ucsc, 'genes'), 'FANTOM': (fpath_fan, 'hg19_cage_peak_phase1and2combined_coord')}
 
         num_cores = multiprocessing.cpu_count() - 1
-
-        for key, df_rsc in dfs_rsc.items():
+        for key, fpath_rsc in dfs_rsc.items():
             print(key)
-            results = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df_ref, idx, df_rsc) for idx in df_ref.index)
+            results = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df_ref, idx, fpath_rsc) for idx in df_ref.index)
 
             corr_idx = []
             non_corr_idx = []
