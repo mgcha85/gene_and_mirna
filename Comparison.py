@@ -37,8 +37,8 @@ class Comparison:
 
         ref_start = ref_tss - 100
         ref_end = ref_tss + 100
-        df_rsc = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand ='{}' AND {} BETWEEN {} AND "
-                               "{}".format(tname, chromosome, strand, rsc_tss, ref_start, ref_end), con)
+        df_rsc = pd.read_sql_query("SELECT * FROM '{}_{}_{}' WHERE {} BETWEEN {} AND {}"
+                                   "".format(tname, chromosome, strand, rsc_tss, ref_start, ref_end), con)
 
         if not df_rsc.empty:
             return idx, None
@@ -145,6 +145,20 @@ class Comparison:
         plt.title('Ensembl vs. UCSC')
         plt.grid()
         plt.show()
+
+    def split_table(self):
+        # fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
+        # fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.db')
+
+        tname = 'Fantom'
+        con_out = sqlite3.connect(fpath_fan.replace('.db', '_out.db'))
+        con = sqlite3.connect(fpath_fan)
+        df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+        df_chr = df.groupby('chromosome')
+        for chr, df_sub in df_chr:
+            for strand, df_sub_sub in df_sub.groupby('strand'):
+                df_sub_sub.to_sql('{}_{}_{}'.format(tname, chr, strand), con_out, index=None)
 
 
 if __name__ == '__main__':
