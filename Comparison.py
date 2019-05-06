@@ -148,8 +148,12 @@ class Comparison:
 
     def split_table(self):
         # fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
-        # fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
+        # fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        df = pd.read_csv(fpath_ucsc, sep='\t', names=self.gtf_columns, comment='#')
+        con = sqlite3.connect(fpath_ucsc.replace('.gtf', '.db'))
+        df.to_sql('UCSC', con)
+        exit(1)
         con = sqlite3.connect(fpath_fan)
         df = pd.read_sql_query("SELECT * FROM 'Fantom'", con)
 

@@ -41,7 +41,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
 
-    int tb_num, sidx, eidx, tss, ref_pos;
+    int tb_num, sidx, eidx, tss;
 
     tss = ref_buffer_gpu[idx];
     tb_num = get_table_num(ref_data_lengths_cum_gpu, idx, M);
@@ -75,7 +75,8 @@ class Comparison:
         for i, tname in enumerate(sorted(tlist)):
             _, chromosome, strand = tname.split('_')
             self.chr_str_map['{}_{}'.format(chromosome, strand)] = i
-            df = pd.read_sql_query("SELECT start, end FROM '{}' WHERE feature='transcript'".format(tname), con)
+            df = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con)
+            # df = pd.read_sql_query("SELECT start, end FROM '{}' WHERE feature='transcript'".format(tname), con)
             if strand == '+':
                 df['tss'] = df['start']
             else:
@@ -139,7 +140,7 @@ class Comparison:
     def to_output(self, con_ref, out_data, data_lengths_cum, key):
         tlist = Database.load_tableList(con_ref)
         for i, tname in enumerate(sorted(tlist)):
-            df = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format(tname), con_ref)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_ref)
             sidx = data_lengths_cum[i]
             eidx = data_lengths_cum[i + 1]
 
@@ -147,27 +148,59 @@ class Comparison:
             df[key] = out_data[sidx: eidx, 1]
             df.to_sql(tname, con_ref, if_exists='replace', index=None)
 
+    def extract_attribute(self):
+        fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
+        con = sqlite3.connect(fpath)
+
+        fpath_out = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')
+        con_out = sqlite3.connect(fpath_out)
+
+        tlist = Database.load_tableList(con)
+        index = []
+        additional = []
+        for tname in tlist:
+            print(tname)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            attribute = df['attribute'].str.split('; ')
+            for idx in attribute.index:
+                attr = attribute.loc[idx]
+                gene_id = attr[0].split(' ')[1].replace('"', '')
+                transcript_id = attr[1].split(' ')[1].replace('"', '')
+                gene_name = attr[3].split(' ')[1].replace('"', '')
+                transcript_type = attr[4].split(' ')[1].replace('"', '')
+                transcript_name = attr[5].split(' ')[1].replace('"', '')
+                if transcript_type == 'protein_coding':
+                    index.append(idx)
+                    additional.append([gene_id, transcript_id, gene_name, transcript_name])
+
+            df_add = pd.DataFrame(data=additional, columns=['gene_id', 'transcript_id', 'gene_name', 'transcript_name'])
+            df = df.loc[index].reset_index(drop=True)
+            df = pd.concat([df, df_add], axis=1)
+            df.to_sql(tname, con_out, if_exists='replace', index=None)
+
     def run(self):
-        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
+        ref_path = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        # ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
         con_ref = sqlite3.connect(ref_path)
 
         fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
         fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        fpath_fan = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
 
         con_ens = sqlite3.connect(fpath_ens)
         con_ucsc = sqlite3.connect(fpath_ucsc)
         con_fan = sqlite3.connect(fpath_fan)
 
         ref_buffer, ref_data_lengths_cum = self.set_ref_data(con_ref)
-        for key, con_res in zip(['ENS', 'UCSC', 'FANTOM'], [con_ens, con_ucsc, con_fan]):
-            print(key)
+        for key, con_res in zip(['ENS', 'UCSC', 'GENCODE'], [con_ens, con_ucsc, con_fan]):
             res_buffer, res_data_lengths_cum = self.set_data(con_res)
+            print(key, res_data_lengths_cum[-1])
             out_data = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
             self.to_output(con_ref, out_data, ref_data_lengths_cum, key)
 
     def stats(self):
-        fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        # fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -176,15 +209,16 @@ class Comparison:
             dfs.append(pd.read_sql_query("SELECT * FROM '{}'".format(tname), con))
         df_res = pd.concat(dfs)
 
-        stats = {'ENS': 0, 'UCSC': 0, 'FANTOM': 0}
+        stats = {'ENS': 0, 'UCSC': 0, 'GENCODE': 0}
         tot = df_res.shape[0]
         for col, _ in stats.items():
             npos = df_res[df_res[col] > 0].shape[0]
+            print(npos, tot)
             stats[col] = 100 * npos / tot
         print(stats)
 
 
 if __name__ == '__main__':
     comp = Comparison()
-    comp.run()
-    comp.stats()
+    comp.extract_attribute()
+    # comp.stats()

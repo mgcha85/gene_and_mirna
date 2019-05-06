@@ -93,7 +93,7 @@ class Fantom_RNA:
         end = df.loc[idx, 'end']
         strand = df.loc[idx, 'strand']
 
-        df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} "
+        df_rna = pd.read_sql_query("SELECT * FROM '{}_4a' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} "
                                    "AND NOT stop<{start}".format(tissue, chromosome, strand, start=start, end=end),
                                    con_rna)
         return self.rpkm(df.loc[idx], df_rna)
@@ -144,4 +144,4 @@ class Fantom_RNA:
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.merge_db()
+    fr.run()
