@@ -14,11 +14,12 @@ mod = SourceModule("""
 enum{TABLE_NUM, RPKM, OUT_WIDTH};
 enum{START, END, WIDTH};
 
-__device__ int get_rpkm(int *res_buffer, const int ref_start, const int ref_end, const int N)
+__device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_end, const int N, const int idx)
 {
-    int cnt=0, rpkm=0;
+    int cnt=0;
     int res_start, res_end;
     int length = ref_end - ref_start;
+    float rpkm = 0.0;
     
     for(int i=0; i<N; i++) {
         res_start = res_buffer[i * WIDTH + START];      
@@ -32,13 +33,13 @@ __device__ int get_rpkm(int *res_buffer, const int ref_start, const int ref_end,
 
 __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
 {
-    for(int i=0; i<N; i++) {  
+    for(int i=0; i<N-1; i++) {  
         if(ref_data_lengths_cum_gpu[i] <= idx && ref_data_lengths_cum_gpu[i+1] > idx) return i;
     }
     return N;
 }
 
-__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, int *out_buffer_gpu, const int N, const int M)
+__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, float *out_buffer_gpu, const int N, const int M)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -53,9 +54,9 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     
     sidx = res_data_lengths_cum_gpu[tb_num];
     eidx = res_data_lengths_cum_gpu[tb_num + 1];
-
+    
     out_buffer_gpu[idx * OUT_WIDTH + TABLE_NUM] = tb_num;
-    out_buffer_gpu[idx * OUT_WIDTH + RPKM] = get_rpkm(&res_buffer_gpu[sidx * WIDTH], ref_start, ref_end, idx, eidx - sidx);
+    out_buffer_gpu[idx * OUT_WIDTH + RPKM] = get_rpkm(&res_buffer_gpu[sidx * WIDTH], ref_start, ref_end, eidx - sidx, idx);
 
 }""")
 
@@ -104,22 +105,30 @@ class Fantom_RNA:
         print(remains)
 
     def split_table(self, df):
+        df_sorted = []
         dfs = []
+        data_length = []
         df_chr = df.groupby('chromosome')
-        for chr, df_sub in sorted(df_chr):
-            for str, df_sub_sub in sorted(df_sub.groupby('strand')):
+        chromosomes = sorted(df_chr.groups)
+        for chr in chromosomes:
+            if len(chr) > 5:
+                continue
+            df_sub = df_chr.get_group(chr)
+            df_sub_str = df_sub.groupby('strand')
+            strands = sorted(df_sub_str.groups)
+            for str in strands:
+                df_sub_sub = df_sub_str.get_group(str)
                 dfs.append(df_sub_sub[['start', 'end']].values.flatten().astype(np.int32))
-        return dfs
+                data_length.append(df_sub_sub.shape[0])
+                df_sorted.append(df_sub_sub)
+        return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
 
-    def set_data(self, dfs):
-        data_length = np.zeros(len(dfs)).astype(np.int32)
-        for i, df in enumerate(dfs):
-            data_length[i] = df.shape[0]
+    def set_data(self, dfs, data_length):
         dfs = np.concatenate(dfs)
-
+        data_length = np.array(data_length)
         data_length_cum = np.zeros(data_length.shape[0] + 1)
         data_length_cum[1:] = data_length.cumsum()
-        return dfs, data_length_cum
+        return dfs, data_length_cum.astype(np.int32)
 
     def to_gpu(self, dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, N):
         THREADS_PER_BLOCK = 1 << 10
@@ -136,10 +145,10 @@ class Fantom_RNA:
         res_data_lengths_cum_gpu = cuda.mem_alloc(data_length_cum_src.nbytes)
         cuda.memcpy_htod(res_data_lengths_cum_gpu, data_length_cum_src)
 
-        M = np.int32(data_length_cum_src.shape[0])
+        M = np.int32(data_length_cum_ref.shape[0])
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        out_buffer = np.zeros((N, 2)).flatten().astype(np.int32)
+        out_buffer = np.zeros((N, 2)).flatten().astype(np.float32)
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
         func = mod.get_function("cuda_scanner")
@@ -159,22 +168,27 @@ class Fantom_RNA:
 
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
         con_rna = sqlite3.connect(fpath)
+        tissues_src = Database.load_tableList(con_rna)
 
         for tissue in tissues:
-            print(tissue)
             df = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
             if df.shape[1] <= 5:
                 continue
-            dfs = self.split_table(df)
-            dfs_ref, data_length_cum_ref = self.set_data(dfs)
+            dfs, data_length, df_sorted = self.split_table(df)
+            dfs_ref, data_length_cum_ref = self.set_data(dfs, data_length)
 
-            df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con_rna)
-            dfs_rna = self.split_table(df_rna)
-            dfs_rna, data_length_cum_src = self.set_data(dfs_rna)
+            tsrc = [x for x in tissues_src if tissue in x]
+            for t in tsrc:
+                df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(t), con_rna)
+                df_rna = df_rna.rename(columns={'stop': 'end'})
+                df_rna = df_rna[df_rna['strand'] != '.']
+                dfs_rna, data_length_rna, df_sorted_rna = self.split_table(df_rna)
+                dfs_rna, data_length_cum_src = self.set_data(dfs_rna, data_length_rna)
 
-            df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, df.shape[0])
-            df = pd.concat([df, df_out], axis=1)
-            df.to_sql(tissue, con_out, if_exists='replace', index=None)
+                df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, np.int32(df.shape[0]))
+                df_out = pd.concat([df_sorted, df_out], axis=1)
+                df_out.to_sql(t, con_out, if_exists='replace', index=None)
+                print('{} is done'.format(t))
 
 
 if __name__ == '__main__':

@@ -11,20 +11,26 @@ from Database import Database
 mod = SourceModule("""
 #include <stdio.h>
 enum{TABLE_NUM, RESULT, OUT_WIDTH};
+enum{START, END, WIDTH};
 
 __device__ int search(int *ref_buffer, const int ref_tss, const int idx, const int N)
 {
-    int res_tss;
+    int ref_start = ref_tss - 100;
+    int ref_end = ref_tss + 100;
+    int res_start, res_end;
+    
     for(int i=0; i<N; i++) {
-        res_tss = ref_buffer[i];        
-        if(res_tss >= ref_tss - 100 && res_tss <= ref_tss + 100)    return 1;
+        res_start = ref_buffer[i * WIDTH + START];
+        res_end = ref_buffer[i * WIDTH + END];
+        if(ref_start > res_end || ref_end < res_start)  continue;
+        else    return 1;        
     }
     return 0;
 }
 
 __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
 {
-    for(int i=0; i<N; i++) {  
+    for(int i=0; i<N-1; i++) {  
         if(ref_data_lengths_cum_gpu[i] <= idx && ref_data_lengths_cum_gpu[i+1] > idx) return i;
     }
     return N;
@@ -43,7 +49,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     eidx = res_data_lengths_cum_gpu[tb_num + 1];
     
     out_buffer_gpu[idx * OUT_WIDTH + TABLE_NUM] = tb_num;
-    out_buffer_gpu[idx * OUT_WIDTH + RESULT] = search(&res_buffer_gpu[sidx], tss, idx, eidx - sidx);
+    out_buffer_gpu[idx * OUT_WIDTH + RESULT] = search(&res_buffer_gpu[sidx * WIDTH], tss, idx, eidx - sidx);
     
 }""")
 
@@ -89,12 +95,8 @@ class Comparison:
         data_lengths = []
         for i, tname in enumerate(sorted(tlist)):
             _, chromosome, strand = tname.split('_')
-            if strand == '+':
-                cname = 'start'
-            else:
-                cname = 'end'
-            df = pd.read_sql_query("SELECT {} FROM '{}'".format(cname, tname), con)
-            buffer.append(df.values.astype(np.int32))
+            df = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con)
+            buffer.append(df.values.flatten().astype(np.int32))
             data_lengths.append(df.shape[0])
 
         data_lengths = np.array(data_lengths)

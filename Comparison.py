@@ -151,9 +151,9 @@ class Comparison:
         # fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
         fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
         con = sqlite3.connect(fpath_fan)
-        df = pd.read_sql_query("SELECT * FROM 'Fantom_count'", con)
+        df = pd.read_sql_query("SELECT * FROM 'Fantom'", con)
 
-        tname = 'Fantom_count'
+        tname = 'Fantom'
         con_out = sqlite3.connect(fpath_fan.replace('.db', '_out.db'))
         # con = sqlite3.connect(fpath_ucsc)
         # df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
