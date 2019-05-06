@@ -43,15 +43,17 @@ class Fantom_RNA:
                     columns.append(col)
             df[columns].to_sql(tissue, con, if_exists='replace', index=None)
 
-    def tpm(self, df):
-        print('do something')
-
-    def fpkm(self, df_gene, df_rna):
-        if df_rna.empty:
-            return 0
+    def tpm(self, df_gene, df_rna):
         length = abs(df_gene['start'] - df_gene['end'])
         N = df_rna.shape[0]
-        return N / length * 1e6
+        rpk = N / length
+        return rpk / 1e6
+
+    def rpkm(self, df_gene, df_rna):
+        length = abs(df_gene['start'] - df_gene['end'])
+        N = df_rna.shape[0]
+        rpm = N / 1e6
+        return rpm / length
 
     def merge_db(self):
         df = pd.read_csv("E-MTAB-1733.csv")
@@ -72,7 +74,7 @@ class Fantom_RNA:
         for i, fname in enumerate(flist):
             print('{} / {}'.format(i + 1, N))
             fid = os.path.splitext(fname)[0]
-            tissue = df.loc[fid, 'src'].split('_')[0]
+            tissue = df.loc[fid, 'src']
             fpath = os.path.join(dirname, fname)
 
             con = sqlite3.connect(fpath)
@@ -94,7 +96,7 @@ class Fantom_RNA:
         df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} "
                                    "AND NOT stop<{start}".format(tissue, chromosome, strand, start=start, end=end),
                                    con_rna)
-        return self.fpkm(df.loc[idx], df_rna)
+        return self.rpkm(df.loc[idx], df_rna)
 
     def check_empty(self):
         df = pd.read_csv('E-MTAB-1733.csv')
@@ -135,13 +137,11 @@ class Fantom_RNA:
             if df.shape[1] <= 5:
                 continue
 
-            # fpkm = np.zeros(df.shape[0])
-            # for idx in df.index:
-            #     fpkm[idx] = self.processInput(df, tissue, idx)
-            df['FPKM'] = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df, tissue, idx) for idx in df.index)
+            df['RPKM'] = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df, tissue, idx) for idx in df.index)
             df.to_sql(tissue, con_out, index=None, if_exists='replace')
+            break
 
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.run()
+    fr.merge_db()
