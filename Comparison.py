@@ -148,13 +148,13 @@ class Comparison:
 
     def split_table(self):
         # fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
-        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
-        # fpath_fan = os.path.join(self.root, 'database/gencode/gencode.v30lift37.annotation.db')
-        df = pd.read_csv(fpath_ucsc, names=self.gtf_columns, sep='\t', comment='#')
-        df['chromosome'] = 'chr' + df['chromosome'].astype(str)
+        # fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        con = sqlite3.connect(fpath_fan)
+        df = pd.read_sql_query("SELECT * FROM 'Fantom_count'", con)
 
-        tname = 'gencode.v30lift37'
-        con_out = sqlite3.connect(fpath_ucsc.replace('.gtf', '_out.db'))
+        tname = 'Fantom_count'
+        con_out = sqlite3.connect(fpath_fan.replace('.db', '_out.db'))
         # con = sqlite3.connect(fpath_ucsc)
         # df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
         df_chr = df.groupby('chromosome')

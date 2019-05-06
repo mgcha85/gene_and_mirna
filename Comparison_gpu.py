@@ -151,7 +151,7 @@ class Comparison:
 
         fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
         fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/hg19.cage_peak_phase1and2combined_coord.db')
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
 
         con_ens = sqlite3.connect(fpath_ens)
         con_ucsc = sqlite3.connect(fpath_ucsc)
@@ -184,4 +184,5 @@ class Comparison:
 
 if __name__ == '__main__':
     comp = Comparison()
+    comp.run()
     comp.stats()

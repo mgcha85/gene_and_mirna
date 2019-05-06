@@ -12,3 +12,5 @@ pyBigWig
 bs4
 lxml
 paramiko
+xlsxwriter
+pycuda
