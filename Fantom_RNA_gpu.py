@@ -123,6 +123,119 @@ class Fantom_RNA:
                 df_sorted.append(df_sub_sub)
         return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
 
+    def extract_tags_by_tissue(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.tissues.db')
+        con = sqlite3.connect(fpath)
+        con_out = sqlite3.connect(fpath.replace('.db', '_out.db'))
+
+        tlist = Database.load_tableList(con)
+        dfs = []
+        for tname in tlist:
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            if df.empty:
+                continue
+            df.loc[:, 'tissue'] = tname
+            dfs.append(df)
+
+        df_con = pd.concat(dfs)
+        df_con['location'] = df_con['chromosome'] + ';' + df_con['start'].astype('str') + ';' + df_con['end'].astype('str') + ';' + df_con['strand']
+        df_con_grp = df_con.groupby('location')
+
+        result = []
+        N = len(df_con_grp)
+        for i, (group, df_sub) in enumerate(df_con_grp):
+            if i % 1000 == 0 or i + 1 == N:
+                print('{:0.2f}%'.format(100 * (i + 1) / N))
+
+            tissues = ';'.join(df_sub['tissue'])
+            result.append([*group.split(';'), tissues])
+
+        df_res = pd.DataFrame(data=result, columns=['chromosome', 'start', 'end', 'strand', 'tissues'])
+        df_res_chr = df_res.groupby('chromosome')
+        for chr, df_sub in df_res_chr:
+            df_sub_str = df_sub.groupby('strand')
+            for str, df_sub_sub in df_sub_str:
+                df_sub_sub = df_sub_sub.drop(['chromosome', 'strand'], axis=1)
+                df_sub_sub[['start', 'end']] = df_sub_sub[['start', 'end']].astype(int)
+                df_sub_sub.sort_values('start').to_sql('FANTOM_{}_{}'.format(chr, str), con_out, if_exists='replace', index=None)
+
+    def split_by_tissue(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.fantom_cross_check_ucsc_ensembl_gencode.db')
+        con = sqlite3.connect(fpath)
+        con_out = sqlite3.connect(fpath.replace('.db', '_out.db'))
+
+        fpath_tis = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.tissues_out.db')
+        con_tis = sqlite3.connect(fpath_tis)
+
+        tlist = Database.load_tableList(con)
+        for tname in tlist:
+            print(tname)
+            _, chromosome, strand = tname.split('_')
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df_tis = pd.read_sql_query("SELECT * FROM 'FANTOM_{}_{}'".format(chromosome, strand), con_tis)
+            df_tis.index = df_tis['start'].astype(str) + ';' + df_tis['end'].astype(str)
+
+            tissues = []
+            for idx in df.index:
+                start = df.loc[idx, 'fan_start']
+                end = df.loc[idx, 'fan_end']
+                key = '{};{}'.format(start, end)
+                if key in df_tis.index:
+                    tissues.append(df_tis.loc[key, 'tissues'])
+                else:
+                    tissues.append('')
+
+            df.loc[:, 'tissues'] = tissues
+            df.to_sql(tname, con_out, if_exists='replace', index=None)
+
+    def get_confirmed_fantom(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.fantom_cross_check_ucsc_ensembl_gencode.db')
+        con = sqlite3.connect(fpath)
+        con_out = sqlite3.connect(fpath.replace('.db', '_out.db'))
+        tlist = Database.load_tableList(con)
+
+        for tname in tlist:
+            print(tname)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df_grp = df.groupby('gene_name')
+
+            contents = []
+            for gene, df_sub in df_grp:
+                resources = np.unique(df_sub['resource'].values)
+                df_sub = df_sub.drop_duplicates(subset=['fan_start', 'fan_end'])
+                df_sub = df_sub[['fan_start', 'fan_end', 'tissues', 'gene_name']]
+                df_sub.loc[:, 'resources'] = ';'.join(resources)
+                contents.append(df_sub)
+            df_res = pd.concat(contents)
+            df_res.to_sql(tname, con_out, if_exists='replace', index=None)
+
+    def split_by_tissues(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.fantom_cross_check_ucsc_ensembl_gencode_out.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        for tname in tlist:
+            print(tname)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+
+            result = {}
+            for idx in df.index:
+                tissues = df.loc[idx, 'tissues'].split(';')
+                start = df.loc[idx, 'fan_start']
+                end = df.loc[idx, 'fan_end']
+                resources = df.loc[idx, 'resources']
+
+                for tis in tissues:
+                    if tis not in result:
+                        result[tis] = [[start, end, resources]]
+                    else:
+                        result[tis].append([start, end, resources])
+
+            for tis, contents in result.items():
+                con_out = sqlite3.connect(fpath.replace('.db', '_{}.db'.format(tis)))
+                df_res = pd.DataFrame(data=contents, columns=['start', 'end', 'resources'])
+                df_res.to_sql(tname, con_out, if_exists='replace', index=None)
+
     def set_data(self, dfs, data_length):
         dfs = np.concatenate(dfs)
         data_length = np.array(data_length)
@@ -157,15 +270,6 @@ class Fantom_RNA:
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
         out_buffer = out_buffer.reshape((-1, 2))
         return pd.DataFrame(data=out_buffer, columns=['TABLE_NUM', 'RPKM'])
-
-    def merge_table(self):
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
-        con_out = sqlite3.connect(fpath_fan)
-
-        fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
-        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
-        fpath_fan = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')
-
 
     def run(self):
         fpath_out = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.out.db')
@@ -202,4 +306,5 @@ class Fantom_RNA:
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.run()
+    fr.get_confirmed_fantom()
+    fr.split_by_tissues()
