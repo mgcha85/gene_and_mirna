@@ -151,9 +151,19 @@ class Comparison:
         fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.gtf')
         # fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
         df = pd.read_csv(fpath_ucsc, sep='\t', names=self.gtf_columns, comment='#')
+        df['chromosome'] = 'chr' + df['chromosome'].astype('str')
+        df_chr = df.groupby('chromosome')
+
         con = sqlite3.connect(fpath_ucsc.replace('.gtf', '.db'))
-        df.to_sql('UCSC', con)
+        for chr, df_sub in df_chr:
+            if len(chr) > 5:
+                continue
+            df_sub_str = df_sub.groupby('strand')
+            for str, df_sub_sub in df_sub_str:
+                tname = 'UCSC_{}_{}'.format(chr, str)
+                df_sub_sub.to_sql(tname, con, index=None, if_exists='replace')
         exit(1)
+
         con = sqlite3.connect(fpath_fan)
         df = pd.read_sql_query("SELECT * FROM 'Fantom'", con)
 

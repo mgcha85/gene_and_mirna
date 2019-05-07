@@ -158,6 +158,15 @@ class Fantom_RNA:
         out_buffer = out_buffer.reshape((-1, 2))
         return pd.DataFrame(data=out_buffer, columns=['TABLE_NUM', 'RPKM'])
 
+    def merge_table(self):
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
+        con_out = sqlite3.connect(fpath_fan)
+
+        fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
+        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
+        fpath_fan = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')
+
+
     def run(self):
         fpath_out = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.out.db')
         con_out = sqlite3.connect(fpath_out)

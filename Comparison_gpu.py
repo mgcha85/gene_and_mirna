@@ -183,9 +183,9 @@ class Comparison:
         # ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
         con_ref = sqlite3.connect(ref_path)
 
-        fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19.db')
-        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
-        fpath_fan = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
+        fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
+        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
+        fpath_fan = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')
 
         con_ens = sqlite3.connect(fpath_ens)
         con_ucsc = sqlite3.connect(fpath_ucsc)
@@ -220,5 +220,5 @@ class Comparison:
 
 if __name__ == '__main__':
     comp = Comparison()
-    comp.extract_attribute()
+    comp.run()
     # comp.stats()
