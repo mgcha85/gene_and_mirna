@@ -11,7 +11,7 @@ from Database import Database
 
 mod = SourceModule("""
 #include <stdio.h>
-enum{TABLE_NUM, RPKM, OUT_WIDTH};
+enum{TABLE_NUM, LENGTH, COUNT, OUT_WIDTH};
 enum{START, END, WIDTH};
 
 __device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_end, const int N, const int idx)
@@ -31,6 +31,21 @@ __device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_en
     return rpkm;
 }
 
+__device__ void get_reads_count(int *res_buffer, int* out_buffer_gpu, const int ref_start, const int ref_end, const int N, const int idx)
+{
+    int cnt=0;
+    int res_start, res_end;
+    
+    for(int i=0; i<N; i++) {
+        res_start = res_buffer[i * WIDTH + START];      
+        res_end = res_buffer[i * WIDTH + END];  
+        if(ref_start > res_end || ref_end < res_start)  continue;
+        else                                            cnt++;
+    }
+    out_buffer_gpu[idx * OUT_WIDTH + LENGTH] = ref_end - ref_start;
+    out_buffer_gpu[idx * OUT_WIDTH + COUNT] = cnt;
+}
+
 __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
 {
     for(int i=0; i<N-1; i++) {  
@@ -39,7 +54,7 @@ __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const
     return N;
 }
 
-__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, float *out_buffer_gpu, const int N, const int M)
+__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, int *out_buffer_gpu, const int N, const int M)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -56,7 +71,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     eidx = res_data_lengths_cum_gpu[tb_num + 1];
     
     out_buffer_gpu[idx * OUT_WIDTH + TABLE_NUM] = tb_num;
-    out_buffer_gpu[idx * OUT_WIDTH + RPKM] = get_rpkm(&res_buffer_gpu[sidx * WIDTH], ref_start, ref_end, eidx - sidx, idx);
+    get_reads_count(&res_buffer_gpu[sidx * WIDTH], out_buffer_gpu, ref_start, ref_end, eidx - sidx, idx);
 
 }""")
 
@@ -73,6 +88,7 @@ class Fantom_RNA:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.cells = []
+        self.table_names = {}
 
     def tpm(self, df_gene, df_rna):
         length = abs(df_gene['start'] - df_gene['end'])
@@ -104,12 +120,14 @@ class Fantom_RNA:
         remains = list(set(fid) - set(flist))
         print(remains)
 
-    def split_table(self, df):
+    def split_table_for_ref(self, df, label):
         df_sorted = []
         dfs = []
         data_length = []
         df_chr = df.groupby('chromosome')
         chromosomes = sorted(df_chr.groups)
+
+        cnt = 0
         for chr in chromosomes:
             if len(chr) > 5:
                 continue
@@ -117,11 +135,60 @@ class Fantom_RNA:
             df_sub_str = df_sub.groupby('strand')
             strands = sorted(df_sub_str.groups)
             for str in strands:
+                tname = '{};{}'.format(chr, str)
+                self.table_names[tname] = cnt
+                cnt += 1
                 df_sub_sub = df_sub_str.get_group(str)
-                dfs.append(df_sub_sub[['start', 'end']].values.flatten().astype(np.int32))
+                if str == '+':
+                    dfs.append(df_sub_sub[label[0]].values.flatten().astype(np.int32))
+                else:
+                    dfs.append(df_sub_sub[label[1]].values.flatten().astype(np.int32))
                 data_length.append(df_sub_sub.shape[0])
                 df_sorted.append(df_sub_sub)
         return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
+
+    def split_table_for_res(self, df):
+        df_sorted = []
+        dfs = []
+        data_length = []
+        df_chr = df.groupby('chromosome')
+
+        for tname, tnum in self.table_names.items():
+            chr, str = tname.split(';')
+            if len(chr) > 5:
+                continue
+            df_sub = df_chr.get_group(chr)
+            df_sub_sub = df_sub[df_sub['strand'] == str]
+
+            dfs.append(df_sub_sub[['start', 'end']].values.flatten().astype(np.int32))
+            data_length.append(df_sub_sub.shape[0])
+            df_sorted.append(df_sub_sub)
+        return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
+
+    def merge_table(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        flist = os.listdir(dirname)
+        flist = [x for x in flist if x.endswith('.db')]
+
+        for fname in flist:
+            print(fname)
+            fname_, ext = os.path.splitext(fname)
+            tissue = fname_.split('_')[-1]
+            fpath = os.path.join(dirname, fname)
+            con = sqlite3.connect(fpath)
+
+            out_con = sqlite3.connect(os.path.join(dirname, 'out', 'hg19.final_confirmed_tss_{}.db'.format(tissue)))
+            tlist = Database.load_tableList(con)
+
+            dfs = []
+            for tname in tlist:
+                _, chromosome, strand = tname.split('_')
+                df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                df.loc[:, 'chromosome'] = chromosome
+                df.loc[:, 'strand'] = strand
+                dfs.append(df)
+            df = pd.concat(dfs)
+            df.to_sql(tissue, out_con, index=None, if_exists='replace')
 
     def extract_tags_by_tissue(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.tissues.db')
@@ -211,6 +278,7 @@ class Fantom_RNA:
 
     def split_by_tissues(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.fantom_cross_check_ucsc_ensembl_gencode_out.db')
+        dirname, fname = os.path.split(fpath)
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -224,16 +292,18 @@ class Fantom_RNA:
                 start = df.loc[idx, 'fan_start']
                 end = df.loc[idx, 'fan_end']
                 resources = df.loc[idx, 'resources']
+                gene_name = df.loc[idx, 'gene_name']
 
                 for tis in tissues:
                     if tis not in result:
-                        result[tis] = [[start, end, resources]]
+                        result[tis] = [[start, end, resources, gene_name]]
                     else:
-                        result[tis].append([start, end, resources])
+                        result[tis].append([start, end, resources, gene_name])
 
             for tis, contents in result.items():
-                con_out = sqlite3.connect(fpath.replace('.db', '_{}.db'.format(tis)))
-                df_res = pd.DataFrame(data=contents, columns=['start', 'end', 'resources'])
+                out_path = os.path.join(dirname, 'tissues', fname.replace('_out.db', '_{}.db'.format(tis)))
+                con_out = sqlite3.connect(out_path)
+                df_res = pd.DataFrame(data=contents, columns=['start', 'end', 'resources', 'gene_name'])
                 df_res.to_sql(tname, con_out, if_exists='replace', index=None)
 
     def set_data(self, dfs, data_length):
@@ -245,6 +315,7 @@ class Fantom_RNA:
 
     def to_gpu(self, dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, N):
         THREADS_PER_BLOCK = 1 << 10
+        OUT_WDITH = 3
 
         ref_buffer_gpu = cuda.mem_alloc(dfs_ref.nbytes)
         cuda.memcpy_htod(ref_buffer_gpu, dfs_ref)
@@ -261,23 +332,28 @@ class Fantom_RNA:
         M = np.int32(data_length_cum_ref.shape[0])
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        out_buffer = np.zeros((N, 2)).flatten().astype(np.float32)
+        out_buffer = np.zeros((N, OUT_WDITH)).flatten().astype(np.int32)
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
         func = mod.get_function("cuda_scanner")
         func(ref_buffer_gpu, ref_data_lengths_cum_gpu, res_buffer_gpu, res_data_lengths_cum_gpu, out_buffer_gpu, N, M,
              block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
-        out_buffer = out_buffer.reshape((-1, 2))
-        return pd.DataFrame(data=out_buffer, columns=['TABLE_NUM', 'RPKM'])
+        out_buffer = out_buffer.reshape((-1, OUT_WDITH))
+        return pd.DataFrame(data=out_buffer, columns=['TABLE_NUM', 'LENGTH', 'COUNT'])
+
+    def get_rpkm(self, df):
+        den = df['COUNT'].sum(axis=0) / 1e6
+        rpm = df['COUNT'] / den
+        df.loc[:, 'RPKM'] = rpm / df['LENGTH']
+        return df
 
     def run(self):
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.out.db')
-        con_out = sqlite3.connect(fpath_out)
-
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.tissues.db')
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.tissue.db')
         con = sqlite3.connect(fpath)
         tissues = Database.load_tableList(con)
+
+        con_out = sqlite3.connect(fpath.replace('.db', '_out.db'))
 
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
         con_rna = sqlite3.connect(fpath)
@@ -285,26 +361,27 @@ class Fantom_RNA:
 
         for tissue in tissues:
             df = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
-            if df.shape[1] <= 5:
-                continue
-            dfs, data_length, df_sorted = self.split_table(df)
+            dfs, data_length, df_sorted = self.split_table_for_ref(df, label=[['start', 'gene_end'], ['gene_start', 'end']])
             dfs_ref, data_length_cum_ref = self.set_data(dfs, data_length)
+            print(self.table_names)
 
             tsrc = [x for x in tissues_src if tissue in x]
             for t in tsrc:
                 df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(t), con_rna)
                 df_rna = df_rna.rename(columns={'stop': 'end'})
                 df_rna = df_rna[df_rna['strand'] != '.']
-                dfs_rna, data_length_rna, df_sorted_rna = self.split_table(df_rna)
+                dfs_rna, data_length_rna, df_sorted_rna = self.split_table_for_res(df_rna)
                 dfs_rna, data_length_cum_src = self.set_data(dfs_rna, data_length_rna)
 
                 df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, np.int32(df.shape[0]))
                 df_out = pd.concat([df_sorted, df_out], axis=1)
+                df_out = self.get_rpkm(df_out)
                 df_out.to_sql(t, con_out, if_exists='replace', index=None)
                 print('{} is done'.format(t))
 
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.get_confirmed_fantom()
-    fr.split_by_tissues()
+    # fr.get_confirmed_fantom()
+    # fr.split_by_tissues()
+    fr.run()

@@ -18,6 +18,7 @@ class fa2bed:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.bowtie_root = os.path.join(self.root, 'software/hisat2-2.1.0')
+        self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
     def command_exe(self, command):
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
@@ -69,7 +70,15 @@ class fa2bed:
         os.remove(sam_file)
         print('done with fasta to bam')
 
-    def bam_to_gtf(self, bam_file, to_db=True):
+    def auto_run(self, root):
+        for path, subdirs, files in os.walk(root):
+            for name in files:
+                if name.endswith('.bam'):
+                    fpath = os.path.join(path, name)
+                    self.bam_to_gtf(fpath)
+                    self.gtf_to_db(fpath.replace('.bam', '.gtf'))
+
+    def bam_to_gtf(self, bam_file):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
 
         print('bam to gtf...')
@@ -83,20 +92,47 @@ class fa2bed:
         self.command_exe(command)
 
         os.remove(bam_file)
-
-        columns = ['chromosome', 'source', 'feature', 'start', 'stop', 'score', 'strand', 'frame', 'attribute']
-        chunksize = 1 << 29     # 512 MB
-        con = sqlite3.connect(gtf_file.replace('.gtf', '.db'))
-
-        if os.path.exists(gtf_file):
-            for df_chunk in pd.read_csv(gtf_file, sep='\t', chunksize=chunksize, names=columns, comment='#'):
-                df_chunk['chromosome'] = 'chr' + df_chunk['chromosome'].astype(str)
-                if to_db is True:
-                    df_sub = df_chunk[columns[:-1]]
-                    df_sub.to_sql(os.path.splitext(fname)[0], con, if_exists='append', index=None)
-
-        os.remove(gtf_file)
         print('done with bam to gtf')
+
+    def sub_directory(self, root, ext='.txt'):
+        flist = []
+        for r, d, f in os.walk(root):
+            for file in f:
+                if ext in file:
+                    flist.append(os.path.join(r, file))
+        return flist
+
+    def gtf_to_db(self, root):
+        fpaths = self.sub_directory(root, '.gtf')
+        db_path = os.path.join(root, 'out', 'RNA_seq.db')
+        con = sqlite3.connect(db_path)
+
+        N = len(fpaths)
+        for i, fpath in enumerate(fpaths):
+            print('{} / {}'.format(i + 1, N))
+
+            dirname, fname = os.path.split(fpath)
+            chunksize = 1 << 29  # 512 MB
+
+            if os.path.exists(fpath):
+                for df_chunk in pd.read_csv(fpath, sep='\t', chunksize=chunksize, names=self.gtf_columns, comment='#'):
+                    df_chunk = df_chunk[df_chunk['feature'] == 'transcript']
+                    df_chunk = df_chunk.reset_index(drop=True)
+                    df_chunk['chromosome'] = 'chr' + df_chunk['chromosome'].astype('str')
+                    attribute = df_chunk['attribute'].str.split('; ')
+
+                    pkm = []
+                    for attr in attribute:
+                        dict = {}
+                        for a in attr:
+                            key, value = a.split(' ')
+                            dict[key] = value.replace('"', '')
+                        pkm.append([dict['FPKM'], dict['TPM'].replace(';', '')])
+
+                    df_add = pd.DataFrame(data=pkm, columns=['FPKM', 'TPM'])
+                    df_con = pd.concat([df_chunk, df_add], axis=1)
+                    tname = os.path.splitext(fname)[0].split('%')[0]
+                    df_con.drop(['frame', 'attribute'], axis=1).to_sql(tname, con, index=None, if_exists='append')
 
     def sam_to_bed(self, sam_file, to_db=True, remove=True):
         print('sam to bed...')
@@ -109,16 +145,7 @@ class fa2bed:
         # self.command_exe(command)
         # print('done with fasta to bed')
 
-        columns = ['chromosome', 'source', 'feature', 'start', 'stop', 'score', 'strand', 'frame', 'attribute']
-
-        chunksize = 1 << 29     # 512 MB
-        con = sqlite3.connect(bed_file.replace('.bed', '.db'))
-
-        if os.path.exists(bed_file):
-            for df_chunk in pd.read_csv(bed_file, sep='\t', chunksize=chunksize, names=columns):
-                df_chunk['chromosome'] = 'chr' + df_chunk['chromosome'].astype(str)
-                if to_db is True:
-                    df_chunk.to_sql(fname, con, if_exists='append', index=None)
+        self.gtf_to_db(gtf_file)
 
         if remove is True:
             os.remove(sam_file)
@@ -126,5 +153,4 @@ class fa2bed:
 
 if __name__ == '__main__':
     f2b = fa2bed()
-    gtf_file = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/1/ERR315325.bam'
-    f2b.bam_to_gtf(gtf_file)
+    f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq')

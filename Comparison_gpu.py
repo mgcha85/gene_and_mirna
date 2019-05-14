@@ -158,59 +158,61 @@ class Comparison:
             df['fan_end'] = out_data[sidx: eidx, 2]
             df.to_sql(tname, con_ref, if_exists='replace', index=None)
 
-    def extract_attribute(self):
-        fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
-        con = sqlite3.connect(fpath)
-
-        tlist = Database.load_tableList(con)
-        additional = []
-        for tname in tlist:
-            print(tname)
-            df = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format(tname), con)
-            attribute = df['attribute'].str.split('; ')
-
-            for idx in attribute.index:
-                attr = attribute.loc[idx]
-                dict = {}
-                for a in attr:
-                    key, value = a.split(' ')
-                    dict[key] = value.replace('"', '')
-                ser = pd.Series(data=dict)
-                additional.append(ser[['gene_name', 'transcript_id', 'transcript_name']])
-
-            df_add = pd.concat(additional, axis=1).T
-            df = pd.concat([df, df_add], axis=1)
-            df.to_sql(tname, con, if_exists='replace', index=None)
-
     # def extract_attribute(self):
-    #     fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
+    #     fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
     #     con = sqlite3.connect(fpath)
     #
-    #     fpath_out = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')
-    #     con_out = sqlite3.connect(fpath_out)
-    #
     #     tlist = Database.load_tableList(con)
-    #     index = []
     #     additional = []
     #     for tname in tlist:
     #         print(tname)
-    #         df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+    #         df = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format(tname), con)
     #         attribute = df['attribute'].str.split('; ')
+    #
     #         for idx in attribute.index:
     #             attr = attribute.loc[idx]
-    #             gene_id = attr[0].split(' ')[1].replace('"', '')
-    #             transcript_id = attr[1].split(' ')[1].replace('"', '')
-    #             gene_name = attr[3].split(' ')[1].replace('"', '')
-    #             transcript_type = attr[4].split(' ')[1].replace('"', '')
-    #             transcript_name = attr[5].split(' ')[1].replace('"', '')
-    #             if transcript_type == 'protein_coding':
-    #                 index.append(idx)
-    #                 additional.append([gene_id, transcript_id, gene_name, transcript_name])
+    #             dict = {}
+    #             for a in attr:
+    #                 key, value = a.split(' ')
+    #                 dict[key] = value.replace('"', '')
+    #             ser = pd.Series(data=dict)
+    #             additional.append(ser[['gene_name', 'transcript_id', 'transcript_name']])
     #
-    #         df_add = pd.DataFrame(data=additional, columns=['gene_id', 'transcript_id', 'gene_name', 'transcript_name'])
-    #         df = df.loc[index].reset_index(drop=True)
+    #         df_add = pd.concat(additional, axis=1).T
     #         df = pd.concat([df, df_add], axis=1)
-    #         df.to_sql(tname, con_out, if_exists='replace', index=None)
+    #         df.to_sql(tname, con, if_exists='replace', index=None)
+
+    def extract_attribute(self):
+        fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
+        con = sqlite3.connect(fpath)
+
+        fpath_out = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
+        con_out = sqlite3.connect(fpath_out)
+
+        tlist = Database.load_tableList(con)
+        for tname in tlist:
+            print(tname)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            attribute = df['attribute'].str.split('; ')
+
+            index = []
+            additional = []
+            for idx in attribute.index:
+                attr = attribute.loc[idx]
+                gene_id = attr[0].split(' ')[1].replace('"', '')
+                transcript_id = attr[1].split(' ')[1].replace('"', '')
+                gene_name = attr[3].split(' ')[1].replace('"', '')
+                transcript_type = attr[4].split(' ')[1].replace('"', '')
+                transcript_name = attr[5].split(' ')[1].replace('"', '')
+                if transcript_type == 'protein_coding':
+                    index.append(idx)
+                    additional.append([gene_id, transcript_id, gene_name, transcript_name])
+
+            print(len(index), df.shape[0])
+            df_add = pd.DataFrame(data=additional, columns=['gene_id', 'transcript_id', 'gene_name', 'transcript_name'])
+            df = df.loc[index].reset_index(drop=True)
+            df = pd.concat([df, df_add], axis=1)
+            df.to_sql(tname, con_out, if_exists='replace', index=None)
 
     def merge_tables(self):
         CHROMOSOME = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11',
@@ -282,5 +284,5 @@ class Comparison:
 
 if __name__ == '__main__':
     comp = Comparison()
-    comp.merge_tables()
+    comp.run()
     # comp.stats()

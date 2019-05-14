@@ -8,7 +8,6 @@ xlrd
 scipy
 networkx
 CrossMap
-pyBigWig
 bs4
 lxml
 paramiko

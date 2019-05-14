@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 import pickle as pkl
+from Database import Database
+
 
 
 class Correlation:
@@ -56,33 +58,62 @@ class Correlation:
         df_fantom = pd.concat([df_fantom, df_type], axis=1)
         df_fantom.to_csv(fpath.replace('.csv', '2.csv'), index=None)
 
+    def load_reference(self, tissue):
+        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.final_confirmed_tss.db')
+        con = sqlite3.connect(fpath)
+        if Database.checkTableExists(con, tissue):
+            return pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
+
     def run(self):
-        # fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc2.csv')
-        # df_fantom = pd.read_csv(fpath)
+        RANGE = 500
+        out_columns = ['chromosome', 'start', 'end', 'strand', 'FPKM (fantom)', 'TPM (fantom)', 'FPKM (rna)',
+                       'TPM (rna)', 'replication']
 
-        # df_fantom_mir = df_fantom[df_fantom['tss-type'] == 'miRNA']
-        # df_fantom_gene = df_fantom[df_fantom['tss-type'] == 'gene']
-        # df_fantom_mir.to_excel('miRNA.xlsx', index=None)
-        # df_fantom_gene.to_excel('gene.xlsx', index=None)
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
+        con_fan = sqlite3.connect(fpath)
 
-        df_fantom_mir = pd.read_excel('miRNA.xlsx')
-        df_fantom_gene = pd.read_excel('gene.xlsx')
+        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        con_rna = sqlite3.connect(fpath)
 
-        matrix = np.zeros((df_fantom_mir.shape[0], df_fantom_gene.shape[0]))
-        index = []
-        columns = []
+        tlist_fan = Database.load_tableList(con_fan)
+        tlist_rna = Database.load_tableList(con_rna)
 
-        for i, gidx in enumerate(df_fantom_gene.index):
-            print(i)
-            index.append(df_fantom_gene.loc[gidx, 'name'])
-            mrow = df_fantom_gene.loc[gidx].iloc[4:-3]
-            for j, midx in enumerate(df_fantom_mir.index):
-                columns.append(df_fantom_mir.loc[midx, 'name'])
-                grow = df_fantom_mir.loc[midx].iloc[4:-3]
+        reports = {}
+        for tname_fan in tlist_fan:
+            print(tname_fan)
+            df_ref = self.load_reference(tname_fan)
+            if df_ref is None:
+                continue
 
-                matrix[i, j] = scipy.stats.spearmanr(mrow, grow)[0]
-        df_rep = pd.DataFrame(matrix, index=index, columns=columns)
-        df_rep.to_excel('correlation_report.xlsx')
+            contents = []
+            for idx in df_ref.index:
+                strand = df_ref.loc[idx, 'strand']
+                if strand == '+':
+                    tss = df_ref.loc[idx, 'start']
+                else:
+                    tss = df_ref.loc[idx, 'end']
+
+                start = tss - RANGE
+                end = tss + RANGE
+                chromosome = df_ref.loc[idx, 'chromosome']
+
+                df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
+                                           "start>{end} AND NOT end<{start}".format(tname_fan, chromosome, strand,
+                                                                                    start=start, end=end), con_fan)
+
+                tnames_rna = [x for x in tlist_rna if tname_fan in x]
+                for tname_rna in tnames_rna:
+                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
+                                               "start>{end} AND NOT end<{start}".format(tname_rna, strand, chromosome,
+                                                                                        start=start, end=end), con_rna)
+                    contents.append([chromosome, start, end, strand, df_fan['FPKM'].sum(), df_fan['TPM'].sum(),
+                                     df_rna['FPKM'].sum(), df_rna['TPM'].sum(), tname_rna])
+            reports[tname_fan] = pd.DataFrame(data=contents, columns=out_columns)
+
+        out_path = os.path.join(self.root, 'Papers/complement', 'correlation.xlsx')
+        writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
+        for tissue, df in reports.items():
+            df.to_excel(writer, sheet_name=tissue)
 
     def split(self):
         fname = 'correlation_report'
@@ -114,7 +145,7 @@ class Correlation:
         values = df.values.flatten()
         Z = np.zeros_like(values)
 
-        # color_values = plt.cm.jet(df.values.tolist())
+        # color_values run= plt.cm.jet(df.values.tolist())
         # ax1.bar3d(X, Y, df.values, dx=1, dy=1, dz=1, color=color_values)
         ax1.bar3d(X.flatten(), Y.flatten(), Z, dx=1, dy=1, dz=values)
         plt.savefig('correlation_report.png')
@@ -235,8 +266,4 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    cor.stats()
-    # cor.run()
-    # cor.split()
-    # cor.profile_gene_mirna()
-    # cor.loc_info_analysis()
+    cor.run()

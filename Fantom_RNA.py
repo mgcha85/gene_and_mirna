@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import socket
+from Database import Database
 
 
 class Fantom_RNA:
@@ -66,18 +67,16 @@ class Fantom_RNA:
         df = df.drop_duplicates(subset=['fid'])
         df = df.set_index('fid', drop=True)
 
-        dirname = os.path.join(self.root, 'database/RNA-seq')
-        flist = [x for x in os.listdir(dirname) if x.endswith('.db')]
+        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
+        con = sqlite3.connect(fpath)
+        con_out = sqlite3.connect(fpath.replace('.db', '_tissue.db'))
 
-        con_out = sqlite3.connect(os.path.join(dirname, 'out', 'RNA_seq.db'))
-        N = len(flist)
-        for i, fname in enumerate(flist):
+        tlist = Database.load_tableList(con)
+        N = len(tlist)
+        for i, fid in enumerate(tlist):
             print('{} / {}'.format(i + 1, N))
-            fid = os.path.splitext(fname)[0]
             tissue = df.loc[fid, 'src']
-            fpath = os.path.join(dirname, fname)
 
-            con = sqlite3.connect(fpath)
             df_sub = pd.read_sql_query("SELECT * FROM '{}'".format(fid), con)
             df_sub.to_sql(tissue, con_out, index=None, if_exists='append')
 

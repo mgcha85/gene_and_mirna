@@ -18,41 +18,9 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/1')
-        self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
+        self.cage_dir = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        self.url = 'http://fantom.gsc.riken.jp/5/sstar/'
         self.f2b = fa2bed()
-
-    def sort_to_done(self):
-        import shutil
-
-        root = os.path.join(self.root, 'database/RNA-seq')
-        # flist = os.listdir(root)
-        # flist = [os.path.splitext(x)[0] for x in flist if x.endswith('.db')]
-
-        with open('flist.txt', 'rt') as f:
-            flist = f.read().split('\n')
-
-        sub_flists = []
-        for i in range(1, 9):
-            sub_dirname = os.path.join(root, str(i))
-            sub_flist = os.listdir(sub_dirname)
-            sub_flist = [os.path.join(sub_dirname, x) for x in sub_flist]
-            sub_flists.extend(sub_flist)
-
-        contents = []
-        for db_fname in flist:
-            for sfname in sub_flists:
-                if db_fname in sfname:
-                    contents.append(sfname)
-
-        contents = sorted(contents)
-        for con in contents:
-            dirname, fname = os.path.split(con)
-            print('remove: ', con)
-            os.remove(con)
-            # out_path = os.path.join(root, 'done', fname)
-            # print(con, ' --> ', out_path)
-            # shutil.move(con, out_path)
 
     def get_script(self, url):
         try:
@@ -62,64 +30,54 @@ class Download_RNA_seq:
         except Exception as e:
             raise e
 
-    def get_header(self, page):
+    def get_cage_peak_id(self):
+        fpath = os.path.join(self.root, 'Papers/complement', 'supp_gkv608_nar-00656-h-2015-File009.xls')
+        df = pd.read_excel(fpath, header=1)
+        return df.dropna(axis=0, how='any')['CAGE FF_ID']
+
+    def to_db(self, fpath):
+        self.f2b.bam_to_gtf(fpath)
+        self.f2b.gtf_to_db(fpath.replace('.bam', '.gtf'))
+
+    def pc_run(self, cid, i, N):
+        print('{:.2f}%'.format(100 * (i + 1) / N))
+
+        url = self.url + 'FF:' + cid
+        page = self.get_script(url)
         soup = BeautifulSoup(page, "lxml")
-        script = soup.findAll("div", {"class": "ae-stats"})
-        for scr in script:
-            contents = scr.findAll("span")[1]
-            return int(contents.text)
+        items = soup.findAll("a", {"class": 'external text'})
 
-    def get_cell_info(self):
-        page = self.get_script(self.url)
-        N = self.get_header(page)
-        page_size = 25
-        iter = int((N + page_size - 1) // page_size)
-
-        contents = []
-        for i in range(1, iter):
-            url = self.url + '?s_page={}&s_pagesize=25'.format(i)
-            page = self.get_script(url)
-
-            soup = BeautifulSoup(page, "lxml")
-            items = soup.findAll("table")
-            for item in items:
-                td = item.findAll("td")
-
-                contents.append(item.findAll("a")[0].attrs['href'])
-                download_url = item.findAll("a")[0].attrs['href']
+        content = None
+        for item in items:
+            download_url = item.attrs['href']
+            if '{}.hg19.nobarcode.bam'.format(cid) in download_url:
                 ulr_dir, fname = os.path.split(download_url)
-                urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
+                tissue = fname.split('%')[0]
+                local_dir = os.path.join(self.cage_dir, tissue)
+                if not os.path.exists(local_dir):
+                    os.mkdir(local_dir)
 
-        with open('temp.csv', 'wt') as f:
-            f.write('\n'.join(sorted(contents)))
+                local_path = os.path.join(local_dir, fname)
+                content = [download_url, local_path]
+                urllib.request.urlretrieve(download_url, local_path)
+                self.to_db(local_path)
+        return content
 
     def run(self):
-        page = self.get_script(self.url)
-        N = self.get_header(page)
-        page_size = 25
-        iter = int((N + page_size - 1) // page_size)
+        cage_id = self.get_cage_peak_id()[2:]
+        N = len(cage_id)
 
         contents = []
-        for i in range(1, iter):
-            url = self.url + '?s_page={}&s_pagesize=25'.format(i)
-            page = self.get_script(url)
+        for i, cid in enumerate(cage_id):
+            contents.append(self.pc_run(cid, i, N))
 
-            soup = BeautifulSoup(page, "lxml")
-            for col in ["odd col_28", "even col_28"]:
-                items = soup.findAll("td", {"class": col})
-                for item in items:
-                    contents.append(item.findAll("a")[0].attrs['href'])
-                    download_url = item.findAll("a")[0].attrs['href']
-                    ulr_dir, fname = os.path.split(download_url)
-                    urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
-
-        with open('temp.csv', 'wt') as f:
-            f.write('\n'.join(sorted(contents)))
+        df = pd.DataFrame(data=contents, columns=['download_url', 'loca_path'])
+        df.to_csv('download_cage_peak_id.csv', index=None)
 
     def check_not_download(self):
         with open('temp.csv') as f:
             down_list__ = f.read().split('\n')
-        
+
         down_list = {}
         for dl in down_list__:
             dirname, fname = os.path.split(dl)
@@ -144,7 +102,6 @@ class Download_RNA_seq:
     def get_file_pair(self, ext='.gz'):
         dirname = os.getcwd()
         fileList = os.listdir(dirname)
-        print(fileList)
         contents = {}
         for fname in fileList:
             if ext not in fname:
@@ -189,4 +146,4 @@ class Download_RNA_seq:
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    drs.to_bed()
+    drs.run()

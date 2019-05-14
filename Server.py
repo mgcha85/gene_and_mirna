@@ -18,25 +18,28 @@ class Server:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
         self.server = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.server, 'database/RNA-seq/{}')
+        self.rna_dir = os.path.join(self.server, 'database/RNA-seq/fastq/{}')
         self.f2b = fa2bed()
 
-    def connect(self):
+    def connect(self, which='newton'):
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
 
-        hostname = 'stokes.ist.ucf.edu'
+        hostname = '{}.ist.ucf.edu'.format(which)
         username = 'mcha'
         password = 'Serenade Seedling cameras Dauphin'
         key_filename = '/home/mingyu/mcha-keys/mcha_id_rsa_1'
         self.ssh.connect(hostname, username=username, password=password, key_filename=key_filename)
 
-    def job_script(self):
+    def job_script(self, fname):
         src_root = os.path.join(self.server, 'source/gene_and_mirna')
-        script = ['#!/bin/bash', '#SBATCH --nodes=4', '#SBATCH --ntasks-per-node=10', '#SBATCH --time=01:30:00',
+        script = ['#!/bin/bash', '#SBATCH --nodes=4', '#SBATCH --ntasks-per-node=10', '#SBATCH --time=12:00:00',
                   '#SBATCH --error=mchajobresults-%J.err', '#SBATCH --output=mchajobresults-%J.out',
-                  '#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules', 'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
-                  'module load anaconda/anaconda3-5.3.0', 'python {}/download_RNA_seq.py'.format(src_root)]
+                  '#SBATCH --gres=gpu:2','#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules',
+                  'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
+                  'module load cuda/cuda-9.0', 'module load anaconda/anaconda3',
+                  'python {}'.format(os.path.join(src_root, fname))]
+
         with open('dl-submit.slurm', 'wt') as f:
             f.write('\n'.join(script))
 
@@ -51,14 +54,20 @@ class Server:
         ftp_client.close()
 
     def run(self):
-        self.connect()
-        self.job_script()
+        for i in range(6, 9):
+            if i < 7:
+                which = 'stokes'
+            else:
+                which = 'newton'
+            self.connect(which)
+            self.job_script()
 
-        src_root = os.path.join(self.server, 'source/gene_and_mirna')
-        self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))
+            src_root = os.path.join(self.server, 'source/gene_and_mirna')
+            self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))
+            self.upload('requirements.txt', os.path.join(src_root, 'requirements.txt'))
 
-        for i in range(1):
-            dirname = self.rna_dir.format(i + 1)
+            dirname = self.rna_dir.format(i)
+            print(dirname)
             stdin, stdout, stderr = self.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(dirname, src_root))
             job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
             print('job ID: {}'.format(job))
