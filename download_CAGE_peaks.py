@@ -5,22 +5,45 @@ import os
 from fa_to_bed import fa2bed
 import pandas as pd
 import sqlite3
+from Server import Server
+import sys
+import gzip
+import shutil
 
 
 class Download_RNA_seq:
     def __init__(self):
-        hostname = socket.gethostname()
-        if hostname == 'mingyu-Precision-Tower-7810':
+        self.hostname = socket.gethostname()
+        if self.hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
+        elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
-        elif hostname == 'mingyu-Inspiron-7559':
+        elif self.hostname == 'mingyu-Inspiron-7559':
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.cage_dir = os.path.join(self.root, 'database/Fantom/v5/tissues')
         self.url = 'http://fantom.gsc.riken.jp/5/sstar/'
         self.f2b = fa2bed()
+
+    def to_server(self):
+        server = Server()
+        server.connect()
+
+        local_path = sys.argv[0]
+        dirname, fname = os.path.split(local_path)
+
+        server.job_script(fname)
+
+        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        server_path = local_path.replace(dirname, server_root)
+
+        server.upload(local_path, server_path)
+        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+        print('job ID: {}'.format(job))
 
     def get_script(self, url):
         try:
@@ -50,7 +73,7 @@ class Download_RNA_seq:
         content = None
         for item in items:
             download_url = item.attrs['href']
-            if '{}.hg19.nobarcode.bam'.format(cid) in download_url:
+            if '{}.hg19.ctss.bed.gz'.format(cid) in download_url:
                 ulr_dir, fname = os.path.split(download_url)
                 tissue = fname.split('%')[0]
                 local_dir = os.path.join(self.cage_dir, tissue)
@@ -60,7 +83,7 @@ class Download_RNA_seq:
                 local_path = os.path.join(local_dir, fname)
                 content = [download_url, local_path]
                 urllib.request.urlretrieve(download_url, local_path)
-                self.to_db(local_path)
+                # self.to_db(local_path)
         return content
 
     def run(self):
@@ -146,4 +169,7 @@ class Download_RNA_seq:
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    drs.run()
+    if drs.hostname == 'mingyu-Precision-Tower-7810':
+        drs.to_server()
+    else:
+        drs.run()

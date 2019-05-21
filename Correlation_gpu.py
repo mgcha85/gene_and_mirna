@@ -16,8 +16,9 @@ from Database import Database
 
 mod = SourceModule("""
 #include <stdio.h>
-enum{TABLE_NUM, FPKM_OUT, TPM_OUT, OUT_WIDTH};
-enum{START, END, FPKM, TPM, WIDTH};
+enum{TABLE_NUM, SCORE_OUT, OUT_WIDTH};
+enum{SUM, MEAN, OPT_WIDTH};
+enum{START, END, SCORE, WIDTH};
 enum{REF_START, REF_END, REF_WIDTH};
 
 __device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_end, const int N, const int idx)
@@ -37,11 +38,11 @@ __device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_en
     return rpkm;
 }
 
-__device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const int ref_start, const int ref_end, const int N, const int idx)
+__device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const int ref_start, const int ref_end, const int N, const int idx, const int opt)
 {
     int cnt=0;
     int res_start, res_end;
-    float fpkm=0.0, tpm=0.0;
+    float score=0.0;
     
     for(int i=0; i<N; i++) {
         res_start = res_buffer[i * WIDTH + START];      
@@ -49,12 +50,16 @@ __device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const 
         if(ref_start > res_end || ref_end < res_start)  
             continue;
         else {
-            fpkm += res_buffer[i * WIDTH + FPKM];
-            tpm += res_buffer[i * WIDTH + TPM];
+            score += res_buffer[i * WIDTH + SCORE];
+            cnt += 1;
         }
     }
-    out_buffer_gpu[idx * OUT_WIDTH + FPKM_OUT] = fpkm;
-    out_buffer_gpu[idx * OUT_WIDTH + TPM_OUT] = tpm;
+    if(cnt>0) {
+        if(opt == SUM)
+            out_buffer_gpu[idx * OUT_WIDTH + SCORE_OUT] = score;
+        else if(opt == MEAN)
+            out_buffer_gpu[idx * OUT_WIDTH + SCORE_OUT] = score / cnt;
+    }
 }
 
 __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
@@ -65,7 +70,7 @@ __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const
     return N;
 }
 
-__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, float *res_buffer_gpu, int *res_data_lengths_cum_gpu, float *out_buffer_gpu, const int N, const int M)
+__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, float *res_buffer_gpu, int *res_data_lengths_cum_gpu, float *out_buffer_gpu, const int N, const int M, const int opt)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -82,7 +87,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     eidx = res_data_lengths_cum_gpu[tb_num + 1];
 
     out_buffer_gpu[idx * OUT_WIDTH + TABLE_NUM] = (float) tb_num;
-    get_reads_count(&res_buffer_gpu[sidx * WIDTH], out_buffer_gpu, ref_start, ref_end, eidx - sidx, idx);
+    get_reads_count(&res_buffer_gpu[sidx * WIDTH], out_buffer_gpu, ref_start, ref_end, eidx - sidx, idx, opt);
 
 }""")
 
@@ -105,7 +110,7 @@ class Correlation:
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
 
-        server.job_script(fname)
+        server.job_script(fname, time='00:30:00')
 
         server_root = os.path.join(server.server, 'source/gene_and_mirna')
         server_path = local_path.replace(dirname, server_root)
@@ -117,7 +122,7 @@ class Correlation:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
-    def split_table_for_res(self, df):
+    def split_table_for_res(self, df, labels):
         df_sorted = []
         dfs = []
         data_length = []
@@ -130,7 +135,7 @@ class Correlation:
             df_sub = df_chr.get_group(chr)
             # df_sub_sub = df_sub[df_sub['strand'] == str]
 
-            dfs.append(df_sub[['start', 'end', 'FPKM', 'TPM']].values.flatten().astype(np.float32))
+            dfs.append(df_sub[labels].values.flatten().astype(np.float32))
             data_length.append(df_sub.shape[0])
             df_sorted.append(df_sub)
         return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
@@ -175,15 +180,18 @@ class Correlation:
         data_length_cum[1:] = data_length.cumsum()
         return dfs, data_length_cum.astype(np.int32)
 
-    def load_reference(self, tissue):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.final_confirmed_tss.db')
+    def load_reference(self):
+        fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
         con = sqlite3.connect(fpath)
-        if Database.checkTableExists(con, tissue):
-            return pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
+        dfs = []
+        tlist = Database.load_tableList(con)
+        for tname in tlist:
+            dfs.append(pd.read_sql_query("SELECT chromosome, start, end, strand, gene_name, transcript_name FROM '{}'".format(tname), con))
+        return pd.concat(dfs)
 
-    def to_gpu(self, dfs_ref, data_length_cum_ref, dfs_res, data_length_cum_src, N):
+    def to_gpu(self, dfs_ref, data_length_cum_ref, dfs_res, data_length_cum_src, N, opt, out_labels):
         THREADS_PER_BLOCK = 1 << 10
-        OUT_WDITH = 3
+        OUT_WDITH = 2
 
         ref_buffer_gpu = cuda.mem_alloc(dfs_ref.nbytes)
         cuda.memcpy_htod(ref_buffer_gpu, dfs_ref)
@@ -204,11 +212,11 @@ class Correlation:
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
         func = mod.get_function("cuda_scanner")
-        func(ref_buffer_gpu, ref_data_lengths_cum_gpu, res_buffer_gpu, res_data_lengths_cum_gpu, out_buffer_gpu, N, M,
+        func(ref_buffer_gpu, ref_data_lengths_cum_gpu, res_buffer_gpu, res_data_lengths_cum_gpu, out_buffer_gpu, N, M, opt,
              block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
         out_buffer = out_buffer.reshape((-1, OUT_WDITH))
-        return pd.DataFrame(data=out_buffer, columns=['TABLE_NUM', 'FPKM', 'TPM'])
+        return pd.DataFrame(data=out_buffer, columns=out_labels)
 
     def get_tpm(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
@@ -220,38 +228,37 @@ class Correlation:
         out_path = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_fantom.db')
         con_out = sqlite3.connect(out_path)
 
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_RNA_seq.db')
+        con_out_rna = sqlite3.connect(out_path)
+
         tlist_fan = Database.load_tableList(con_fan)
         tlist_rna = Database.load_tableList(con_rna)
+        df_ref = self.load_reference()
 
         for tname_fan in tlist_fan:
             print(tname_fan)
-            df_ref = self.load_reference(tname_fan)
-            if df_ref is None:
-                continue
-
             dfs_ref, data_length, df_sorted = self.split_table_for_ref(df_ref)
             dfs_ref, data_length_cum_ref = self.set_data(dfs_ref, data_length)
 
             df_fan = pd.read_sql_query("SELECT * FROM {}".format(tname_fan), con_fan)
-            dfs_fan, data_length_fan, df_sorted_fan = self.split_table_for_res(df_fan)
+            dfs_fan, data_length_fan, df_sorted_fan = self.split_table_for_res(df_fan, labels=['start', 'end', 'score'])
             dfs_fan, data_length_cum_src = self.set_data(dfs_fan, data_length_fan)
-            df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_fan, data_length_cum_src, np.int32(df_sorted.shape[0]))
+            df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_fan, data_length_cum_src, np.int32(df_sorted.shape[0]), np.int32(0), out_labels=['TABLE_NUM', 'COUNT'])
             df_out = pd.concat([df_sorted, df_out], axis=1)
-
             df_out.to_sql(tname_fan, con_out, if_exists='replace', index=None)
 
             tnames_rna = [x for x in tlist_rna if tname_fan in x]
             for tname_rna in tnames_rna:
                 df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(tname_rna), con_rna)
-                dfs_rna, data_length_rna, df_sorted_rna = self.split_table_for_res(df_rna)
+                dfs_rna, data_length_rna, df_sorted_rna = self.split_table_for_res(df_rna, labels=['start', 'end', 'FPKM'])
                 dfs_rna, data_length_cum_src = self.set_data(dfs_rna, data_length_rna)
 
-                df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, np.int32(df_ref.shape[0]))
+                df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, np.int32(df_ref.shape[0]), np.int32(1), out_labels=['TABLE_NUM', 'FPKM'])
                 df_out = pd.concat([df_sorted, df_out], axis=1)
-                df_out.to_sql(tname_rna, con_out, if_exists='replace', index=None)
+                df_out.to_sql(tname_rna, con_out_rna, if_exists='replace', index=None)
 
     def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_rna_seq.db')
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_RNA_seq.db')
         con_rna = sqlite3.connect(fpath)
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_fantom.db')
         con_fan = sqlite3.connect(fpath)
@@ -261,14 +268,20 @@ class Correlation:
 
         report = []
         for tname in tlist_fan:
+            print(tname)
             df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
 
             tlist = [x for x in tlist_rna if tname in x]
             for tname_rna in tlist:
                 df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(tname_rna), con_rna)
-                fpkm = scipy.stats.spearmanr(df_fan['FPKM'], df_rna['FPKM'])
-                tpm = scipy.stats.spearmanr(df_fan['TPM'], df_rna['TPM'])
-                report.append([tname, tname_rna, fpkm, tpm])
+                df_fan['COUNT'] = df_fan['COUNT'].astype(float)
+                df_rna['FPKM'] = df_rna['FPKM'].astype(float)
+                fpkm = scipy.stats.spearmanr(df_fan['COUNT'], df_rna['FPKM'])
+                report.append([tname, tname_rna, fpkm.correlation])
+
+        df_rep = pd.DataFrame(data=report, columns=['tissue', 'tissue_rna', 'FPKM'])
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_fantom_RNA.xlsx')
+        df_rep.to_excel(out_path, index=None)
 
 
 if __name__ == '__main__':
@@ -277,3 +290,4 @@ if __name__ == '__main__':
         cor.to_server()
     else:
         cor.get_tpm()
+        cor.run()

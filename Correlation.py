@@ -8,19 +8,39 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 import pickle as pkl
 from Database import Database
+from Server import Server
+import sys
 
 
 
 class Correlation:
     def __init__(self):
-        hostname = socket.gethostname()
-        print(hostname)
-        if hostname == 'mingyu-Precision-Tower-7810':
+        self.hostname = socket.gethostname()
+        if self.hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
+        elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    def to_server(self):
+        server = Server()
+        server.connect()
+
+        local_path = sys.argv[0]
+        dirname, fname = os.path.split(local_path)
+
+        server.job_script(fname)
+
+        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        server_path = local_path.replace(dirname, server_root)
+
+        server.upload(local_path, server_path)
+        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+        print('job ID: {}'.format(job))
 
     def add_type(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.csv')
@@ -79,14 +99,17 @@ class Correlation:
         tlist_rna = Database.load_tableList(con_rna)
 
         reports = {}
-        for tname_fan in tlist_fan:
+        for tname_fan in tlist_fan[:2]:
             print(tname_fan)
             df_ref = self.load_reference(tname_fan)
             if df_ref is None:
                 continue
 
+            df_ref = df_ref[:1000]
             contents = []
             for idx in df_ref.index:
+                if idx % 100 == 0 or idx + 1 == df_ref.shape[0]:
+                    print('{:0.2f}%'.format(100 * (idx + 1) / df_ref.shape[0]))
                 strand = df_ref.loc[idx, 'strand']
                 if strand == '+':
                     tss = df_ref.loc[idx, 'start']
@@ -97,23 +120,27 @@ class Correlation:
                 end = tss + RANGE
                 chromosome = df_ref.loc[idx, 'chromosome']
 
-                df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
-                                           "start>{end} AND NOT end<{start}".format(tname_fan, chromosome, strand,
-                                                                                    start=start, end=end), con_fan)
+                df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT "
+                                           "start>{end} AND NOT end<{start}".format(tname_fan, chromosome, start=start,
+                                                                                    end=end), con_fan)
 
                 tnames_rna = [x for x in tlist_rna if tname_fan in x]
                 for tname_rna in tnames_rna:
-                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
-                                               "start>{end} AND NOT end<{start}".format(tname_rna, strand, chromosome,
+                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT "
+                                               "start>{end} AND NOT end<{start}".format(tname_rna, chromosome,
                                                                                         start=start, end=end), con_rna)
-                    contents.append([chromosome, start, end, strand, df_fan['FPKM'].sum(), df_fan['TPM'].sum(),
-                                     df_rna['FPKM'].sum(), df_rna['TPM'].sum(), tname_rna])
+                    contents.append([chromosome, start, end, strand, df_fan['FPKM'].astype(float).sum(), df_fan['TPM'].astype(float).sum(),
+                                     df_rna['FPKM'].astype(float).sum(), df_rna['TPM'].astype(float).sum(),
+                                     tname_rna])
             reports[tname_fan] = pd.DataFrame(data=contents, columns=out_columns)
+            print(reports[tname_fan])
 
         out_path = os.path.join(self.root, 'Papers/complement', 'correlation.xlsx')
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
         for tissue, df in reports.items():
-            df.to_excel(writer, sheet_name=tissue)
+            df.to_excel(writer, sheet_name=tissue, index=None)
+        writer.save()
+        writer.close()
 
     def split(self):
         fname = 'correlation_report'
@@ -266,4 +293,8 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    cor.run()
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
+        cor.to_server()
+        # cor.run()
+    else:
+        cor.run()

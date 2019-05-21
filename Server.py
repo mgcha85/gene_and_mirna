@@ -3,6 +3,7 @@ import socket
 import os
 from download_RNA_seq import Download_RNA_seq
 from fa_to_bed import fa2bed
+import time
 
 
 class Server:
@@ -31,14 +32,17 @@ class Server:
         key_filename = '/home/mingyu/mcha-keys/mcha_id_rsa_1'
         self.ssh.connect(hostname, username=username, password=password, key_filename=key_filename)
 
-    def job_script(self, fname):
+    def job_script(self, fname, time='12:00:00', which='newton'):
         src_root = os.path.join(self.server, 'source/gene_and_mirna')
-        script = ['#!/bin/bash', '#SBATCH --nodes=4', '#SBATCH --ntasks-per-node=10', '#SBATCH --time=12:00:00',
+        script = ['#!/bin/bash', '#SBATCH --nodes=4', '#SBATCH --ntasks-per-node=4', '#SBATCH --time='+time,
                   '#SBATCH --error=mchajobresults-%J.err', '#SBATCH --output=mchajobresults-%J.out',
-                  '#SBATCH --gres=gpu:2','#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules',
+                  '#SBATCH --gres=gpu:1','#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules',
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
                   'module load cuda/cuda-9.0', 'module load anaconda/anaconda3',
-                  'python {}'.format(os.path.join(src_root, fname))]
+                  'time python {}'.format(os.path.join(src_root, fname))]
+        if which == 'stokes':
+            script.pop(6)
+            script.pop(-3)
 
         with open('dl-submit.slurm', 'wt') as f:
             f.write('\n'.join(script))
@@ -54,13 +58,13 @@ class Server:
         ftp_client.close()
 
     def run(self):
-        for i in range(6, 9):
-            if i < 7:
-                which = 'stokes'
-            else:
+        for i in range(1, 2):
+            if i < 6:
                 which = 'newton'
+            else:
+                which = 'stokes'
             self.connect(which)
-            self.job_script()
+            self.job_script('download_RNA_seq.py', which)
 
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
             self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))

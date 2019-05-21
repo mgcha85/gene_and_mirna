@@ -18,16 +18,30 @@ class To_database:
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
     def gtf_to_db(self):
-        fname = 'gencode.v30lift37.annotation'
-        fpath = os.path.join(self.root, 'database/gencode', '{}.db'.format(fname))
+        fname = 'genes'
+        fpath = os.path.join(self.root, 'software/stringtie-1.3.3b', '{}.db'.format(fname))
         out_con = sqlite3.connect(fpath)
 
         chunksize = 1 << 29     # 512 MB
         for df_chunk in pd.read_csv(fpath.replace('.db', '.gtf'), sep='\t', chunksize=chunksize, names=self.gtf_columns, comment='#'):
-            df_chunk.to_sql(os.path.splitext(fname)[0], out_con, if_exists='append', index=None)
+            df_chunk['chromosome'] = 'chr' + df_chunk['chromosome'].astype('str')
+            df_chunk_chr = df_chunk.groupby('chromosome')
+            for chr, df_chunk_sub in df_chunk_chr:
+                df_chunk_chr_str = df_chunk_sub.groupby('strand')
+                for str, df_chunk_sub_sub in df_chunk_chr_str:
+                    df_chunk_sub_sub.to_sql(os.path.splitext(fname)[0] + '_{}_{}'.format(chr, str), out_con, if_exists='append', index=None)
+
+    def temp(self):
+        fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/Papers/mirSTP/GSM1006730_Gro-Seq_1hr.bed'
+        out_path = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/Papers/mirSTP/GSM1006730_Gro-Seq_1hr_out.bed'
+        columns = ['chromomsome', 'start', 'end', 'attribute', 'score']
+
+        df = pd.read_csv(fpath, sep='\t', names=columns, comment='#')
+        df.loc[:, 'strand'] = '.'
+        df.to_csv(out_path, sep='\t', index=None, header=False)
 
 
 if __name__ == '__main__':
     td = To_database()
-    td.gtf_to_db()
+    td.temp()
 

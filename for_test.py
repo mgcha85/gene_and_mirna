@@ -20,4 +20,3 @@ for fname in flist:
     for tname in tlist:
         df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
         df.to_sql(tname, out_con, if_exists='replace', index=None)
-

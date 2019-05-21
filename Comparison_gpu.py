@@ -7,6 +7,9 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from Database import Database
+from Server import Server
+import sys
+
 
 mod = SourceModule("""
 #include <stdio.h>
@@ -65,16 +68,35 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
 
 class Comparison:
     def __init__(self):
-        hostname = socket.gethostname()
-        if hostname == 'mingyu-Precision-Tower-7810':
+        self.hostname = socket.gethostname()
+        if self.hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
+        elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
-        elif hostname == 'mingyu-Inspiron-7559':
+        elif self.hostname == 'mingyu-Inspiron-7559':
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.chr_str_map = {}
+
+    def to_server(self):
+        server = Server()
+        server.connect()
+
+        local_path = sys.argv[0]
+        dirname, fname = os.path.split(local_path)
+
+        server.job_script(fname)
+
+        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        server_path = local_path.replace(dirname, server_root)
+
+        server.upload(local_path, server_path)
+        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+        print('job ID: {}'.format(job))
 
     def set_ref_data(self, con):
         tlist = Database.load_tableList(con)
@@ -245,9 +267,7 @@ class Comparison:
                 df.to_sql(out_tname, con_out, if_exists='replace', index=None)
 
     def run(self):
-        ref_paths = [os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db'),
-                     os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db'),
-                     os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')]
+        ref_paths = [os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')]
 
         for ref_path in ref_paths:
             con_ref = sqlite3.connect(ref_path)
@@ -261,6 +281,24 @@ class Comparison:
                 print(key, res_data_lengths_cum[-1])
                 out_data = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
                 self.to_output(con_ref, out_data, ref_data_lengths_cum)
+
+    def merge_table(self):
+        fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        dfs = []
+        for tname in tlist:
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            nidx = df[df['fan_start'] == 0].index
+            
+            df = df[['gene_name', 'Transcription start site (TSS)', 'chromosome', 'fan_start', 'fan_end', 'strand']]
+            location = df[['chromosome', 'fan_start', 'fan_end', 'strand']].apply(lambda row: ';'.join(row.values.astype(str)), axis=1)
+            df.loc[:, 'Fantom'] = location
+            df.loc[nidx, 'Fantom'] = np.nan
+            dfs.append(df.drop(['chromosome', 'fan_start', 'fan_end', 'strand'], axis=1))
+        df = pd.concat(dfs)
+        df.to_excel('consistency_table_fantom_ensembl.xlsx', index=None)
 
     def stats(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
@@ -284,5 +322,8 @@ class Comparison:
 
 if __name__ == '__main__':
     comp = Comparison()
-    comp.run()
-    # comp.stats()
+    if comp.hostname == 'mingyu-Precision-Tower-7810':
+        # comp.to_server()
+        comp.merge_table()
+    else:
+        comp.run()

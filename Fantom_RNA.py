@@ -18,6 +18,7 @@ class Fantom_RNA:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.cells = []
+        self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
     def get_tissues(self):
         df = pd.read_csv("E-MTAB-1733.csv")
@@ -67,18 +68,34 @@ class Fantom_RNA:
         df = df.drop_duplicates(subset=['fid'])
         df = df.set_index('fid', drop=True)
 
-        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
+        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
         con = sqlite3.connect(fpath)
-        con_out = sqlite3.connect(fpath.replace('.db', '_tissue.db'))
 
-        tlist = Database.load_tableList(con)
-        N = len(tlist)
-        for i, fid in enumerate(tlist):
+        dirname = os.path.join(self.root, 'database/RNA-seq/gtf')
+        flist = os.listdir(dirname)
+        N = len(flist)
+        for i, fid in enumerate(flist):
             print('{} / {}'.format(i + 1, N))
+            fid, ext = os.path.splitext(fid)
             tissue = df.loc[fid, 'src']
 
-            df_sub = pd.read_sql_query("SELECT * FROM '{}'".format(fid), con)
-            df_sub.to_sql(tissue, con_out, index=None, if_exists='append')
+            df_sub = pd.read_csv(os.path.join(dirname, fid + ext), names=self.gtf_columns, sep='\t', comment='#')
+            df_sub = df_sub[df_sub['feature'] == 'transcript']
+            df_sub = df_sub.reset_index(drop=True)
+            df_sub['chromosome'] = 'chr' + df_sub['chromosome'].astype(str)
+            attribute = df_sub['attribute'].str.split('; ')
+
+            pkm = []
+            for attr in attribute:
+                dict = {}
+                for a in attr:
+                    key, value = a.split(' ')
+                    dict[key] = value.replace('"', '')
+                pkm.append([dict['FPKM'], dict['TPM'].replace(';', '')])
+
+            df_res = pd.DataFrame(data=pkm, columns=['FPKM', 'TPM'])
+            df_sub = pd.concat([df_sub, df_res], axis=1)
+            df_sub.drop(['attribute', 'frame'], axis=1).to_sql(tissue, con, index=None, if_exists='append')
 
     def processInput(self, df, tissue, idx):
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
@@ -143,4 +160,4 @@ class Fantom_RNA:
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.run()
+    fr.merge_db()

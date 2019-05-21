@@ -18,16 +18,25 @@ class data_preparation:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
+        self.bed_columns = ['chromosome', 'start', 'end', 'location', 'score', 'strand']
 
     def gtf_to_db(self):
-        dirname = os.path.join(self.root, 'database/RNA-seq/gtf')
-        flist = os.listdir(dirname)
+        # dirname = os.path.join(self.root, 'database/RNA-seq/gtf')
+        # flist = [os.path.join(dirname, x) for x in os.listdir(dirname)]
 
-        for fname in flist:
-            df = pd.read_csv(os.path.join(dirname, fname), sep='\t', names=self.gtf_columns, comment='#')
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        flist = []
+        for path, subdirs, files in os.walk(dirname):
+            for name in files:
+                if name.endswith('.gtf'):
+                    flist.append(os.path.join(path, name))
+
+        for fpath in flist:
+            dirname, fname = os.path.split(fpath)
+            df = pd.read_csv(fpath, sep='\t', names=self.gtf_columns, comment='#')
             df = df[df['feature'] == 'transcript']
             df = df.reset_index(drop=True)
-            df['chromosome'] = 'chr' + df['chromosome'].astype('str')
+            # df['chromosome'] = 'chr' + df['chromosome'].astype('str')
             attribute = df['attribute'].str.split('; ')
 
             pkm = []
@@ -38,11 +47,29 @@ class data_preparation:
                     dict[key] = value.replace('"', '')
                 pkm.append([dict['FPKM'], dict['TPM'].replace(';', '')])
 
-            fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA-seq_out.db')
+            fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_out.db')
             con = sqlite3.connect(fpath)
             df_res = pd.DataFrame(data=pkm, columns=['FPKM', 'TPM'])
             df = pd.concat([df, df_res], axis=1)
-            df.drop(['frame', 'attribute'], axis=1).to_sql(os.path.splitext(fname)[0], con, index=None, if_exists='replace')
+            tname = os.path.splitext(fname)[0].split('%')[0]
+            df.drop(['frame', 'attribute'], axis=1).to_sql(tname, con, index=None, if_exists='replace')
+
+    def bed_to_db(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        flist = []
+        for path, subdirs, files in os.walk(dirname):
+            for name in files:
+                if name.endswith('.gz'):
+                    flist.append(os.path.join(path, name))
+
+        out_path = os.path.join(dirname, 'out', 'fantom_cage_by_tissue.db')
+        con = sqlite3.connect(out_path)
+        for fpath in flist:
+            df = pd.read_csv(fpath, sep='\t', names=self.bed_columns, comment='#', compression='gzip')
+
+            dirname, fname = os.path.split(fpath)
+            tissue = dirname.split('/')[-1]
+            df.to_sql(tissue, con, index=None, if_exists='append')
 
     def get_merge_table(self, fpath):
         con = sqlite3.connect(fpath)

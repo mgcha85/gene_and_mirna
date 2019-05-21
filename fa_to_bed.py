@@ -45,7 +45,7 @@ class fa2bed:
         bowtie2 = os.path.join(self.bowtie_root, './hisat2')
         dbname = os.path.join(self.bowtie_root, 'indexes/genome_tran')
 
-        command = '%s -x %s' % (bowtie2, dbname)
+        command = '%s -p 4 -x %s' % (bowtie2, dbname)
         if len(fa_file) < 2:
             return 1
 
@@ -86,7 +86,7 @@ class fa2bed:
         fname = os.path.splitext(fname)[0] + '.gtf'
         gtf_file = os.path.join(dirname, fname)
 
-        command = '{str_root}/./stringtie -p 8 -G {str_root}/genes.gtf -o {gtf} {bam}'.format(str_root=string_tie_root,
+        command = '{str_root}/./stringtie -p 4 -G {str_root}/genes.gtf --merge -o {gtf} {bam}'.format(str_root=string_tie_root,
                                                                                         gtf=gtf_file, bam=bam_file)
         print(command)
         self.command_exe(command)
@@ -153,4 +153,8 @@ class fa2bed:
 
 if __name__ == '__main__':
     f2b = fa2bed()
-    f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq')
+
+    fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/fastq/6/ERR315456.sam'
+    f2b.sam_to_bam(fpath)
+    f2b.bam_to_gtf(fpath.replace('.sam', '.bam'))
+    # f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp')
