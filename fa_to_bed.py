@@ -91,7 +91,10 @@ class fa2bed:
         print(command)
         self.command_exe(command)
 
-        os.remove(bam_file)
+        os.remove(bam_file.replace('.bam', '_1.fastq.gz'))
+        os.remove(bam_file.replace('.bam', '_2.fastq.gz'))
+
+        # os.remove(bam_file)
         print('done with bam to gtf')
 
     def sub_directory(self, root, ext='.txt'):
@@ -127,9 +130,12 @@ class fa2bed:
                         for a in attr:
                             key, value = a.split(' ')
                             dict[key] = value.replace('"', '')
-                        pkm.append([dict['FPKM'], dict['TPM'].replace(';', '')])
 
-                    df_add = pd.DataFrame(data=pkm, columns=['FPKM', 'TPM'])
+                        if 'ref_gene_name' not in dict:
+                            continue
+                        pkm.append([dict['ref_gene_name'], dict['FPKM'], dict['TPM'].replace(';', '')])
+
+                    df_add = pd.DataFrame(data=pkm, columns=['gene_name', 'FPKM', 'TPM'])
                     df_con = pd.concat([df_chunk, df_add], axis=1)
                     tname = os.path.splitext(fname)[0].split('%')[0]
                     df_con.drop(['frame', 'attribute'], axis=1).to_sql(tname, con, index=None, if_exists='append')
@@ -155,6 +161,6 @@ if __name__ == '__main__':
     f2b = fa2bed()
 
     fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/fastq/6/ERR315456.sam'
-    f2b.sam_to_bam(fpath)
-    f2b.bam_to_gtf(fpath.replace('.sam', '.bam'))
-    # f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/temp')
+    # f2b.sam_to_bam(fpath)
+    # f2b.bam_to_gtf(fpath.replace('.sam', '.bam'))
+    f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq')

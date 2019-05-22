@@ -40,9 +40,9 @@ class Server:
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
                   'module load cuda/cuda-9.0', 'module load anaconda/anaconda3',
                   'time python {}'.format(os.path.join(src_root, fname))]
-        if which == 'stokes':
-            script.pop(6)
-            script.pop(-3)
+        # if which == 'stokes':
+        script.pop(6)
+        script.pop(-3)
 
         with open('dl-submit.slurm', 'wt') as f:
             f.write('\n'.join(script))
@@ -59,10 +59,10 @@ class Server:
 
     def run(self):
         for i in range(1, 2):
-            if i < 6:
-                which = 'newton'
-            else:
+            if i < 5:
                 which = 'stokes'
+            else:
+                which = 'newton'
             self.connect(which)
             self.job_script('download_RNA_seq.py', which)
 
