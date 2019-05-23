@@ -75,26 +75,45 @@ class fa2bed:
             for name in files:
                 if name.endswith('.bam'):
                     fpath = os.path.join(path, name)
-                    self.bam_to_gtf(fpath)
+                    self.bam_to_gff(fpath)
+                    self.gff_to_gtf(fpath.replace('.bam', '.gff'))
                     self.gtf_to_db(fpath.replace('.bam', '.gtf'))
 
-    def bam_to_gtf(self, bam_file):
+    def bam_to_gff(self, bam_file):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
 
-        print('bam to gtf...')
+        print('bam to gff...')
         dirname, fname = os.path.split(bam_file)
-        fname = os.path.splitext(fname)[0] + '.gtf'
+        fname = os.path.splitext(fname)[0] + '.gff'
         gtf_file = os.path.join(dirname, fname)
 
-        command = '{str_root}/./stringtie -p 4 -G {str_root}/genes.gtf --merge -o {gtf} {bam}'.format(str_root=string_tie_root,
-                                                                                        gtf=gtf_file, bam=bam_file)
+        command = '{str_root}/./stringtie -p 4 -G {str_root}/genes.gtf -o {gtf} -i {bam}' \
+                  ''.format(str_root=string_tie_root, gtf=gtf_file, bam=bam_file)
         print(command)
         self.command_exe(command)
 
-        os.remove(bam_file.replace('.bam', '_1.fastq.gz'))
-        os.remove(bam_file.replace('.bam', '_2.fastq.gz'))
+        for i in range(2):
+            fpath = bam_file.replace('.bam', '_{}.fastq.gz'.format(i + 1))
+            if os.path.exists(fpath):
+                os.remove(fpath)
 
         # os.remove(bam_file)
+        print('done with bam to gtf')
+
+    def gff_to_gtf(self, gff_file):
+        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
+
+        print('gff to gtf...')
+        dirname, fname = os.path.split(gff_file)
+        fname = os.path.splitext(fname)[0] + '.gtf'
+        gtf_file = os.path.join(dirname, fname)
+
+        command = '{str_root}/./stringtie -p 4 --merge -G {str_root}/genes.gtf -o {gtf} -i {gff}' \
+                  ''.format(str_root=string_tie_root, gtf=gtf_file, gff=gff_file)
+        print(command)
+        self.command_exe(command)
+
+        os.remove(gff_file)
         print('done with bam to gtf')
 
     def sub_directory(self, root, ext='.txt'):
@@ -140,27 +159,10 @@ class fa2bed:
                     tname = os.path.splitext(fname)[0].split('%')[0]
                     df_con.drop(['frame', 'attribute'], axis=1).to_sql(tname, con, index=None, if_exists='append')
 
-    def sam_to_bed(self, sam_file, to_db=True, remove=True):
-        print('sam to bed...')
-        dirname, fname = os.path.split(sam_file)
-        fname = os.path.splitext(fname)[0] + '.bed'
-        bed_file = os.path.join(dirname, fname)
-
-        # samtool_root = os.path.join(self.root, 'software/samtools')
-        # command = '{}/./convert2bed --input=SAM --output=BED < {} > {}'.format(samtool_root, sam_file, bed_file)
-        # self.command_exe(command)
-        # print('done with fasta to bed')
-
-        self.gtf_to_db(gtf_file)
-
-        if remove is True:
-            os.remove(sam_file)
-
 
 if __name__ == '__main__':
     f2b = fa2bed()
 
-    fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/fastq/6/ERR315456.sam'
     # f2b.sam_to_bam(fpath)
     # f2b.bam_to_gtf(fpath.replace('.sam', '.bam'))
     f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq')

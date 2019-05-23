@@ -4,6 +4,7 @@ import os
 from download_RNA_seq import Download_RNA_seq
 from fa_to_bed import fa2bed
 import time
+import shutil
 
 
 class Server:
@@ -19,7 +20,8 @@ class Server:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
         self.server = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.server, 'database/RNA-seq/fastq/{}')
+        # self.rna_dir = os.path.join(self.server, 'database/RNA-seq/fastq/{}')
+        self.rna_dir = os.path.join(self.server, 'database/RNA-seq/bam/{}')
         self.f2b = fa2bed()
 
     def connect(self, which='newton'):
@@ -57,20 +59,43 @@ class Server:
         ftp_client.put(local_file, server_file)
         ftp_client.close()
 
+    def split_files(self, root_dir, batch_size, ext='.fastq'):
+        flist = os.listdir(root_dir)
+        flist = [os.path.join(root_dir, x) for x in flist if x.endswith(ext)]
+
+        N = len(flist)
+        M = (N + (batch_size - 1)) // batch_size
+        for i, fpath in enumerate(flist):
+            dirnum = (i // M) + 1
+            _, fname = os.path.split(fpath)
+
+            dirname = os.path.join(root_dir, str(dirnum))
+            if not os.path.exists(dirname):
+                os.mkdir(dirname)
+            shutil.move(fpath, os.path.join(dirname, fname))
+
     def run(self):
-        for i in range(1, 2):
+        batch_size = 10
+        # root_dir = os.path.join(self.root, 'database/RNA-seq/bam')
+        # self.split_files(root_dir, batch_size=batch_size, ext='.bam')
+
+        for i in range(3):
             if i < 5:
-                which = 'stokes'
-            else:
                 which = 'newton'
+            else:
+                which = 'stokes'
             self.connect(which)
-            self.job_script('download_RNA_seq.py', which)
+
+            scr_name = 'Convert.py'
+            self.job_script(scr_name, time='03:00:00', which=which)
+            # self.job_script('download_RNA_seq.py', time='12:00:00', which=which)
 
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
             self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))
             self.upload('requirements.txt', os.path.join(src_root, 'requirements.txt'))
+            self.upload(scr_name, os.path.join(src_root, scr_name))
 
-            dirname = self.rna_dir.format(i)
+            dirname = self.rna_dir.format(i+1)
             print(dirname)
             stdin, stdout, stderr = self.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(dirname, src_root))
             job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]

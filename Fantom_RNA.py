@@ -4,21 +4,42 @@ import pandas as pd
 import numpy as np
 import socket
 from Database import Database
+from Server import Server
+import sys
 
 
 class Fantom_RNA:
     def __init__(self):
-        hostname = socket.gethostname()
-        if hostname == 'mingyu-Precision-Tower-7810':
+        self.hostname = socket.gethostname()
+        if self.hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
+        elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
-        elif hostname == 'mingyu-Inspiron-7559':
+        elif self.hostname == 'mingyu-Inspiron-7559':
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.cells = []
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
+
+    def to_server(self):
+        server = Server()
+        server.connect()
+
+        local_path = sys.argv[0]
+        dirname, fname = os.path.split(local_path)
+
+        server.job_script(fname, time='01:00:00')
+
+        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        server_path = local_path.replace(dirname, server_root)
+
+        server.upload(local_path, server_path)
+        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+        print('job ID: {}'.format(job))
 
     def get_tissues(self):
         df = pd.read_csv("E-MTAB-1733.csv")
@@ -88,13 +109,18 @@ class Fantom_RNA:
             pkm = []
             for attr in attribute:
                 dict = {}
-                for a in attr:
+                for a in attr[:-1]:
                     key, value = a.split(' ')
                     dict[key] = value.replace('"', '')
-                pkm.append([dict['FPKM'], dict['TPM'].replace(';', '')])
 
-            df_res = pd.DataFrame(data=pkm, columns=['FPKM', 'TPM'])
+                if 'cov' not in dict or 'gene_name' not in dict:
+                    pkm.append([np.nan] * 2)
+                    continue
+                pkm.append([dict['gene_name'], dict['cov'].replace(';', '')])
+
+            df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'cov'])
             df_sub = pd.concat([df_sub, df_res], axis=1)
+            df_sub = df_sub.dropna(subset=['gene_name', 'cov'], how='any')
             df_sub.drop(['attribute', 'frame'], axis=1).to_sql(tissue, con, index=None, if_exists='append')
 
     def processInput(self, df, tissue, idx):
@@ -155,9 +181,12 @@ class Fantom_RNA:
 
             df['RPKM'] = Parallel(n_jobs=num_cores)(delayed(self.processInput)(df, tissue, idx) for idx in df.index)
             df.to_sql(tissue, con_out, index=None, if_exists='replace')
-            break
 
 
 if __name__ == '__main__':
     fr = Fantom_RNA()
-    fr.merge_db()
+    if fr.hostname == 'mingyu-Precision-Tower-7810':
+        # fr.merge_db()
+        fr.to_server()
+    else:
+        fr.merge_db()

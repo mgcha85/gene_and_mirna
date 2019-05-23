@@ -18,7 +18,7 @@ class Download_RNA_seq:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/1')
+        self.rna_dir = os.path.join(self.root, 'database/RNA-seq/fastq')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
 
@@ -69,39 +69,15 @@ class Download_RNA_seq:
             contents = scr.findAll("span")[1]
             return int(contents.text)
 
-    def get_cell_info(self):
-        page = self.get_script(self.url)
-        N = self.get_header(page)
-        page_size = 25
-        iter = int((N + page_size - 1) // page_size)
-
-        contents = []
-        for i in range(1, iter):
-            url = self.url + '?s_page={}&s_pagesize=25'.format(i)
-            page = self.get_script(url)
-
-            soup = BeautifulSoup(page, "lxml")
-            items = soup.findAll("table")
-            for item in items:
-                td = item.findAll("td")
-
-                contents.append(item.findAll("a")[0].attrs['href'])
-                download_url = item.findAll("a")[0].attrs['href']
-                ulr_dir, fname = os.path.split(download_url)
-                urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
-
-        with open('temp.csv', 'wt') as f:
-            f.write('\n'.join(sorted(contents)))
-
     def run(self):
         page = self.get_script(self.url)
         N = self.get_header(page)
-        page_size = 25
+        page_size = 500
         iter = int((N + page_size - 1) // page_size)
 
         contents = []
-        for i in range(1, iter):
-            url = self.url + '?s_page={}&s_pagesize=25'.format(i)
+        for i in range(1, iter + 1):
+            url = self.url + '?s_page={}&s_pagesize={}'.format(i, page_size)
             page = self.get_script(url)
 
             soup = BeautifulSoup(page, "lxml")
@@ -125,8 +101,12 @@ class Download_RNA_seq:
             dirname, fname = os.path.split(dl)
             down_list[fname] = dirname
 
-        dirname = os.path.join(self.root, 'database', 'RNA-seq')
-        flist = os.listdir(dirname)
+        dirname = os.path.join(self.root, 'database', 'RNA-seq/fastq')
+        flist = []
+        for path, subdirs, files in os.walk(dirname):
+            for name in files:
+                if name.endswith('.gz'):
+                    flist.append(name)
         remains = list(set(down_list.keys()) - set(flist))
 
         N = len(remains)
@@ -158,6 +138,26 @@ class Download_RNA_seq:
                 contents[fid] = [fpath]
         return contents
 
+    def bam_to_bed(self, dirname):
+        from time import time
+
+        flist = []
+        for path, subdirs, files in os.walk(dirname):
+            for name in files:
+                if name.endswith('.bam'):
+                    flist.append(name)
+
+        for fname in flist:
+            fid, ext = os.path.splitext(fname)
+            bam_path = os.path.join(fid + '.bam')
+            start = time()
+
+            self.f2b.bam_to_gff(bam_path)
+            self.f2b.gff_to_gtf(bam_path.replace('.bam', '.gff'))
+
+            elapsed = time() - start
+            print('[{}] {:.0f}:{:.0f}'.format(fid, elapsed // 60, elapsed % 60))
+
     def to_bed(self):
         from time import time
 
@@ -168,7 +168,9 @@ class Download_RNA_seq:
             ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
             if ret == 0:
                 self.f2b.sam_to_bam(sam_path)
-                self.f2b.bam_to_gtf(sam_path.replace('.sam', '.bam'))
+                self.f2b.bam_to_gff(sam_path.replace('.sam', '.bam'))
+                self.f2b.gff_to_gtf(sam_path.replace('.sam', '.gff'))
+                # self.f2b.gtf_to_db(sam_path.replace('.sam', '.gtf'))
 
             elapsed = time() - start
             print('[{}] {:.0f}:{}'.format(fid, elapsed // 60, elapsed % 60))
@@ -189,5 +191,8 @@ class Download_RNA_seq:
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    os.chdir('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/fastq/9')
-    drs.to_bed()
+    drs.merge_rna_seq()
+
+    # cwd = os.getcwd()
+    # print(cwd)
+    # drs.bam_to_bed(cwd)
