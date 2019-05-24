@@ -107,7 +107,6 @@ class Comparison:
             _, chromosome, strand = tname.split('_')
             self.chr_str_map['{}_{}'.format(chromosome, strand)] = i
             df = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con)
-            # df = pd.read_sql_query("SELECT start, end FROM '{}' WHERE feature='transcript'".format(tname), con)
             if strand == '+':
                 df['tss'] = df['start']
             else:
@@ -120,16 +119,16 @@ class Comparison:
         data_lengths_cum[1:] = data_lengths.cumsum()
         return buffer, data_lengths_cum.astype(np.int32)
 
-    def set_data(self, con):
-        tlist = Database.load_tableList(con)
+    def set_data(self, df_res):
+        df_chr = df_res.groupby('chromosome')
 
-        buffer = []
-        data_lengths = []
-        for i, tname in enumerate(sorted(tlist)):
-            _, chromosome, strand = tname.split('_')
-            df = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con)
-            buffer.append(df.values.flatten().astype(np.int32))
-            data_lengths.append(df.shape[0])
+        buffer = [None] * len(self.chr_str_map)
+        data_lengths = [None] * len(self.chr_str_map)
+        for chr, df_str in df_chr:
+            for str, df_sub in df_str:
+                num = self.chr_str_map['{}_{}'.format(chr, str)]
+                buffer[num] = df_sub[['start', 'end']].values.flatten().astype(np.int32)
+                data_lengths[num] = df_sub.shape[0]
 
         data_lengths = np.array(data_lengths)
         data_lengths_cum = np.zeros(data_lengths.shape[0] + 1)
@@ -180,144 +179,20 @@ class Comparison:
             df['fan_end'] = out_data[sidx: eidx, 2]
             df.to_sql(tname, con_ref, if_exists='replace', index=None)
 
-    # def extract_attribute(self):
-    #     fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
-    #     con = sqlite3.connect(fpath)
-    #
-    #     tlist = Database.load_tableList(con)
-    #     additional = []
-    #     for tname in tlist:
-    #         print(tname)
-    #         df = pd.read_sql_query("SELECT * FROM '{}' WHERE feature='transcript'".format(tname), con)
-    #         attribute = df['attribute'].str.split('; ')
-    #
-    #         for idx in attribute.index:
-    #             attr = attribute.loc[idx]
-    #             dict = {}
-    #             for a in attr:
-    #                 key, value = a.split(' ')
-    #                 dict[key] = value.replace('"', '')
-    #             ser = pd.Series(data=dict)
-    #             additional.append(ser[['gene_name', 'transcript_id', 'transcript_name']])
-    #
-    #         df_add = pd.concat(additional, axis=1).T
-    #         df = pd.concat([df, df_add], axis=1)
-    #         df.to_sql(tname, con, if_exists='replace', index=None)
-
-    def extract_attribute(self):
-        fpath = os.path.join(self.root, 'database/UCSC/Genes', 'genes.db')
-        con = sqlite3.connect(fpath)
-
-        fpath_out = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
-        con_out = sqlite3.connect(fpath_out)
-
-        tlist = Database.load_tableList(con)
-        for tname in tlist:
-            print(tname)
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-            attribute = df['attribute'].str.split('; ')
-
-            index = []
-            additional = []
-            for idx in attribute.index:
-                attr = attribute.loc[idx]
-                gene_id = attr[0].split(' ')[1].replace('"', '')
-                transcript_id = attr[1].split(' ')[1].replace('"', '')
-                gene_name = attr[3].split(' ')[1].replace('"', '')
-                transcript_type = attr[4].split(' ')[1].replace('"', '')
-                transcript_name = attr[5].split(' ')[1].replace('"', '')
-                if transcript_type == 'protein_coding':
-                    index.append(idx)
-                    additional.append([gene_id, transcript_id, gene_name, transcript_name])
-
-            print(len(index), df.shape[0])
-            df_add = pd.DataFrame(data=additional, columns=['gene_id', 'transcript_id', 'gene_name', 'transcript_name'])
-            df = df.loc[index].reset_index(drop=True)
-            df = pd.concat([df, df_add], axis=1)
-            df.to_sql(tname, con_out, if_exists='replace', index=None)
-
-    def merge_tables(self):
-        CHROMOSOME = ['chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9', 'chr10', 'chr11',
-                       'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18', 'chr19', 'chr20', 'chr21',
-                       'chr22', 'chrX', 'chrY']
-        COLUMNS = ['start', 'end', 'fan_start', 'fan_end', 'gene_name', 'transcript_name']
-
-        fpath_ens = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
-        fpath_ucsc = os.path.join(self.root, 'database/UCSC/Genes', 'genes_pc.db')
-        fpath_gen = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db')
-
-        cons = {}
-        for fpath, tname in zip([fpath_ens, fpath_ucsc, fpath_gen], ['Ensembl', 'UCSC', 'gencode.v30lift37']):
-            cons[tname] = sqlite3.connect(fpath)
-
-        con_out = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5', 'hg19.fantom_cross_check_ucsc_ensembl_gencode.db'))
-        for chr in CHROMOSOME:
-            for str in ['+', '-']:
-                dfs = []
-                for tname__, con in cons.items():
-                    tname = '_'.join([tname__, chr, str])
-                    df = pd.read_sql_query("SELECT {} FROM '{}' WHERE fan_start>0 AND fan_end>0".format(', '.join(COLUMNS), tname), con)
-                    if df.empty:
-                        continue
-                    df.loc[:, 'resource'] = tname__
-                    dfs.append(df)
-
-                df = pd.concat(dfs)
-                out_tname = 'fantom_{}_{}'.format(chr, str)
-                df.to_sql(out_tname, con_out, if_exists='replace', index=None)
-
     def run(self):
-        ref_paths = [os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')]
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')
+        con_ref = sqlite3.connect(ref_path)
+        ref_buffer, ref_data_lengths_cum = self.set_ref_data(con_ref)
 
-        for ref_path in ref_paths:
-            con_ref = sqlite3.connect(ref_path)
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
+        con_fan = sqlite3.connect(fpath_fan)
+        tlist_fan = Database.load_tableList(con_fan)
 
-            fpath_fan = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
-            con_fan = sqlite3.connect(fpath_fan)
-
-            ref_buffer, ref_data_lengths_cum = self.set_ref_data(con_ref)
-            for key, con_res in zip(['FANTOM'], [con_fan]):
-                res_buffer, res_data_lengths_cum = self.set_data(con_res)
-                print(key, res_data_lengths_cum[-1])
-                out_data = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
-                self.to_output(con_ref, out_data, ref_data_lengths_cum)
-
-    def merge_table(self):
-        fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
-        con = sqlite3.connect(fpath)
-        tlist = Database.load_tableList(con)
-
-        dfs = []
-        for tname in tlist:
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-            nidx = df[df['fan_start'] == 0].index
-            
-            df = df[['gene_name', 'Transcription start site (TSS)', 'chromosome', 'fan_start', 'fan_end', 'strand']]
-            location = df[['chromosome', 'fan_start', 'fan_end', 'strand']].apply(lambda row: ';'.join(row.values.astype(str)), axis=1)
-            df.loc[:, 'Fantom'] = location
-            df.loc[nidx, 'Fantom'] = np.nan
-            dfs.append(df.drop(['chromosome', 'fan_start', 'fan_end', 'strand'], axis=1))
-        df = pd.concat(dfs)
-        df.to_excel('consistency_table_fantom_ensembl.xlsx', index=None)
-
-    def stats(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.cage_peak_phase1and2combined_counts.osc.db')
-        # fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation.db')
-        con = sqlite3.connect(fpath)
-        tlist = Database.load_tableList(con)
-
-        dfs = []
-        for tname in tlist:
-            dfs.append(pd.read_sql_query("SELECT * FROM '{}'".format(tname), con))
-        df_res = pd.concat(dfs)
-
-        stats = {'ENS': 0, 'UCSC': 0, 'GENCODE': 0}
-        tot = df_res.shape[0]
-        for col, _ in stats.items():
-            npos = df_res[df_res[col] > 0].shape[0]
-            print(npos, tot)
-            stats[col] = 100 * npos / tot
-        print(stats)
+        for tname in tlist_fan:
+            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            res_buffer, res_data_lengths_cum = self.set_data(df_fan)
+            out_data = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
+            self.to_output(con_ref, out_data, ref_data_lengths_cum)
 
 
 if __name__ == '__main__':
