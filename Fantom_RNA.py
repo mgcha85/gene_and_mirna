@@ -101,26 +101,24 @@ class Fantom_RNA:
             tissue = df.loc[fid, 'src']
 
             df_sub = pd.read_csv(os.path.join(dirname, fid + ext), names=self.gtf_columns, sep='\t', comment='#')
-            df_sub = df_sub[df_sub['feature'] == 'transcript']
-            df_sub = df_sub.reset_index(drop=True)
+            df_sub = df_sub[df_sub['feature'] == 'transcript'].reset_index(drop=True)
             df_sub['chromosome'] = 'chr' + df_sub['chromosome'].astype(str)
             attribute = df_sub['attribute'].str.split('; ')
 
             pkm = []
             for attr in attribute:
                 dict = {}
-                for a in attr[:-1]:
+                for a in attr:
                     key, value = a.split(' ')
                     dict[key] = value.replace('"', '')
 
-                if 'cov' not in dict or 'gene_name' not in dict:
-                    pkm.append([np.nan] * 2)
+                if 'ref_gene_name' not in dict:
+                    pkm.append([np.nan] * 3)
                     continue
-                pkm.append([dict['gene_name'], dict['cov'].replace(';', '')])
+                pkm.append([dict['ref_gene_name'], dict['FPKM'], dict['TPM'].replace(';', '')])
 
-            df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'cov'])
+            df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'FPKM', 'TPM'])
             df_sub = pd.concat([df_sub, df_res], axis=1)
-            df_sub = df_sub.dropna(subset=['gene_name', 'cov'], how='any')
             df_sub.drop(['attribute', 'frame'], axis=1).to_sql(tissue, con, index=None, if_exists='append')
 
     def processInput(self, df, tissue, idx):

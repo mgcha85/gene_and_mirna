@@ -61,7 +61,7 @@ class Server:
 
     def split_files(self, root_dir, batch_size, ext='.fastq'):
         flist = os.listdir(root_dir)
-        flist = [os.path.join(root_dir, x) for x in flist if x.endswith(ext)]
+        flist = sorted([os.path.join(root_dir, x) for x in flist if x.endswith(ext)])
 
         N = len(flist)
         M = (N + (batch_size - 1)) // batch_size
@@ -75,20 +75,23 @@ class Server:
             shutil.move(fpath, os.path.join(dirname, fname))
 
     def run(self):
-        batch_size = 10
-        # root_dir = os.path.join(self.root, 'database/RNA-seq/bam')
-        # self.split_files(root_dir, batch_size=batch_size, ext='.bam')
+        batch_size = 4
 
-        for i in range(3):
-            if i < 5:
+        for i in range(batch_size):
+            # if i == 0:
+            #     root_dir = os.path.join(self.root, 'database/RNA-seq/fastq')
+            #     self.split_files(root_dir, batch_size=batch_size, ext='.gz')
+            #     exit(1)
+
+            if i <= 5:
                 which = 'newton'
             else:
                 which = 'stokes'
             self.connect(which)
 
             scr_name = 'Convert.py'
+            # scr_name = 'download_RNA_seq.py'
             self.job_script(scr_name, time='03:00:00', which=which)
-            # self.job_script('download_RNA_seq.py', time='12:00:00', which=which)
 
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
             self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))

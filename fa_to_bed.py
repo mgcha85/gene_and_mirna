@@ -3,6 +3,8 @@ import subprocess
 import socket
 import pandas as pd
 import sqlite3
+import numpy as np
+import shutil
 
 
 class fa2bed:
@@ -83,8 +85,8 @@ class fa2bed:
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
 
         print('bam to gff...')
-        dirname, fname = os.path.split(bam_file)
-        fname = os.path.splitext(fname)[0] + '.gff'
+        dirname, fname__ = os.path.split(bam_file)
+        fname = os.path.splitext(fname__)[0] + '.gff'
         gtf_file = os.path.join(dirname, fname)
 
         command = '{str_root}/./stringtie -p 4 -G {str_root}/genes.gtf -o {gtf} -i {bam}' \
@@ -97,15 +99,16 @@ class fa2bed:
             if os.path.exists(fpath):
                 os.remove(fpath)
 
-        # os.remove(bam_file)
+        root_dir = '/'.join(bam_file.split('/')[:-2])
+        shutil.move(bam_file, os.path.join(root_dir, 'bam', fname__))
         print('done with bam to gtf')
 
     def gff_to_gtf(self, gff_file):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
 
         print('gff to gtf...')
-        dirname, fname = os.path.split(gff_file)
-        fname = os.path.splitext(fname)[0] + '.gtf'
+        dirname, fname__ = os.path.split(gff_file)
+        fname = os.path.splitext(fname__)[0] + '.gtf'
         gtf_file = os.path.join(dirname, fname)
 
         command = '{str_root}/./stringtie -p 4 --merge -G {str_root}/genes.gtf -o {gtf} -i {gff}' \
@@ -113,7 +116,10 @@ class fa2bed:
         print(command)
         self.command_exe(command)
 
-        os.remove(gff_file)
+        root_dir = '/'.join(gff_file.split('/')[:-2])
+        shutil.move(gff_file, os.path.join(root_dir, 'gff', fname__))
+        shutil.move(gtf_file, os.path.join(root_dir, 'gtf', fname))
+
         print('done with bam to gtf')
 
     def sub_directory(self, root, ext='.txt'):
@@ -146,23 +152,24 @@ class fa2bed:
                     pkm = []
                     for attr in attribute:
                         dict = {}
-                        for a in attr:
+                        for a in attr[:-1]:
                             key, value = a.split(' ')
                             dict[key] = value.replace('"', '')
 
-                        if 'ref_gene_name' not in dict:
+                        if 'cov' not in dict or 'gene_name' not in dict:
+                            pkm.append([np.nan] * 2)
                             continue
-                        pkm.append([dict['ref_gene_name'], dict['FPKM'], dict['TPM'].replace(';', '')])
+                        pkm.append([dict['gene_name'], dict['cov'].replace(';', '')])
 
-                    df_add = pd.DataFrame(data=pkm, columns=['gene_name', 'FPKM', 'TPM'])
+                    df_add = pd.DataFrame(data=pkm, columns=['gene_name', 'cov'])
                     df_con = pd.concat([df_chunk, df_add], axis=1)
+                    df_con = df_con.dropna(subset=['gene_name', 'cov'], how='any')
                     tname = os.path.splitext(fname)[0].split('%')[0]
                     df_con.drop(['frame', 'attribute'], axis=1).to_sql(tname, con, index=None, if_exists='append')
 
 
 if __name__ == '__main__':
     f2b = fa2bed()
-
     # f2b.sam_to_bam(fpath)
     # f2b.bam_to_gtf(fpath.replace('.sam', '.bam'))
     f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq')

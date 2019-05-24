@@ -5,6 +5,7 @@ import socket
 from Server import Server
 import sys
 import shutil
+import sqlite3
 
 
 class Convert:
@@ -46,13 +47,13 @@ class Convert:
     def bam_to_gtf(self, bam_file):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.6')
 
-        print('bam to gff...')
+        print('bam to gtf...')
         dirname, fname = os.path.split(bam_file)
-        fname = os.path.splitext(fname)[0] + '.gff'
-        gff_file = os.path.join(dirname, fname)
+        fname = os.path.splitext(fname)[0] + '.gtf'
+        gtf_file = os.path.join(dirname, fname)
 
-        command = '{str_root}/./stringtie -p 8 -G {str_root}/genes.gtf -o {gff} -i {bam}' \
-                  ''.format(str_root=string_tie_root, gff=gff_file, bam=bam_file)
+        command = '{str_root}/./stringtie -p 8 -G {str_root}/genes.gtf -o {gtf} -i {bam}' \
+                  ''.format(str_root=string_tie_root, gtf=gtf_file, bam=bam_file)
         print(command)
         self.command_exe(command)
 
@@ -72,15 +73,41 @@ class Convert:
         self.command_exe(command)
         print('done with bam to gtf')
 
+    def gtf_to_db(self, gtf_file):
+        import numpy as np
+        gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
+        con = sqlite3.connect(gtf_file.replace('.gtf', '.db'))
+        dirname, fname = os.path.split(gtf_file)
+
+        df = pd.read_csv(gtf_file, names=gtf_columns, comment='#', sep='\t')
+        df = df[df['feature'] == 'transcript'].reset_index(drop=True)
+        df['chromosome'] = 'chr' + df['chromosome'].astype(str)
+        attribute = df['attribute'].str.split('; ')
+
+        pkm = []
+        for attr in attribute:
+            dict = {}
+            for a in attr:
+                key, value = a.split(' ')
+                dict[key] = value.replace('"', '')
+
+            if 'ref_gene_name' not in dict:
+                continue
+            pkm.append([dict['ref_gene_name'], dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')])
+
+        df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'cov', 'FPKM', 'TPM'])
+        df = pd.concat([df, df_res], axis=1)
+        df.drop(['attribute', 'frame'], axis=1).to_sql(os.path.splitext(fname)[0], con, index=None,
+                                                       if_exists='replace')
+
     def arrange_files(self, bam_file):
-        gff_file = bam_file.replace('.bam', '.gff')
         gtf_file = bam_file.replace('.bam', '.gtf')
 
         dirname, fname__ = os.path.split(bam_file)
         fname, ext = os.path.splitext(fname__)
         super_dir = '/'.join(dirname.split('/')[:-2])
         
-        for from_path, type in zip([bam_file, gff_file, gtf_file], ['bam', 'gff', 'gtf']):
+        for from_path, type in zip([bam_file, gtf_file], ['bam', 'gtf']):
             to_path = os.path.join(super_dir, type, fname + '.' + type)
             shutil.move(from_path, to_path)
 
@@ -100,17 +127,21 @@ class Convert:
             shutil.move(fpath, os.path.join(dirname, fname))
 
     def run(self):
-        # dirname = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/test'
-        dirname = os.getcwd()
+        dirname = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/bam/1'
+        # dirname = os.getcwd()
 
         flist = os.listdir(dirname)
         fpaths = [os.path.join(dirname, x) for x in sorted(flist) if x.endswith('.bam')]
         for fpath in fpaths:
             self.bam_to_gtf(fpath)
-            self.gff_to_gtf(fpath.replace('.bam', '.gff'))
             self.arrange_files(fpath)
 
 
 if __name__ == '__main__':
     con = Convert()
-    con.run()
+    if con.hostname == 'mingyu-Precision-Tower-7810':
+        # con.to_server()
+        con.run()
+    else:
+        # con.split_files('/lustre/fs0/home/mcha/Bioinformatics/database/RNA-seq/bam', 9, '.bam')
+        con.run()

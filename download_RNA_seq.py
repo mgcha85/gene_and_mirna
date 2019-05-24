@@ -191,7 +191,7 @@ class Download_RNA_seq:
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    drs.merge_rna_seq()
+    drs.to_bed()
 
     # cwd = os.getcwd()
     # print(cwd)
