@@ -15,11 +15,12 @@ mod = SourceModule("""
 #include <stdio.h>
 enum{TABLE_NUM, FAN_START, FAN_END, OUT_WIDTH};
 enum{START, END, WIDTH};
+#define SCOPE   500
 
 __device__ int* search(int *ref_buffer, int *location, const int ref_tss, const int idx, const int N)
 {
-    int ref_start = ref_tss - 100;
-    int ref_end = ref_tss + 100;
+    int ref_start = ref_tss - SCOPE;
+    int ref_end = ref_tss + SCOPE;
     int res_start, res_end;
     
     for(int i=0; i<N; i++) {
@@ -199,6 +200,6 @@ if __name__ == '__main__':
     comp = Comparison()
     if comp.hostname == 'mingyu-Precision-Tower-7810':
         # comp.to_server()
-        comp.merge_table()
+        comp.run()
     else:
         comp.run()
