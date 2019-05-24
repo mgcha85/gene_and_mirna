@@ -7,34 +7,34 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from Database import Database
-from Server import Server
+# from Server import Server
 import sys
 
 
 mod = SourceModule("""
 #include <stdio.h>
-enum{TABLE_NUM, FAN_START, FAN_END, OUT_WIDTH};
+enum{LABEL, INDEX, OUT_WIDTH};
 enum{START, END, WIDTH};
 #define SCOPE   500
+#define MAXLEN  1 << 10
 
-__device__ int* search(int *ref_buffer, int *location, const int ref_tss, const int idx, const int N)
+
+__device__ int* search(int *res_buffer, int *out_buffer_gpu, const int ref_tss, const int idx, const int N)
 {
     int ref_start = ref_tss - SCOPE;
     int ref_end = ref_tss + SCOPE;
     int res_start, res_end;
     
     for(int i=0; i<N; i++) {
-        res_start = ref_buffer[i * WIDTH + START];
-        res_end = ref_buffer[i * WIDTH + END];
+        res_start = res_buffer[i * WIDTH + START];
+        res_end = res_buffer[i * WIDTH + END];
         if(ref_start > res_end || ref_end < res_start)  continue;
         else {
-            location[0] = res_start;
-            location[1] = res_end;
-            return location;
+            out_buffer_gpu[OUT_WIDTH * i + LABEL] = 1;
+            out_buffer_gpu[OUT_WIDTH * i + INDEX] = idx;            
         }
                 
     }
-    return location;
 }
 
 __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
@@ -57,12 +57,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     sidx = res_data_lengths_cum_gpu[tb_num];
     eidx = res_data_lengths_cum_gpu[tb_num + 1];
     
-    out_buffer_gpu[idx * OUT_WIDTH + TABLE_NUM] = tb_num;
-    
-    int location[2] = {0, };
-    search(&res_buffer_gpu[sidx * WIDTH], location, tss, idx, eidx - sidx);
-    out_buffer_gpu[idx * OUT_WIDTH + FAN_START] = location[0];
-    out_buffer_gpu[idx * OUT_WIDTH + FAN_END] = location[1];
+    search(&res_buffer_gpu[sidx * WIDTH], &out_buffer_gpu[sidx * OUT_WIDTH], tss, idx, eidx - sidx);
     
 }""")
 
@@ -102,39 +97,48 @@ class Comparison:
     def set_ref_data(self, con):
         tlist = Database.load_tableList(con)
 
+        dfs = []
         buffer = []
         data_lengths = []
         for i, tname in enumerate(sorted(tlist)):
-            _, chromosome, strand = tname.split('_')
+            chromosome, strand = tname.split('_')[-2:]
+            if chromosome == 'chrY':
+                continue
             self.chr_str_map['{}_{}'.format(chromosome, strand)] = i
-            df = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con)
+            df = pd.read_sql_query("SELECT start, end, gene_name FROM '{}'".format(tname), con)
             if strand == '+':
                 df['tss'] = df['start']
             else:
                 df['tss'] = df['end']
             buffer.append(df['tss'].values.astype(np.int32))
             data_lengths.append(df.shape[0])
+            dfs.append(df)
 
         data_lengths = np.array(data_lengths)
         data_lengths_cum = np.zeros(data_lengths.shape[0] + 1)
         data_lengths_cum[1:] = data_lengths.cumsum()
-        return buffer, data_lengths_cum.astype(np.int32)
+        return buffer, data_lengths_cum.astype(np.int32), pd.concat(dfs).reset_index(drop=True)
 
     def set_data(self, df_res):
         df_chr = df_res.groupby('chromosome')
 
-        buffer = [None] * len(self.chr_str_map)
-        data_lengths = [None] * len(self.chr_str_map)
+        N = len(self.chr_str_map)
+        dfs = [None] * N
+        buffer = [None] * N
+        data_lengths = [None] * N
         for chr, df_str in df_chr:
-            for str, df_sub in df_str:
+            for str, df_sub in df_str.groupby('strand'):
+                if chr == 'chrY':
+                    continue
                 num = self.chr_str_map['{}_{}'.format(chr, str)]
                 buffer[num] = df_sub[['start', 'end']].values.flatten().astype(np.int32)
                 data_lengths[num] = df_sub.shape[0]
+                dfs[num] = df_sub
 
         data_lengths = np.array(data_lengths)
         data_lengths_cum = np.zeros(data_lengths.shape[0] + 1)
         data_lengths_cum[1:] = data_lengths.cumsum()
-        return buffer, data_lengths_cum.astype(np.int32)
+        return buffer, data_lengths_cum.astype(np.int32), pd.concat(dfs).reset_index(drop=True)
 
     def to_gpu(self, ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum):
         THREADS_PER_BLOCK = 1 << 10
@@ -158,15 +162,17 @@ class Comparison:
         M = np.int32(ref_data_lengths_cum.shape[0])
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        out_buffer = np.zeros((N, 3)).flatten().astype(np.int32)
+        out_buffer = np.zeros((len(res_buffer) // 2, 2)).flatten().astype(np.int32)
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
         func = mod.get_function("cuda_scanner")
         func(ref_buffer_gpu, ref_data_lengths_cum_gpu, res_buffer_gpu, res_data_lengths_cum_gpu, out_buffer_gpu, N, M,
              block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
-        out_buffer = out_buffer.reshape((N, 3))
-        return out_buffer
+
+        df_res = pd.DataFrame(res_buffer.reshape((-1, 2)), columns=['start', 'end'])
+        df_out = pd.DataFrame(out_buffer.reshape((-1, 2)), columns=['label', 'index'])
+        return pd.concat([df_res, df_out], axis=1)
 
     def to_output(self, con_ref, out_data, data_lengths_cum):
         tlist = Database.load_tableList(con_ref)
@@ -183,17 +189,27 @@ class Comparison:
     def run(self):
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')
         con_ref = sqlite3.connect(ref_path)
-        ref_buffer, ref_data_lengths_cum = self.set_ref_data(con_ref)
+        ref_buffer, ref_data_lengths_cum, df_ref = self.set_ref_data(con_ref)
 
         fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
         con_fan = sqlite3.connect(fpath_fan)
         tlist_fan = Database.load_tableList(con_fan)
+        con_out = sqlite3.connect(fpath_fan.replace('.db', '_out.db'))
 
-        for tname in tlist_fan:
+        for i, tname in enumerate(tlist_fan):
+            print(tname)
             df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
-            res_buffer, res_data_lengths_cum = self.set_data(df_fan)
-            out_data = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
-            self.to_output(con_ref, out_data, ref_data_lengths_cum)
+            res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
+            df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
+            df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
+            df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
+
+            gene_name = [None] * df_res.shape[0]
+            for i, idx in zip(df_res.index, df_res['index']):
+                gene_name[i] = df_ref.loc[idx, 'gene_name']
+            df_res.loc[:, 'gene_name'] = gene_name
+            df_res.to_sql(tname, con_out, if_exists='replace', index=None)
+            # self.to_output(con_ref, out_data, ref_data_lengths_cum)
 
 
 if __name__ == '__main__':
