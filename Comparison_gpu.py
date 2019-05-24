@@ -7,7 +7,7 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from Database import Database
-from Server import Server
+# from Server import Server
 import sys
 
 
@@ -128,7 +128,9 @@ class Comparison:
         data_lengths = [None] * N
         for chr, df_str in df_chr:
             for str, df_sub in df_str.groupby('strand'):
-                if chr == 'chrY' or 'chrM' in chr or str == '.' or len(chr) > 5:
+                if chr == 'chrMT':
+                    chr = 'chrM'
+                if chr == 'chrY' or str == '.' or len(chr) > 5:
                     continue
                 num = self.chr_str_map['{}_{}'.format(chr, str)]
                 buffer[num] = df_sub[['start', 'end']].values.flatten().astype(np.int32)
@@ -240,7 +242,7 @@ class Comparison:
 if __name__ == '__main__':
     comp = Comparison()
     if comp.hostname == 'mingyu-Precision-Tower-7810':
-        comp.to_server()
+        comp.rna_to_gene()
         # comp.run()
     else:
         comp.rna_to_gene()
