@@ -118,25 +118,26 @@ class Correlation2:
                     if df_fan.empty:
                         continue
                     counts = df_fan['score'].sum()
+                    attribute = df_fan['location'] + ',' + df_fan['score'].astype(str)
 
                     df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE gene_name='{}'".format(rtname, gene_name), con_rna)
                     if df_rna.empty:
                         continue
 
                     df_rna[['TPM', 'FPKM']] = df_rna[['TPM', 'FPKM']].astype(float)
-                    tpm = df_rna['TPM'].mean()
                     fpkm = df_rna['FPKM'].mean()
-                    loci = ';'.join([chromosome, tss, strand])
-                    contents.append([gene_name, loci, tpm, fpkm, counts, rtname])
+                    loci = ';'.join([chromosome, str(tss), strand])
+                    contents.append([gene_name, loci, fpkm, counts, rtname, ';'.join(attribute)])
 
-                df_rep = pd.DataFrame(contents, columns=['gene_name', 'loci', 'tpm', 'fpkm', 'counts', 'tissue'])
+                df_rep = pd.DataFrame(contents, columns=['gene_name', 'loci', 'fpkm', 'counts', 'tissue'])
+                df_rep['counts'] = df_rep['counts'] / df_rep['counts'].sum()
                 df_rep.to_sql(rtname, out_con, if_exists='replace', index=None)
 
 
 if __name__ == '__main__':
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        # cor.to_server()
-        cor.run()
+        cor.to_server()
+        # cor.run()
     else:
         cor.run()

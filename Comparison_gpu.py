@@ -7,7 +7,7 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from Database import Database
-# from Server import Server
+from Server import Server
 import sys
 
 
@@ -128,7 +128,7 @@ class Comparison:
         data_lengths = [None] * N
         for chr, df_str in df_chr:
             for str, df_sub in df_str.groupby('strand'):
-                if chr == 'chrY':
+                if chr == 'chrY' or 'chrM' in chr or str == '.' or len(chr) > 5:
                     continue
                 num = self.chr_str_map['{}_{}'.format(chr, str)]
                 buffer[num] = df_sub[['start', 'end']].values.flatten().astype(np.int32)
@@ -186,7 +186,7 @@ class Comparison:
             df['fan_end'] = out_data[sidx: eidx, 2]
             df.to_sql(tname, con_ref, if_exists='replace', index=None)
 
-    def run(self):
+    def fantom_to_gene(self):
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')
         con_ref = sqlite3.connect(ref_path)
         ref_buffer, ref_data_lengths_cum, df_ref = self.set_ref_data(con_ref)
@@ -208,14 +208,39 @@ class Comparison:
             for i, idx in zip(df_res.index, df_res['index']):
                 gene_name[i] = df_ref.loc[idx, 'gene_name']
             df_res.loc[:, 'gene_name'] = gene_name
-            df_res.to_sql(tname, con_out, if_exists='replace', index=None)
+            df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
+            # self.to_output(con_ref, out_data, ref_data_lengths_cum)
+
+    def rna_to_gene(self):
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')
+        con_ref = sqlite3.connect(ref_path)
+        ref_buffer, ref_data_lengths_cum, df_ref = self.set_ref_data(con_ref)
+
+        fpath_fan = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        con_fan = sqlite3.connect(fpath_fan)
+        tlist_fan = Database.load_tableList(con_fan)
+        con_out = sqlite3.connect(fpath_fan.replace('.db', '_out.db'))
+
+        for i, tname in enumerate(tlist_fan):
+            print(tname)
+            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
+            df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
+            df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
+            df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
+
+            gene_name = [None] * df_res.shape[0]
+            for i, idx in zip(df_res.index, df_res['index']):
+                gene_name[i] = df_ref.loc[idx, 'gene_name']
+            df_res.loc[:, 'gene_name'] = gene_name
+            df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
             # self.to_output(con_ref, out_data, ref_data_lengths_cum)
 
 
 if __name__ == '__main__':
     comp = Comparison()
     if comp.hostname == 'mingyu-Precision-Tower-7810':
-        # comp.to_server()
-        comp.run()
+        comp.to_server()
+        # comp.run()
     else:
-        comp.run()
+        comp.rna_to_gene()
