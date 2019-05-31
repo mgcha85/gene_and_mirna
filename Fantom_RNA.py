@@ -89,7 +89,7 @@ class Fantom_RNA:
         df = df.drop_duplicates(subset=['fid'])
         df = df.set_index('fid', drop=True)
 
-        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_full.db')
         con = sqlite3.connect(fpath)
 
         dirname = os.path.join(self.root, 'database/RNA-seq/gtf')
@@ -101,7 +101,7 @@ class Fantom_RNA:
             tissue = df.loc[fid, 'src']
 
             df_sub = pd.read_csv(os.path.join(dirname, fid + ext), names=self.gtf_columns, sep='\t', comment='#')
-            df_sub = df_sub[df_sub['feature'] == 'transcript'].reset_index(drop=True)
+            # df_sub = df_sub[df_sub['feature'] == 'transcript'].reset_index(drop=True)
             df_sub['chromosome'] = 'chr' + df_sub['chromosome'].astype(str)
             attribute = df_sub['attribute'].str.split('; ')
 
@@ -113,11 +113,11 @@ class Fantom_RNA:
                     dict[key] = value.replace('"', '')
 
                 if 'ref_gene_name' not in dict:
-                    pkm.append([np.nan] * 3)
+                    pkm.append([np.nan] * 2)
                     continue
-                pkm.append([dict['ref_gene_name'], dict['FPKM'], dict['TPM'].replace(';', '')])
+                pkm.append([dict['ref_gene_name'], dict['cov']])
 
-            df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'FPKM', 'TPM'])
+            df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'cov'])
             df_sub = pd.concat([df_sub, df_res], axis=1)
             df_sub.drop(['attribute', 'frame'], axis=1).to_sql(tissue, con, index=None, if_exists='append')
 

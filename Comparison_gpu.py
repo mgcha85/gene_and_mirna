@@ -7,7 +7,7 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from pycuda.compiler import SourceModule
 from Database import Database
-# from Server import Server
+from Server import Server
 import sys
 
 
@@ -15,14 +15,13 @@ mod = SourceModule("""
 #include <stdio.h>
 enum{LABEL, INDEX, OUT_WIDTH};
 enum{START, END, WIDTH};
-#define SCOPE   500
 #define MAXLEN  1 << 10
 
 
-__device__ int* search(int *res_buffer, int *out_buffer_gpu, const int ref_tss, const int idx, const int N)
+__device__ int* search(int *res_buffer, int *out_buffer_gpu, const int ref_tss, const int idx, const int N, const int scope)
 {
-    int ref_start = ref_tss - SCOPE;
-    int ref_end = ref_tss + SCOPE;
+    int ref_start = ref_tss - scope;
+    int ref_end = ref_tss + scope;
     int res_start, res_end;
     
     for(int i=0; i<N; i++) {
@@ -45,7 +44,7 @@ __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const
     return N;
 }
 
-__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, int *out_buffer_gpu, const int N, const int M)
+__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, int *out_buffer_gpu, const int N, const int M, const int scope)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -57,7 +56,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
     sidx = res_data_lengths_cum_gpu[tb_num];
     eidx = res_data_lengths_cum_gpu[tb_num + 1];
     
-    search(&res_buffer_gpu[sidx * WIDTH], &out_buffer_gpu[sidx * OUT_WIDTH], tss, idx, eidx - sidx);
+    search(&res_buffer_gpu[sidx * WIDTH], &out_buffer_gpu[sidx * OUT_WIDTH], tss, idx, eidx - sidx, scope);
     
 }""")
 
@@ -144,6 +143,7 @@ class Comparison:
 
     def to_gpu(self, ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum):
         THREADS_PER_BLOCK = 1 << 10
+        SCOPE = np.int32(500)
 
         ref_buffer = np.concatenate(ref_buffer)
         res_buffer = np.concatenate(res_buffer)
@@ -169,7 +169,7 @@ class Comparison:
 
         func = mod.get_function("cuda_scanner")
         func(ref_buffer_gpu, ref_data_lengths_cum_gpu, res_buffer_gpu, res_data_lengths_cum_gpu, out_buffer_gpu, N, M,
-             block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+             SCOPE, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
 
         df_res = pd.DataFrame(res_buffer.reshape((-1, 2)), columns=['start', 'end'])
@@ -242,7 +242,7 @@ class Comparison:
 if __name__ == '__main__':
     comp = Comparison()
     if comp.hostname == 'mingyu-Precision-Tower-7810':
-        comp.rna_to_gene()
+        comp.to_server()
         # comp.run()
     else:
-        comp.rna_to_gene()
+        comp.fantom_to_gene()

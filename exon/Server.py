@@ -1,9 +1,7 @@
 import paramiko
 import socket
 import os
-from download_RNA_seq import Download_RNA_seq
-from fa_to_bed import fa2bed
-import time
+# from fa_to_bed import fa2bed
 import shutil
 
 
@@ -22,7 +20,7 @@ class Server:
         self.server = '/lustre/fs0/home/mcha/Bioinformatics'
         # self.rna_dir = os.path.join(self.server, 'database/RNA-seq/fastq/{}')
         self.rna_dir = os.path.join(self.server, 'database/RNA-seq/bam/{}')
-        self.f2b = fa2bed()
+        # self.f2b = fa2bed()
 
     def connect(self, which='newton'):
         self.ssh = paramiko.SSHClient()
@@ -44,9 +42,9 @@ class Server:
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
                   'module load cuda/cuda-9.0', 'module load anaconda/anaconda3',
                   'time python {}'.format(os.path.join(src_root, fname))]
-        if which == 'stokes':
-            script.pop(6)
-            script.pop(-3)
+        # if which == 'stokes':
+        script.pop(6)
+        script.pop(-3)
 
         with open('dl-submit.slurm', 'wt') as f:
             f.write('\n'.join(script))
@@ -77,30 +75,25 @@ class Server:
             shutil.move(fpath, os.path.join(dirname, fname))
 
     def run(self):
-        batch_size = 4
-
+        batch_size = 15
         for i in range(batch_size):
-            # if i == 0:
-            #     root_dir = os.path.join(self.root, 'database/RNA-seq/fastq')
-            #     self.split_files(root_dir, batch_size=batch_size, ext='.gz')
-            #     exit(1)
-
-            if i <= 5:
+            if i <= 10:
                 which = 'newton'
             else:
                 which = 'stokes'
             self.connect(which)
 
-            scr_name = 'Convert.py'
+            scr_name = 'Exon_distribution.py'
+            src_root = os.path.join(self.server, 'source/gene_and_mirna/exon/{}'.format(i + 1))
             # scr_name = 'download_RNA_seq.py'
-            self.job_script(scr_name, time='03:00:00', which=which)
+            self.job_script(scr_name, src_root=src_root, time='03:00:00', which=which)
 
-            src_root = os.path.join(self.server, 'source/gene_and_mirna')
             self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))
-            self.upload('requirements.txt', os.path.join(src_root, 'requirements.txt'))
+            # self.upload('requirements.txt', os.path.join(src_root, 'requirements.txt'))
             self.upload(scr_name, os.path.join(src_root, scr_name))
 
-            dirname = self.rna_dir.format(i+1)
+            # dirname = self.rna_dir.format(i+1)
+            dirname = src_root
             print(dirname)
             stdin, stdout, stderr = self.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(dirname, src_root))
             job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
