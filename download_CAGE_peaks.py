@@ -56,7 +56,9 @@ class Download_RNA_seq:
     def get_cage_peak_id(self):
         fpath = os.path.join(self.root, 'Papers/complement', 'supp_gkv608_nar-00656-h-2015-File009.xls')
         df = pd.read_excel(fpath, header=1)
-        return df.dropna(axis=0, how='any')['CAGE FF_ID']
+        df = df.dropna(axis=0, how='any')
+        # df.to_csv('FANTOM_tissue.csv', index=None)
+        return df['CAGE FF_ID']
 
     def to_db(self, fpath):
         self.f2b.bam_to_gtf(fpath)
@@ -170,6 +172,7 @@ class Download_RNA_seq:
 if __name__ == '__main__':
     drs = Download_RNA_seq()
     if drs.hostname == 'mingyu-Precision-Tower-7810':
-        drs.to_server()
+        drs.run()
+        # drs.to_server()
     else:
         drs.run()

@@ -141,9 +141,9 @@ class Comparison:
         data_lengths_cum[1:] = data_lengths.cumsum()
         return buffer, data_lengths_cum.astype(np.int32), pd.concat(dfs).reset_index(drop=True)
 
-    def to_gpu(self, ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum):
+    def to_gpu(self, ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope):
         THREADS_PER_BLOCK = 1 << 10
-        SCOPE = np.int32(500)
+        SCOPE = np.int32(scope)
 
         ref_buffer = np.concatenate(ref_buffer)
         res_buffer = np.concatenate(res_buffer)
@@ -188,7 +188,7 @@ class Comparison:
             df['fan_end'] = out_data[sidx: eidx, 2]
             df.to_sql(tname, con_ref, if_exists='replace', index=None)
 
-    def fantom_to_gene(self):
+    def fantom_to_gene(self, scope=500):
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')
         con_ref = sqlite3.connect(ref_path)
         ref_buffer, ref_data_lengths_cum, df_ref = self.set_ref_data(con_ref)
@@ -202,7 +202,7 @@ class Comparison:
             print(tname)
             df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
             res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
-            df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
+            df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
             df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
             df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
 

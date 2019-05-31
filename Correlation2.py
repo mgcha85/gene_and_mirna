@@ -211,13 +211,21 @@ class Correlation2:
 
 
 if __name__ == '__main__':
+    from Comparison_gpu import Comparison
+    comp = Comparison()
+
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        # cor.correlation()
-        cor.to_server()
+        comp.fantom_to_gene(100)
+        cor.fantom_unique_gene()
+        # cor.rna_unique_gene()
+        cor.run()
+        cor.correlation()
+        # cor.to_server()
 
     else:
+        comp.fantom_to_gene(100)
         cor.fantom_unique_gene()
-        cor.rna_unique_gene()
+        # cor.rna_unique_gene()
         cor.run()
         cor.correlation()

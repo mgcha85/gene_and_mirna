@@ -24,12 +24,12 @@ class data_preparation:
 
     def to_server(self):
         server = Server()
-        server.connect()
+        server.connect(which='stokes')
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
 
-        server.job_script(fname, time='00:30:00')
+        server.job_script(fname, which='stokes', time='00:30:00')
 
         server_root = os.path.join(server.server, 'source/gene_and_mirna')
         server_path = local_path.replace(dirname, server_root)
@@ -228,6 +228,7 @@ if __name__ == '__main__':
     dp = data_preparation()
     if dp.hostname == 'mingyu-Precision-Tower-7810':
         dp.to_server()
+        # dp.bed_to_db()
     else:
         dp.bed_to_db()
     # dp.gtf_to_db()
