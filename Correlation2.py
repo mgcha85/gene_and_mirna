@@ -216,15 +216,11 @@ if __name__ == '__main__':
 
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        comp.fantom_to_gene(100)
-        cor.fantom_unique_gene()
-        # cor.rna_unique_gene()
-        cor.run()
-        cor.correlation()
-        # cor.to_server()
+        # cor.correlation()
+        cor.to_server()
 
     else:
-        comp.fantom_to_gene(100)
+        comp.fantom_to_gene(500)
         cor.fantom_unique_gene()
         # cor.rna_unique_gene()
         cor.run()
