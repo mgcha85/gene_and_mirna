@@ -5,22 +5,44 @@ import pandas as pd
 import sqlite3
 import numpy as np
 import shutil
+import sys
+# from Server import Server
 
 
 class fa2bed:
     def __init__(self):
-        hostname = socket.gethostname()
-        if hostname == 'mingyu-Precision-Tower-7810':
+        self.hostname = socket.gethostname()
+        if self.hostname == 'mingyu-Precision-Tower-7810':
             self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
+        elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
             # self.root = 'D:/Bioinformatics'
-        elif hostname == 'mingyu-Inspiron-7559':
+        elif self.hostname == 'mingyu-Inspiron-7559':
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.bowtie_root = os.path.join(self.root, 'software/hisat2-2.1.0')
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
+        self.bed_columns = ['chromosome', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'itemRgb', 'blockCount', 'blockSizes', 'sequence', 'alignment', 'dummy1', 'dummy2', 'dummy3', 'dummy4', 'dummy5', 'dummy6', 'dummy7', 'dummy8', 'dummy9']
+
+    # def to_server(self):
+    #     server = Server()
+    #     server.connect()
+    #
+    #     local_path = sys.argv[0]
+    #     dirname, fname = os.path.split(local_path)
+    #
+    #     server.job_script(fname, time='00:30:00')
+    #
+    #     server_root = os.path.join(server.server, 'source/gene_and_mirna')
+    #     server_path = local_path.replace(dirname, server_root)
+    #
+    #     server.upload(local_path, server_path)
+    #     server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+    #
+    #     stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+    #     job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+    #     print('job ID: {}'.format(job))
 
     def command_exe(self, command):
         proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
@@ -77,12 +99,12 @@ class fa2bed:
             for name in files:
                 if name.endswith('.bam'):
                     fpath = os.path.join(path, name)
-                    self.bam_to_gff(fpath)
+                    self.bam_to_gtf(fpath)
                     self.gff_to_gtf(fpath.replace('.bam', '.gff'))
                     self.gtf_to_db(fpath.replace('.bam', '.gtf'))
 
-    def bam_to_gff(self, bam_file):
-        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
+    def bam_to_gtf(self, bam_file):
+        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.6')
 
         print('bam to gff...')
         dirname, fname__ = os.path.split(bam_file)
@@ -99,12 +121,33 @@ class fa2bed:
             if os.path.exists(fpath):
                 os.remove(fpath)
 
-        root_dir = '/'.join(bam_file.split('/')[:-2])
+        root_dir = '/'.join(bam_file.split('/')[:-1])
+        shutil.move(bam_file, os.path.join(root_dir, 'bam', fname__))
+        print('done with bam to gtf')
+
+    def bam_to_bed(self, bam_file):
+        root = os.path.join(self.root, 'software/samtools')
+
+        print('bam to bed...')
+        dirname, fname__ = os.path.split(bam_file)
+        fname = os.path.splitext(fname__)[0] + '.bed'
+        bed_file = os.path.join(dirname, fname)
+
+        command = '{root}/./convert2bed --input=bam < {bam} > {bed}'.format(root=root, bam=bam_file, bed=bed_file)
+        print(command)
+        self.command_exe(command)
+
+        for i in range(2):
+            fpath = bam_file.replace('.bam', '_{}.fastq.gz'.format(i + 1))
+            if os.path.exists(fpath):
+                os.remove(fpath)
+
+        root_dir = '/'.join(bam_file.split('/')[:-1])
         shutil.move(bam_file, os.path.join(root_dir, 'bam', fname__))
         print('done with bam to gtf')
 
     def gff_to_gtf(self, gff_file):
-        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.3b')
+        string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.6')
 
         print('gff to gtf...')
         dirname, fname__ = os.path.split(gff_file)
@@ -167,9 +210,73 @@ class fa2bed:
                     tname = os.path.splitext(fname)[0].split('%')[0]
                     df_con.drop(['frame', 'attribute'], axis=1).to_sql(tname, con, index=None, if_exists='append')
 
+    def db_to_bed(self):
+        from Database import Database
+
+        dirname = os.path.join(self.root, 'database/Dnase')
+        flist = os.listdir(dirname)
+        for fname in flist:
+            if fname.endswith('.db'):
+                fpath = os.path.join(dirname, fname)
+                con = sqlite3.connect(fpath)
+                tlist = Database.load_tableList(con)
+                for tname in tlist:
+                    df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                    df.to_csv(tname +'.csv', sep='\t', index=None)
+
+    def chain_transfer(self):
+        dirname = os.path.join(self.root, 'database/Dnase')
+        flist = os.listdir(dirname)
+
+        for fname in flist:
+            if fname.endswith('.bed'):
+                root = os.path.join(self.root, 'software/userApps')
+                fname, ext = os.path.splitext(fname)
+                in_path = os.path.join(dirname, fname + ext)
+                out_path = os.path.join(dirname, fname + '_liftover' + ext)
+
+                command = '{root}/./liftOver {in_path} {root}/hg38ToHg19.over.chain.gz {out_path}'.format(root=root,
+                            in_path=os.path.join(dirname, in_path), out_path=out_path)
+                print(command)
+                self.command_exe(command)
+
+    def bed_to_db(self):        
+        dirname = os.path.join(self.root, 'database/Dnase')
+        chunksize = (1 << 20) * 256   # 256MB
+        fids = {'ENCFF441RET': 'K562', 'ENCFF591XCX': 'HepG2', 'ENCFF716ZOM': 'A549', 'ENCFF775ZJX': 'GM12878',
+                'ENCFF912JKA': 'HeLa-S3', 'ENCFF571SSA': 'hESC '}
+
+        flist = os.listdir(dirname)
+        for fname__ in flist:
+            if fname__.endswith('.bed'):
+                fname = os.path.splitext(fname__)[0]
+                cell_line = fids[fname]
+                con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
+
+                for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize):
+                    df_chunk = df_chunk[['chromosome', 'start', 'end', 'strand']]
+
+                    df_chr = df_chunk.groupby('chromosome')
+                    for chr, df_sub in df_chr:
+                        if len(chr) > 5:
+                            continue
+                        df_sub.to_sql('{}_{}'.format(fname, chr), con, index=None, if_exists='append')
+
 
 if __name__ == '__main__':
     f2b = fa2bed()
-    # f2b.sam_to_bam(fpath)
-    # f2b.bam_to_gtf(fpath.replace('.sam', '.bam'))
-    f2b.gtf_to_db('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq')
+    f2b.bed_to_db()
+
+    # if f2b.hostname == 'mingyu-Precision-Tower-7810':
+    #     dirname = os.path.join(f2b.root, 'database/Dnase')
+    #     flist = os.listdir(dirname)
+    #     for fname in flist:
+    #         if fname.endswith('.bam'):
+    #             f2b.bam_to_bed(os.path.join(dirname, fname))
+    # 
+    # else:
+    #     dirname = os.path.join(f2b.root, 'database/Dnase')
+    #     flist = os.listdir(dirname)
+    #     for fname in flist:
+    #         if fname.endswith('.bam'):
+    #             f2b.bam_to_bed(os.path.join(dirname, fname))

@@ -1,7 +1,6 @@
 import paramiko
 import socket
 import os
-from download_RNA_seq import Download_RNA_seq
 from fa_to_bed import fa2bed
 import time
 import shutil
