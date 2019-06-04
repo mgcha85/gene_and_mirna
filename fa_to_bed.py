@@ -23,7 +23,7 @@ class fa2bed:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.bowtie_root = os.path.join(self.root, 'software/hisat2-2.1.0')
         self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
-        self.bed_columns = ['chromosome', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'itemRgb', 'blockCount', 'blockSizes', 'sequence', 'alignment', 'dummy1', 'dummy2', 'dummy3', 'dummy4', 'dummy5', 'dummy6', 'dummy7', 'dummy8', 'dummy9']
+        self.bed_columns = ['chromosome', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'itemRgb', 'blockCount', 'blockSizes', 'sequence', 'alignment', 'dummy1', 'dummy2', 'dummy3', 'dummy4', 'dummy5', 'dummy6', 'dummy7', 'dummy8', 'dummy9', 'dummy10', 'dummy11', 'dummy12']
 
     # def to_server(self):
     #     server = Server()
@@ -213,7 +213,7 @@ class fa2bed:
     def db_to_bed(self):
         from Database import Database
 
-        dirname = os.path.join(self.root, 'database/Dnase')
+        dirname = os.path.join(self.root, 'database/Dnase/hg38')
         flist = os.listdir(dirname)
         for fname in flist:
             if fname.endswith('.db'):
@@ -222,29 +222,49 @@ class fa2bed:
                 tlist = Database.load_tableList(con)
                 for tname in tlist:
                     df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-                    df.to_csv(tname +'.csv', sep='\t', index=None)
+                    df.to_csv(os.path.join(dirname, tname + '.csv'), sep='\t', index=None, header=False)
 
     def chain_transfer(self):
-        dirname = os.path.join(self.root, 'database/Dnase')
+        dirname = os.path.join(self.root, 'database/Dnase/hg38')
         flist = os.listdir(dirname)
 
         for fname in flist:
-            if fname.endswith('.bed'):
+            if fname.endswith('.csv'):
                 root = os.path.join(self.root, 'software/userApps')
                 fname, ext = os.path.splitext(fname)
                 in_path = os.path.join(dirname, fname + ext)
                 out_path = os.path.join(dirname, fname + '_liftover' + ext)
+                unmapped = os.path.join(dirname, fname + '_unmap' + ext)
 
-                command = '{root}/./liftOver {in_path} {root}/hg38ToHg19.over.chain.gz {out_path}'.format(root=root,
-                            in_path=os.path.join(dirname, in_path), out_path=out_path)
+                command = '{root}/./liftOver {in_path} {root}/hg38ToHg19.over.chain.gz {out_path} {unmapped}' \
+                          ''.format(root=root, in_path=in_path, out_path=out_path, unmapped=unmapped)
                 print(command)
                 self.command_exe(command)
 
-    def bed_to_db(self):        
-        dirname = os.path.join(self.root, 'database/Dnase')
-        chunksize = (1 << 20) * 256   # 256MB
+    def split_bed_to_db(self):
+        dirname = os.path.join(self.root, 'database/Dnase/hg38')
+        chunksize = 1 << 20
         fids = {'ENCFF441RET': 'K562', 'ENCFF591XCX': 'HepG2', 'ENCFF716ZOM': 'A549', 'ENCFF775ZJX': 'GM12878',
                 'ENCFF912JKA': 'HeLa-S3', 'ENCFF571SSA': 'hESC '}
+
+        flist = [x for x in os.listdir(dirname) if 'liftover' in x]
+
+        for fname__ in flist:
+            if fname__.endswith('.csv'):
+                fname = os.path.splitext(fname__)[0]
+                fid, chromosome, _ = fname.split('_')
+
+                cell_line = fids[fid]
+                con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
+                for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=['chromosome', 'start', 'end', 'strand'], chunksize=chunksize, low_memory=False):
+                    df_chunk = df_chunk[df_chunk['chromosome'].str.len() <= 5]
+                    df_chunk.to_sql('{}_{}'.format(fid, chromosome), con, index=None, if_exists='append')
+
+    def bed_to_db(self):
+        dirname = os.path.join(self.root, 'database/Dnase')
+        chunksize = 1 << 20
+        fids = {'ENCFF441RET': 'K562', 'ENCFF591XCX': 'HepG2', 'ENCFF716ZOM': 'A549', 'ENCFF775ZJX': 'GM12878',
+                'ENCFF912JKA': 'HeLa-S3', 'ENCFF571SSA': 'hESC'}
 
         flist = os.listdir(dirname)
         for fname__ in flist:
@@ -253,7 +273,7 @@ class fa2bed:
                 cell_line = fids[fname]
                 con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
 
-                for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize):
+                for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize, low_memory=False):
                     df_chunk = df_chunk[['chromosome', 'start', 'end', 'strand']]
 
                     df_chr = df_chunk.groupby('chromosome')
@@ -266,6 +286,9 @@ class fa2bed:
 if __name__ == '__main__':
     f2b = fa2bed()
     f2b.bed_to_db()
+    # f2b.db_to_bed()
+    # f2b.chain_transfer()
+    # f2b.split_bed_to_db()
 
     # if f2b.hostname == 'mingyu-Precision-Tower-7810':
     #     dirname = os.path.join(f2b.root, 'database/Dnase')
@@ -273,10 +296,11 @@ if __name__ == '__main__':
     #     for fname in flist:
     #         if fname.endswith('.bam'):
     #             f2b.bam_to_bed(os.path.join(dirname, fname))
-    # 
+    #
     # else:
     #     dirname = os.path.join(f2b.root, 'database/Dnase')
     #     flist = os.listdir(dirname)
     #     for fname in flist:
     #         if fname.endswith('.bam'):
     #             f2b.bam_to_bed(os.path.join(dirname, fname))
+#
