@@ -37,7 +37,7 @@ class Server:
         if src_root is None:
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
 
-        script = ['#!/bin/bash', '#SBATCH --nodes=4', '#SBATCH --ntasks-per-node=4', '#SBATCH --time='+time,
+        script = ['#!/bin/bash', '#SBATCH --nodes=1', '#SBATCH --ntasks-per-node=4', '#SBATCH --time='+time,
                   '#SBATCH --error=mchajobresults-%J.err', '#SBATCH --output=mchajobresults-%J.out',
                   '#SBATCH --gres=gpu:1','#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules',
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',

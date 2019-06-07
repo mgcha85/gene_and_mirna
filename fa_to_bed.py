@@ -133,18 +133,21 @@ class fa2bed:
         fname = os.path.splitext(fname__)[0] + '.bed'
         bed_file = os.path.join(dirname, fname)
 
-        command = '{root}/./convert2bed --input=bam < {bam} > {bed}'.format(root=root, bam=bam_file, bed=bed_file)
+        command = '{root}/./convert2bed --input=bam < "{bam}" > "{bed}"'.format(root=root, bam=bam_file, bed=bed_file)
         print(command)
         self.command_exe(command)
 
-        for i in range(2):
-            fpath = bam_file.replace('.bam', '_{}.fastq.gz'.format(i + 1))
-            if os.path.exists(fpath):
-                os.remove(fpath)
+        # for i in range(2):
+        #     fpath = bam_file.replace('.bam', '_{}.fastq.gz'.format(i + 1))
+        #     if os.path.exists(fpath):
+        #         os.remove(fpath)
 
-        root_dir = '/'.join(bam_file.split('/')[:-1])
-        shutil.move(bam_file, os.path.join(root_dir, 'bam', fname__))
-        print('done with bam to gtf')
+        # root_dir = '/'.join(bam_file.split('/')[:-1])
+        # dirname = os.path.join(root_dir, 'bam')
+        # if not os.path.exists(dirname):
+        #     os.mkdir(dirname)
+        # shutil.move(bam_file, os.path.join(dirname, fname__))
+        # print('done with bam to gtf')
 
     def gff_to_gtf(self, gff_file):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.6')
@@ -260,18 +263,18 @@ class fa2bed:
                     df_chunk = df_chunk[df_chunk['chromosome'].str.len() <= 5]
                     df_chunk.to_sql('{}_{}'.format(fid, chromosome), con, index=None, if_exists='append')
 
-    def bed_to_db(self):
-        dirname = os.path.join(self.root, 'database/Dnase')
+    def bed_to_db(self, dirname):
         chunksize = 1 << 20
-        fids = {'ENCFF441RET': 'K562', 'ENCFF591XCX': 'HepG2', 'ENCFF716ZOM': 'A549', 'ENCFF775ZJX': 'GM12878',
-                'ENCFF912JKA': 'HeLa-S3', 'ENCFF571SSA': 'hESC'}
+        # fids = {'ENCFF441RET': 'K562', 'ENCFF591XCX': 'HepG2', 'ENCFF716ZOM': 'A549', 'ENCFF775ZJX': 'GM12878',
+        #         'ENCFF912JKA': 'HeLa-S3', 'ENCFF571SSA': 'hESC', 'ENCFF916WEW': 'MCF7'}
 
         flist = os.listdir(dirname)
         for fname__ in flist:
             if fname__.endswith('.bed'):
                 fname = os.path.splitext(fname__)[0]
-                cell_line = fids[fname]
-                con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
+                # cell_line = fids[fname]
+                # con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
+                con = sqlite3.connect(os.path.join(dirname, '{}.db'.format(fname)))
 
                 for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize, low_memory=False):
                     df_chunk = df_chunk[['chromosome', 'start', 'end', 'strand']]
@@ -285,22 +288,28 @@ class fa2bed:
 
 if __name__ == '__main__':
     f2b = fa2bed()
-    f2b.bed_to_db()
+    # f2b.bed_to_db()
     # f2b.db_to_bed()
     # f2b.chain_transfer()
     # f2b.split_bed_to_db()
 
-    # if f2b.hostname == 'mingyu-Precision-Tower-7810':
-    #     dirname = os.path.join(f2b.root, 'database/Dnase')
-    #     flist = os.listdir(dirname)
-    #     for fname in flist:
-    #         if fname.endswith('.bam'):
-    #             f2b.bam_to_bed(os.path.join(dirname, fname))
-    #
-    # else:
-    #     dirname = os.path.join(f2b.root, 'database/Dnase')
-    #     flist = os.listdir(dirname)
-    #     for fname in flist:
-    #         if fname.endswith('.bam'):
-    #             f2b.bam_to_bed(os.path.join(dirname, fname))
-#
+    if f2b.hostname == 'mingyu-Precision-Tower-7810':
+        dirname = os.path.join(f2b.root, 'database/Histone ChIP-seq')
+        flist = []
+        for r, d, f in os.walk(dirname):
+            for file in f:
+                if file.endswith('.bam'):
+                    bam_file = os.path.join(r, file)
+                    f2b.bam_to_bed(bam_file)
+                    f2b.bed_to_db(r)
+
+                    os.remove(bam_file)
+                    os.remove(bam_file.replace('.bam', '.bed'))
+
+    else:
+        dirname = os.path.join(f2b.root, 'database/Histone ChIP-seq')
+        flist = []
+        for r, d, f in os.walk(dirname):
+            for file in f:
+                if file.endswith('.bam'):
+                    f2b.bam_to_bed((os.path.join(r, file)))

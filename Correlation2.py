@@ -89,12 +89,13 @@ class Correlation2:
         for tname in tlist_rna:
             print(tname)
             df_rna = pd.read_sql_query("SELECT * FROM {}".format(tname), con_rna)
-            tot = df_rna['score'].sum()
+            mean = df_rna['score'].mean()
+            std = df_rna['score'].std()
             df_grp = df_rna.groupby('gene_name')
 
             contents = []
             for gene, df_sub in df_grp:
-                score = df_sub['score'].sum() / tot
+                score = (df_sub['score'].sum() - mean) / std
                 chromosome = df_sub['chromosome'].iloc[0]
                 strand = df_sub['strand'].iloc[0]
                 tss = ';'.join(df_sub['start'].astype(str))
@@ -120,7 +121,11 @@ class Correlation2:
             for gene, df_sub in df_grp:
                 midx = df_sub['FPKM'].idxmax()
                 contents.append(df_sub.loc[midx:midx, :])
+
             df_res = pd.concat(contents)
+            mean = df_res['FPKM'].mean()
+            std = df_res['FPKM'].std()
+            df_res['FPKM'] = (df_res['FPKM'] - mean) / std
             df_res.to_sql(tname, con_out, if_exists='replace', index=None)
 
     def get_valid_tissues(self, tlist_rna, tlist_fan):
@@ -176,6 +181,7 @@ class Correlation2:
             if i == 0:
                 print(tissues)
             fpkm_str = [str(x) for x in fpkms]
+
             spearman_xcor = spearmanr(scores, fpkms)
             report.append([gname, loci, ':'.join(tsss), ','.join(fpkm_str), spearman_xcor.correlation])
 
@@ -222,6 +228,6 @@ if __name__ == '__main__':
     else:
         comp.fantom_to_gene(500)
         cor.fantom_unique_gene()
-        # cor.rna_unique_gene()
+        cor.rna_unique_gene()
         cor.run()
         cor.correlation()

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --nodes=4
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --time=03:00:00
 #SBATCH --error=mchajobresults-%J.err
@@ -12,4 +12,4 @@
 echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"
 module load cuda/cuda-9.0
 module load anaconda/anaconda3
-time python /lustre/fs0/home/mcha/Bioinformatics/source/gene_and_mirna/fa_to_bed.py
+time python /lustre/fs0/home/mcha/Bioinformatics/source/gene_and_mirna/Correlation2.py
