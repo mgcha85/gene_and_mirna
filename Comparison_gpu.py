@@ -104,7 +104,7 @@ class Comparison:
             if chromosome == 'chrY':
                 continue
             self.chr_str_map['{}_{}'.format(chromosome, strand)] = i
-            df = pd.read_sql_query("SELECT start, end, gene_name FROM '{}' WHERE gene_name='AC003002.3'".format(tname), con)
+            df = pd.read_sql_query("SELECT start, end, gene_name FROM '{}'".format(tname), con)
             if df.empty:
                 continue
 
@@ -207,9 +207,9 @@ class Comparison:
         tlist_fan = Database.load_tableList(con_fan)
 
         fpath_fan_out = fpath_fan.replace('.db', '_{}.db'.format(scope))
-        if os.path.exists(fpath_fan_out):
-            print('{} exists'.format(fpath_fan_out))
-            return
+        # if os.path.exists(fpath_fan_out):
+        #     print('{} exists'.format(fpath_fan_out))
+        #     return
 
         con_out = sqlite3.connect(fpath_fan_out)
         for i, tname in enumerate(tlist_fan):
@@ -219,10 +219,9 @@ class Comparison:
             df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
             df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
             df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
-
-            gene_name = [None] * df_res.shape[0]
-            for i, idx in zip(df_res.index, df_res['index']):
-                gene_name[i] = df_ref.loc[idx, 'gene_name']
+            if df_res.empty:
+                continue
+            gene_name = df_ref.loc[df_res['index'], 'gene_name'].values
             df_res.loc[:, 'gene_name'] = gene_name
             df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
 
@@ -283,4 +282,4 @@ if __name__ == '__main__':
         # comp.to_server()
         # comp.run()
     else:
-        comp.fantom_to_gene()
+        comp.fantom_to_gene(100)
