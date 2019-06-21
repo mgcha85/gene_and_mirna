@@ -276,7 +276,7 @@ class fa2bed:
                 # con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
                 con = sqlite3.connect(os.path.join(dirname, '{}.db'.format(fname)))
 
-                for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize, low_memory=False):
+                for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize, low_memory=False, quotechar=None, quoting=3):
                     df_chunk = df_chunk[['chromosome', 'start', 'end', 'strand']]
 
                     df_chr = df_chunk.groupby('chromosome')
@@ -300,7 +300,7 @@ if __name__ == '__main__':
             for file in f:
                 if file.endswith('.bam'):
                     bam_file = os.path.join(r, file)
-                    f2b.bam_to_bed(bam_file)
+                    # f2b.bam_to_bed(bam_file)
                     f2b.bed_to_db(r)
 
                     os.remove(bam_file)

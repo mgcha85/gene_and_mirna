@@ -104,7 +104,10 @@ class Comparison:
             if chromosome == 'chrY':
                 continue
             self.chr_str_map['{}_{}'.format(chromosome, strand)] = i
-            df = pd.read_sql_query("SELECT start, end, gene_name FROM '{}'".format(tname), con)
+            df = pd.read_sql_query("SELECT start, end, gene_name FROM '{}' WHERE gene_name='AC003002.3'".format(tname), con)
+            if df.empty:
+                continue
+
             if strand == '+':
                 df['tss'] = df['start']
             else:
@@ -125,8 +128,14 @@ class Comparison:
         dfs = [None] * N
         buffer = [None] * N
         data_lengths = [None] * N
-        for chr, df_str in df_chr:
+        for chr_str in self.chr_str_map.keys():
+            chr, str = chr_str.split('_')
+            df_str = df_chr.get_group(chr)
             for str, df_sub in df_str.groupby('strand'):
+                key = '{}_{}'.format(chr, str)
+                if key not in self.chr_str_map:
+                    continue
+
                 if chr == 'chrMT':
                     chr = 'chrM'
                 if chr == 'chrY' or str == '.' or len(chr) > 5:
@@ -196,7 +205,36 @@ class Comparison:
         fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
         con_fan = sqlite3.connect(fpath_fan)
         tlist_fan = Database.load_tableList(con_fan)
-        con_out = sqlite3.connect(fpath_fan.replace('.db', '_out.db'))
+
+        fpath_fan_out = fpath_fan.replace('.db', '_{}.db'.format(scope))
+        if os.path.exists(fpath_fan_out):
+            print('{} exists'.format(fpath_fan_out))
+            return
+
+        con_out = sqlite3.connect(fpath_fan_out)
+        for i, tname in enumerate(tlist_fan):
+            print(tname)
+            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
+            df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
+            df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
+            df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
+
+            gene_name = [None] * df_res.shape[0]
+            for i, idx in zip(df_res.index, df_res['index']):
+                gene_name[i] = df_ref.loc[idx, 'gene_name']
+            df_res.loc[:, 'gene_name'] = gene_name
+            df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
+
+    def fantom_to_mir(self, scope=500):
+        ref_path = os.path.join(self.root, 'database', 'fantom5_mir.db')
+        con_ref = sqlite3.connect(ref_path)
+        ref_buffer, ref_data_lengths_cum, df_ref = self.set_ref_data(con_ref)
+
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
+        con_fan = sqlite3.connect(fpath_fan)
+        tlist_fan = Database.load_tableList(con_fan)
+        con_out = sqlite3.connect(fpath_fan.replace('.db', '_mir_{}.db'.format(scope)))
 
         for i, tname in enumerate(tlist_fan):
             print(tname)
@@ -211,7 +249,6 @@ class Comparison:
                 gene_name[i] = df_ref.loc[idx, 'gene_name']
             df_res.loc[:, 'gene_name'] = gene_name
             df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
-            # self.to_output(con_ref, out_data, ref_data_lengths_cum)
 
     def rna_to_gene(self):
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')
@@ -242,7 +279,8 @@ class Comparison:
 if __name__ == '__main__':
     comp = Comparison()
     if comp.hostname == 'mingyu-Precision-Tower-7810':
-        comp.to_server()
+        comp.fantom_to_gene()
+        # comp.to_server()
         # comp.run()
     else:
         comp.fantom_to_gene()
