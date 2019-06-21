@@ -522,13 +522,13 @@ if __name__ == '__main__':
 
     else:
         # cor.rna_unique_gene()
-        for band in [100, 500]:
-            comp.fantom_to_gene(band)
-            comp.fantom_to_mir(band)
+        for band in [100]:
+            # comp.fantom_to_gene(band)
+            # comp.fantom_to_mir(band)
 
             cor.band = band
-            cor.get_vector('fantom_cage_by_tissue_{}.db'.format(band))
-            cor.get_vector('fantom_cage_by_tissue_mir_{}.db'.format(band))
+            # cor.get_vector('fantom_cage_by_tissue_{}.db'.format(band))
+            # cor.get_vector('fantom_cage_by_tissue_mir_{}.db'.format(band))
 
             for cluster_size in [20, 100]:
                 cor.csize = cluster_size

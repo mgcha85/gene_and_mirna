@@ -18,19 +18,6 @@ import numpy as np
 # df_fan.loc[mir].to_sql('validate_mir_tss', con, if_exists='replace')
 # exit(1)
 
-df_100 = pd.read_excel(
-    '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/Fantom/v5/tissues/out/fantom_cage_by_tissue_100.xlsx',
-    index_col=0)
-df_500 = pd.read_excel(
-    '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/Fantom/v5/tissues/out/fantom_cage_by_tissue_500.xlsx',
-    index_col=0)
-
-genes = list(set(df_100.index) - set(df_500.index))
-
-with open('why.txt', 'wt') as f:
-    f.write('\n'.join(sorted(genes)))
-exit(1)
-
 fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/fantom5.db'
 con = sqlite3.connect(fpath)
 out_con = sqlite3.connect(fpath.replace('.db', '_mir.db'))

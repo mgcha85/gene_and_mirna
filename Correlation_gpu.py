@@ -16,6 +16,8 @@ from Database import Database
 
 mod = SourceModule("""
 #include <stdio.h>
+#include <math.h>
+
 enum{TABLE_NUM, SCORE_OUT, OUT_WIDTH};
 enum{SUM, MEAN, OPT_WIDTH};
 enum{START, END, SCORE, WIDTH};
@@ -36,6 +38,53 @@ __device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_en
     }
     rpkm = (cnt / 1e6) / length;
     return rpkm;
+}
+
+__device__ void rankify(float *X, float *Rank_X, const int N) {
+    for(int i=0; i<N; i++)  
+    { 
+        int r = 1, s = 1; 
+        
+        for(int j=0; j<i; j++) { 
+            if(X[j] < X[i]) r++; 
+            if(X[j] == X[i]) s++; 
+        } 
+        for(int j=i+1; j<N; j++) { 
+            if (X[j] < X[i]) r++; 
+            if (X[j] == X[i]) s++; 
+        } 
+        Rank_X[i] = r + (s-1) * 0.5;         
+    } 
+}
+
+__device__ float correlationCoefficient(float *X, float *Y, const int N) 
+{ 
+    float sum_X=0, sum_Y=0, sum_XY=0; 
+    float squareSum_X=0, squareSum_Y=0; 
+  
+    for(int i=0; i<n; i++) 
+    {
+        sum_X = sum_X + X[i]; 
+        sum_Y = sum_Y + Y[i];   
+        sum_XY = sum_XY + X[i] * Y[i]; 
+  
+        // sum of square of array elements. 
+        squareSum_X = squareSum_X + X[i] * X[i]; 
+        squareSum_Y = squareSum_Y + Y[i] * Y[i]; 
+    } 
+  
+    float corr = (float)(n*sum_XY-sum_X*sum_Y) / sqrt((n*squareSum_X-sum_X*sum_X) * (n*squareSum_Y-sum_Y*sum_Y)); 
+    return corr; 
+}
+
+__device__ float spearman_correlation(float *X, float *Y, const int N)
+{
+    float X_rank[N], Y_rank[N];
+
+    rankify(X, &X_rank, N);
+    rankify(Y, &Y_rank, N);
+    
+    return correlationCoefficient(X_rank, Y_rank, N);
 }
 
 __device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const int ref_start, const int ref_end, const int N, const int idx, const int opt)
@@ -68,6 +117,17 @@ __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const
         if(ref_data_lengths_cum_gpu[i] <= idx && ref_data_lengths_cum_gpu[i+1] > idx) return i;
     }
     return N;
+}
+
+__global__ void cuda_corr(float *X_gene, float *X_mir, float *out, const int N, const int M, const int WIDTH)
+{
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx >= N) return;
+    
+    // M: number of mir
+    for(int i=0; i<M, i++) {
+        out[M * idx + i] = spearman_correlation(&X_gene[WIDTH * idx], &X_mir[WIDTH * i], WIDTH);
+    }
 }
 
 __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, float *res_buffer_gpu, int *res_data_lengths_cum_gpu, float *out_buffer_gpu, const int N, const int M, const int opt)
@@ -257,31 +317,31 @@ class Correlation:
                 df_out = pd.concat([df_sorted, df_out], axis=1)
                 df_out.to_sql(tname_rna, con_out_rna, if_exists='replace', index=None)
 
-    def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_RNA_seq.db')
-        con_rna = sqlite3.connect(fpath)
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_fantom.db')
-        con_fan = sqlite3.connect(fpath)
+    def run(self, df_gene, df_mir):
+        THREADS_PER_BLOCK = 1 << 9
 
-        tlist_fan = Database.load_tableList(con_fan)
-        tlist_rna = Database.load_tableList(con_rna)
+        N = np.int32(df_gene.shape[0])
+        M = np.int32(df_mir.shape[0])
+        WIDTH = np.int32(df_mir.shape[1])
+        
+        X_mir = df_mir.values.flatten().astype(np.int32)
+        X_gene = df_gene.values.flatten().astype(np.int32)
 
-        report = []
-        for tname in tlist_fan:
-            print(tname)
-            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+        X_mir_gpu = cuda.mem_alloc(X_mir.nbytes)
+        cuda.memcpy_htod(X_mir_gpu, X_mir)
 
-            tlist = [x for x in tlist_rna if tname in x]
-            for tname_rna in tlist:
-                df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(tname_rna), con_rna)
-                df_fan['COUNT'] = df_fan['COUNT'].astype(float)
-                df_rna['FPKM'] = df_rna['FPKM'].astype(float)
-                fpkm = scipy.stats.spearmanr(df_fan['COUNT'], df_rna['FPKM'])
-                report.append([tname, tname_rna, fpkm.correlation])
+        X_gene_gpu = cuda.mem_alloc(X_gene.nbytes)
+        cuda.memcpy_htod(X_gene_gpu, X_gene)
 
-        df_rep = pd.DataFrame(data=report, columns=['tissue', 'tissue_rna', 'FPKM'])
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_fantom_RNA.xlsx')
-        df_rep.to_excel(out_path, index=None)
+        gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+        out_buffer = np.zeros((N, M)).flatten().astype(np.float32)
+        out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
+
+        func = mod.get_function("cuda_corr")
+        func(X_gene_gpu, X_mir_gpu, out_buffer_gpu, N, M, WIDTH, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
+        out_buffer = out_buffer.reshape((N, M))
+        return pd.DataFrame(data=out_buffer, columns=df_mir.index, index=df_gene.index)
 
 
 if __name__ == '__main__':
