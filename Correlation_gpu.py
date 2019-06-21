@@ -42,8 +42,8 @@ __device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_en
 
 __device__ void rankify(float *X, float *Rank_X, const int N) {
     for(int i=0; i<N; i++)  
-    { 
-        int r = 1, s = 1; 
+    {
+        int r=1, s=1; 
         
         for(int j=0; j<i; j++) { 
             if(X[j] < X[i]) r++; 
@@ -52,7 +52,7 @@ __device__ void rankify(float *X, float *Rank_X, const int N) {
         for(int j=i+1; j<N; j++) { 
             if (X[j] < X[i]) r++; 
             if (X[j] == X[i]) s++; 
-        } 
+        }
         Rank_X[i] = r + (s-1) * 0.5;         
     } 
 }
@@ -61,30 +61,33 @@ __device__ float correlationCoefficient(float *X, float *Y, const int N)
 { 
     float sum_X=0, sum_Y=0, sum_XY=0; 
     float squareSum_X=0, squareSum_Y=0; 
-  
-    for(int i=0; i<n; i++) 
+
+    for(int i=0; i<N; i++) 
     {
-        sum_X = sum_X + X[i]; 
-        sum_Y = sum_Y + Y[i];   
-        sum_XY = sum_XY + X[i] * Y[i]; 
+        sum_X = sum_X + X[i];
+        sum_Y = sum_Y + Y[i];
+        sum_XY = sum_XY + X[i] * Y[i];
   
         // sum of square of array elements. 
-        squareSum_X = squareSum_X + X[i] * X[i]; 
-        squareSum_Y = squareSum_Y + Y[i] * Y[i]; 
-    } 
-  
-    float corr = (float)(n*sum_XY-sum_X*sum_Y) / sqrt((n*squareSum_X-sum_X*sum_X) * (n*squareSum_Y-sum_Y*sum_Y)); 
-    return corr; 
+        squareSum_X = squareSum_X + X[i] * X[i];
+        squareSum_Y = squareSum_Y + Y[i] * Y[i];
+    }
+    return (N*sum_XY-sum_X*sum_Y) / sqrt((N*squareSum_X-sum_X*sum_X) * (N*squareSum_Y-sum_Y*sum_Y));
 }
 
 __device__ float spearman_correlation(float *X, float *Y, const int N)
 {
-    float X_rank[N], Y_rank[N];
-
-    rankify(X, &X_rank, N);
-    rankify(Y, &Y_rank, N);
+    float *X_rank = (float*) malloc(sizeof(float) * N);
+    float *Y_rank = (float*) malloc(sizeof(float) * N);
+    float coeff;
     
-    return correlationCoefficient(X_rank, Y_rank, N);
+    rankify(X, X_rank, N);
+    rankify(Y, Y_rank, N);
+    coeff = correlationCoefficient(X_rank, Y_rank, N);
+    
+    free(X_rank);
+    free(Y_rank);
+    return coeff;
 }
 
 __device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const int ref_start, const int ref_end, const int N, const int idx, const int opt)
@@ -94,9 +97,9 @@ __device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const 
     float score=0.0;
     
     for(int i=0; i<N; i++) {
-        res_start = res_buffer[i * WIDTH + START];      
+        res_start = res_buffer[i * WIDTH + START];  
         res_end = res_buffer[i * WIDTH + END];  
-        if(ref_start > res_end || ref_end < res_start)  
+        if(ref_start > res_end || ref_end < res_start)
             continue;
         else {
             score += res_buffer[i * WIDTH + SCORE];
@@ -125,8 +128,8 @@ __global__ void cuda_corr(float *X_gene, float *X_mir, float *out, const int N, 
     if (idx >= N) return;
     
     // M: number of mir
-    for(int i=0; i<M, i++) {
-        out[M * idx + i] = spearman_correlation(&X_gene[WIDTH * idx], &X_mir[WIDTH * i], WIDTH);
+    for(int i=0; i<M; i++) {
+        out[idx * M + i] = spearman_correlation(&X_gene[WIDTH * idx], &X_mir[WIDTH * i], WIDTH);
     }
 }
 
