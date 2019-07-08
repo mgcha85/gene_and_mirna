@@ -9,7 +9,7 @@ from Database import Database
 from Server import Server
 from joblib import Parallel, delayed
 import multiprocessing
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr
 from joblib import Parallel, delayed
 import multiprocessing
 import pickle as pkl
@@ -238,13 +238,13 @@ class Correlation2:
             scores = np.array(scores).astype(float)
             # num_cls = len(scores)
             num_cls /= len(scores)
-            spearman_xcor = spearmanr(scores, fpkms)
+            spearman_xcor = pearsonr(scores, fpkms)
             spec = '{:0.2f}:{}:{:0.4f}'.format(num_cls, ','.join(widths), scores.mean())
 
             # if np.isnan(spearman_xcor.correlation):
             #     continue
             report.append([gname, loc, ':'.join(tsss), spec,
-                           ':'.join(scores.astype(str)), ','.join(fpkm_str), '{:0.4f}'.format(spearman_xcor.correlation)])
+                           ':'.join(scores.astype(str)), ','.join(fpkm_str), '{:0.4f}'.format(spearman_xcor[0])])
 
         df_rep = pd.DataFrame(data=report, columns=['gnames', 'loc', 'tss', 'spec', 'scores', 'fpkms', 'corr (spearman)'])
         df_rep.to_excel('correlation_{}_{}_v{}.xlsx'.format(self.band, self.csize, self.version), index=None)
@@ -361,8 +361,8 @@ class Correlation2:
 
                 for i in range(1, 4):
                     df = df.dropna(subset=['corr (spearman) v{}'.format(i)])
-                    ccoeff = spearmanr(df['corr (spearman)'], df['corr (spearman) v{}'.format(i)])
-                    print('[v0 & v{}] fname: {}, coeff: {:0.2f}'.format(i, fname, ccoeff.correlation))
+                    ccoeff = pearsonr(df['corr (spearman)'], df['corr (spearman) v{}'.format(i)])
+                    print('[v0 & v{}] fname: {}, coeff: {:0.2f}'.format(i, fname, ccoeff[0]))
 
     def processInput_get_vector(self, df_sub, gene):
         return [gene, ','.join(df_sub['score'].astype(str)), ','.join(df_sub['start'].astype(str))]
@@ -401,22 +401,27 @@ class Correlation2:
     def processInput_correlation_mir_gene2(self, mmean, df_res_gene, gene):
         gmean = df_res_gene.loc[gene]
         ccoeff = pearsonr(mmean, gmean)
-        # ccoeff = spearmanr(mmean, gmean)
-        # return [gene, ccoeff.correlation]
         return [gene, ccoeff[0]]
+        # return [gene, ccoeff.correlation]
+
+    def get_high_correlated_genes(self, band, scope):
+        fpath = 'correlation_{}_{}.xlsx'.format(band, scope)
+        df = pd.read_excel(fpath, index_col=0)
+        return df[df['corr (spearman)'] > 0.6].to_excel(fpath.replace('.xlsx', '_high.xlsx'))
 
     def get_scores_by_tissues(self, band):
         fpath_mir = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}.xlsx'.format(band))
         df_mirs = pd.ExcelFile(fpath_mir)
         tissues = df_mirs.sheet_names
 
+        high_correlated_genes = pd.read_excel('correlation_{}_20_high.xlsx'.format(band), index_col=0).index
         fpath_gene = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}.xlsx'.format(band))
         df_genes = pd.ExcelFile(fpath_gene)
 
         mirs, genes = [], []
         for tissue in tissues:
             df_mir = df_mirs.parse(tissue, index_col=0)
-            df_gene = df_genes.parse(tissue, index_col=0)
+            df_gene = df_genes.parse(tissue, index_col=0).loc[high_correlated_genes, :]
             mirs.append(set(df_mir.index))
             genes.append(set(df_gene.index))
         
@@ -444,23 +449,26 @@ class Correlation2:
         df_res_gene = pd.concat(df_res_gene, axis=1)
         df_res_gene.columns = tissues
 
-        df_res_mir.to_excel(fpath_mir.replace('.xlsx', '_score_mean.xlsx'))
-        df_res_gene.to_excel(fpath_gene.replace('.xlsx', '_score_mean.xlsx'))
+        df_res_mir.to_excel(fpath_mir.replace('.xlsx', '_score_vector.xlsx'))
+        df_res_gene.to_excel(fpath_gene.replace('.xlsx', '_score_vector.xlsx'))
 
     def correlation_mir_gene(self, band):
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}_score_mean.xlsx'.format(band))
-        df_res_mir = pd.read_excel(fpath_mir, index_col=0)[:50]
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}_score_vector.xlsx'.format(band))
+        df_res_mir = pd.read_excel(fpath_mir, index_col=0)
 
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_mean.xlsx'.format(band))
-        df_res_gene = pd.read_excel(fpath_gene, index_col=0)[:50]
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_vector.xlsx'.format(band))
+        df_res_gene = pd.read_excel(fpath_gene, index_col=0)
 
-        fpath_out = fpath_gene.replace('.xlsx', '_corr.xlsx')
+        fpath_out = fpath_gene.replace('_vector.xlsx', '_corr.xlsx')
         writer = pd.ExcelWriter(fpath_out, engine='xlsxwriter')
 
         dfs = []
         for mir in df_res_mir.index:
             print(mir)
             mmean = df_res_mir.loc[mir]
+
+            for gene in df_res_gene.index:
+                self.processInput_correlation_mir_gene2(mmean, df_res_gene, gene)
 
             table = Parallel(n_jobs=self.num_cores)(delayed(self.processInput_correlation_mir_gene2)(mmean, df_res_gene, gene) for gene in df_res_gene.index)
             df = pd.DataFrame(data=table, columns=['gene', 'ccoeff']).set_index('gene')
@@ -472,18 +480,23 @@ class Correlation2:
         writer.save()
         writer.close()
 
-    def correlation_mir_gene_gpu(self, band):
-        from Correlation_gpu import Correlation
-        corr = Correlation()
+    def intersection_versions(self):
+        df = pd.read_excel('correlation_v0.xlsx', index_col=0)
+        df = df[df['corr (spearman)'] > 0.6]
+        genes0 = set(df.index)
 
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}_score_mean.xlsx'.format(band))
-        df_mir = pd.read_excel(fpath_mir, index_col=0)
+        genes = []
+        num = []
+        for i in range(1, 4):
+            df = pd.read_excel('correlation_v{}.xlsx'.format(i), index_col=0)
+            df = df[df['corr (spearman)'] > 0.6]
+            genes.append(set(df.index))
+            num.append(df.shape[0])
 
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_mean.xlsx'.format(band))
-        df_gene = pd.read_excel(fpath_gene, index_col=0)
-
-        df_res = corr.run(df_gene, df_mir)
-        df_res.to_excel('correlation_{}.xlsx'.format(band))
+        N = len(genes0)
+        for i, gene in enumerate(genes):
+            common_genes = set.intersection(genes0, gene)
+            print('(v0) vs. (v{}) {:0.2f}%'.format(i + 1, 100 * len(common_genes) / N))
 
     def figure(self):
         import matplotlib.pyplot as plt
@@ -499,8 +512,8 @@ class Correlation2:
         genes = sorted(list(set.intersection(*genes)))
         corr1 = dfs[0].loc[genes, 'corr (spearman)'].values
         corr2 = dfs[2].loc[genes, 'corr (spearman)'].values
-        ccoeff = spearmanr(corr1, corr2)
-        print('correlation coeff: {:0.4f}'.format(ccoeff.correlation))
+        ccoeff = pearsonr(corr1, corr2)
+        print('correlation coeff: {:0.4f}'.format(ccoeff[0]))
 
         corr_diff = (dfs[0].loc[genes, 'corr (spearman)'] - dfs[2].loc[genes, 'corr (spearman)']) / dfs[2].loc[genes, 'corr (spearman)']
         genes = corr_diff[corr_diff.abs() > 0.5].index
@@ -534,8 +547,30 @@ if __name__ == '__main__':
 
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        cor.to_server()
+        # cor.to_server()
+        cor.intersection_versions()
+        # for band in [100, 500]:
+        #     cor.correlation_mir_gene(band)
 
     else:
-        for band in [100]:
-            cor.correlation_mir_gene_gpu(band)
+        # cor.rna_unique_gene()
+        for band in [100, 500]:
+            comp.fantom_to_gene(band)
+            comp.fantom_to_mir(band)
+
+            cor.band = band
+            cor.get_vector('fantom_cage_by_tissue_{}.db'.format(band))
+            cor.get_vector('fantom_cage_by_tissue_mir_{}.db'.format(band))
+
+            for cluster_size in [20, 100]:
+                cor.csize = cluster_size
+                for i in range(4):
+                    cor.version = i
+                    cor.fantom_unique_gene()
+                    cor.run()
+                    cor.correlation()
+                cor.merge_versions()
+                cor.get_high_correlated_genes(band, cluster_size)
+
+            cor.get_scores_by_tissues(band)
+            cor.correlation_mir_gene(band)

@@ -92,6 +92,18 @@ class data_preparation:
             tissue = dirname.split('/')[-1]
             df.to_sql(tissue, con, index=None, if_exists='append')
 
+    def db_to_bed(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues/out')
+        fpath = os.path.join(dirname, 'fantom_cage_by_tissue.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        for tname in tlist:
+            print(tname)
+            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df[['chromosome', 'start', 'strand', 'score']].to_csv(os.path.join(dirname, tname + '.bed'), sep='\t',
+                                                                               index=None, header=False)
+
     def get_merge_table(self, fpath):
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
@@ -140,6 +152,14 @@ class data_preparation:
             df.iloc[i]['protein_coding'] = self.get_merge_table(os.path.join(dirname, fname_ + '_pc' + ext)).shape[0]
 
         print(df)
+
+    def set_cager(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues/in')
+        flist = os.listdir(dirname)
+        for fname in flist:
+            fpath = os.path.join(dirname, fname)
+            df = pd.read_csv(fpath, compression='gzip', sep='\t', names=['chromosome', 'start', 'end', 'atrribute', 'score', 'strand'])
+            df[['chromosome', 'start', 'strand', 'score']].to_csv(fpath.replace('.gz', ''), sep='\t', index=None, header=False)
 
     def gene_name(self):
         fpaths = {'GEN': os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_pc.db'),
@@ -227,8 +247,10 @@ class data_preparation:
 if __name__ == '__main__':
     dp = data_preparation()
     if dp.hostname == 'mingyu-Precision-Tower-7810':
-        dp.to_server()
+        # dp.db_to_bed()
+        # dp.to_server()
+        dp.set_cager()
         # dp.bed_to_db()
     else:
-        dp.bed_to_db()
+        dp.db_to_bed()
     # dp.gtf_to_db()

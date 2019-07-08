@@ -13,3 +13,4 @@ lxml
 paramiko
 xlsxwriter
 pycuda
+gseapy

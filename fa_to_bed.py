@@ -276,14 +276,18 @@ class fa2bed:
                 # con = sqlite3.connect(os.path.join(dirname, 'bioinfo_{}.db'.format(cell_line)))
                 con = sqlite3.connect(os.path.join(dirname, '{}.db'.format(fname)))
 
+                cnt = 0
                 for df_chunk in pd.read_csv(os.path.join(dirname, fname__), sep='\t', names=self.bed_columns, chunksize=chunksize, low_memory=False, quotechar=None, quoting=3):
-                    df_chunk = df_chunk[['chromosome', 'start', 'end', 'strand']]
+                    print(cnt)
+                    df_chunk = df_chunk[['chromosome', 'start', 'end', 'score', 'strand']]
+                    cnt += 1
 
                     df_chr = df_chunk.groupby('chromosome')
                     for chr, df_sub in df_chr:
                         if len(chr) > 5:
                             continue
-                        df_sub.to_sql('{}_{}'.format(fname, chr), con, index=None, if_exists='append')
+                        for strand, df_sub_sub in df_sub.groupby('strand'):
+                            df_sub_sub.to_sql('{}_hg19_ctss_{}_{}'.format('GM12878', chr, strand), con, index=None, if_exists='append')
 
 
 if __name__ == '__main__':
@@ -294,20 +298,16 @@ if __name__ == '__main__':
     # f2b.split_bed_to_db()
 
     if f2b.hostname == 'mingyu-Precision-Tower-7810':
-        dirname = os.path.join(f2b.root, 'database/Histone ChIP-seq')
+        dirname = os.path.join(f2b.root, 'database/Fantom/v5/CAGE/nobacode')
         flist = []
         for r, d, f in os.walk(dirname):
             for file in f:
                 if file.endswith('.bam'):
-                    bam_file = os.path.join(r, file)
-                    # f2b.bam_to_bed(bam_file)
-                    f2b.bed_to_db(r)
-
-                    os.remove(bam_file)
-                    os.remove(bam_file.replace('.bam', '.bed'))
+                    f2b.bam_to_bed((os.path.join(r, file)))
+        f2b.bed_to_db(dirname)
 
     else:
-        dirname = os.path.join(f2b.root, 'database/Histone ChIP-seq')
+        dirname = os.path.join(f2b.root, 'database/Fantom/v5/CAGE')
         flist = []
         for r, d, f in os.walk(dirname):
             for file in f:

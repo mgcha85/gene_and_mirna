@@ -11,12 +11,21 @@ import pickle as pkl
 import numpy as np
 
 
-# df = pd.read_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/miRNA_redefined_Tss_coor_4.bed', sep='\t', index_col=0)
-# con = sqlite3.connect('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/fantom5.db')
-# df_fan = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con, index_col='premiRNA')
-# mir = set.intersection(set(df.index), set(df_fan.index))
-# df_fan.loc[mir].to_sql('validate_mir_tss', con, if_exists='replace')
+# dirname = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/Fantom/v5/tissues/out'
+# fpath = os.path.join(dirname, 'fantom_cage_by_tissue_100_score_mean_corr.xlsx')
+# df_100 = pd.read_excel(fpath, index_col=0)
+# fpath = os.path.join(dirname, 'fantom_cage_by_tissue_500_score_mean_corr.xlsx')
+# df_500 = pd.read_excel(fpath, index_col=0)
+#
+# print(list(set(df_100.index) - set(df_500.index)))
 # exit(1)
+
+df = pd.read_csv('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/miRNA_redefined_Tss_coor_4.bed', sep='\t', index_col=0)
+con = sqlite3.connect('/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/fantom5.db')
+df_fan = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con, index_col='premiRNA')
+mir = set.intersection(set(df.index), set(df_fan.index))
+df_fan.loc[mir].to_sql('validate_mir_tss', con, if_exists='replace')
+exit(1)
 
 fpath = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/fantom5.db'
 con = sqlite3.connect(fpath)
@@ -42,3 +51,4 @@ for fname in flist:
 
 df = pd.Series(data=tissues)
 df.to_csv('FANTOM_tissue.csv', index=None)
+

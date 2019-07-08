@@ -32,7 +32,6 @@ __device__ int* search(int *res_buffer, int *out_buffer_gpu, const int ref_tss, 
             out_buffer_gpu[OUT_WIDTH * i + LABEL] = 1;
             out_buffer_gpu[OUT_WIDTH * i + INDEX] = idx;            
         }
-                
     }
 }
 
