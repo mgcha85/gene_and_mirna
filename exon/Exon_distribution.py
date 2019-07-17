@@ -27,17 +27,17 @@ class Exon_distribution:
         self.which = which
 
     def to_server(self):
-        server = Server()
-        server.connect()
+        server = Server(self.root)
+        which = 'newton'
+        server.connect(which=which)
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
-
-        server_root = os.path.join(server.server, 'source/gene_and_mirna/exon')
-        server.job_script(fname, src_root=server_root, time='03:00:00')
-
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
+        server.job_script(fname, src_root=server_root, time='04:00:00', which=which)
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 

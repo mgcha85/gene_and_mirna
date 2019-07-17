@@ -20,17 +20,17 @@ class inter_intro:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     def to_server(self):
-        server = Server()
-        server.connect(which='stokes')
+        which = 'newton'
+        server = Server(self.root, which=which)
+        server.connect()
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
-
-        server.job_script(fname, time='00:30:00', which='stokes')
-
-        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
+        server.job_script(fname, src_root=server_root, time='04:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 

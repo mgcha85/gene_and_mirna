@@ -23,17 +23,17 @@ class data_preparation:
         self.bed_columns = ['chromosome', 'start', 'end', 'location', 'score', 'strand']
 
     def to_server(self):
-        server = Server()
-        server.connect(which='stokes')
+        which = 'newton'
+        server = Server(self.root, which=which)
+        server.connect()
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
-
-        server.job_script(fname, which='stokes', time='00:30:00')
-
-        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
+        server.job_script(fname, src_root=server_root, time='04:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -77,20 +77,31 @@ class data_preparation:
 
     def bed_to_db(self):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
-        flist = []
+        flist = {}
         for path, subdirs, files in os.walk(dirname):
             for name in files:
                 if name.endswith('.gz'):
-                    flist.append(os.path.join(path, name))
+                    tissue = path.split('/')[-1]
+                    if tissue in flist:
+                        flist[tissue].append(os.path.join(path, name))
+                    else:
+                        flist[tissue] = [os.path.join(path, name)]
 
         out_path = os.path.join(dirname, 'out', 'fantom_cage_by_tissue.db')
         con = sqlite3.connect(out_path)
-        for fpath in flist:
+        for tissue, fpaths in flist.items():
+            print(tissue)
+            filesizes = np.zeros(len(fpaths))
+            for i, fpath in enumerate(fpaths):
+                filesizes[i] = os.path.getsize(fpath)
+            midx = filesizes.argmax()
+            fpath = fpaths[midx]
             df = pd.read_csv(fpath, sep='\t', names=self.bed_columns, comment='#', compression='gzip')
 
             dirname, fname = os.path.split(fpath)
             tissue = dirname.split('/')[-1]
-            df.to_sql(tissue, con, index=None, if_exists='append')
+            df = df.drop('location', axis=1)
+            df.to_sql(tissue.lower(), con, index=None, if_exists='append')
 
     def db_to_bed(self):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues/out')
@@ -248,9 +259,7 @@ if __name__ == '__main__':
     dp = data_preparation()
     if dp.hostname == 'mingyu-Precision-Tower-7810':
         # dp.db_to_bed()
-        # dp.to_server()
-        dp.set_cager()
+        dp.to_server()
         # dp.bed_to_db()
     else:
-        dp.db_to_bed()
-    # dp.gtf_to_db()
+        dp.bed_to_db()

@@ -3,61 +3,61 @@ import pandas as pd
 import socket
 import os
 import numpy as np
-import pycuda.driver as cuda
-import pycuda.autoinit
-from pycuda.compiler import SourceModule
+# import pycuda.driver as cuda
+# import pycuda.autoinit
+# from pycuda.compiler import SourceModule
 from Database import Database
 from Server import Server
 import sys
 
-
-mod = SourceModule("""
-#include <stdio.h>
-enum{LABEL, INDEX, OUT_WIDTH};
-enum{START, END, WIDTH};
-#define MAXLEN  1 << 10
-
-
-__device__ int* search(int *res_buffer, int *out_buffer_gpu, const int ref_tss, const int idx, const int N, const int scope)
-{
-    int ref_start = ref_tss - scope;
-    int ref_end = ref_tss + scope;
-    int res_start, res_end;
-    
-    for(int i=0; i<N; i++) {
-        res_start = res_buffer[i * WIDTH + START];
-        res_end = res_buffer[i * WIDTH + END];
-        if(ref_start > res_end || ref_end < res_start)  continue;
-        else {
-            out_buffer_gpu[OUT_WIDTH * i + LABEL] = 1;
-            out_buffer_gpu[OUT_WIDTH * i + INDEX] = idx;            
-        }
-    }
-}
-
-__device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
-{
-    for(int i=0; i<N-1; i++) {  
-        if(ref_data_lengths_cum_gpu[i] <= idx && ref_data_lengths_cum_gpu[i+1] > idx) return i;
-    }
-    return N;
-}
-
-__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, int *out_buffer_gpu, const int N, const int M, const int scope)
-{
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx >= N) return;
-
-    int tb_num, sidx, eidx, tss;
-
-    tss = ref_buffer_gpu[idx];
-    tb_num = get_table_num(ref_data_lengths_cum_gpu, idx, M);
-    sidx = res_data_lengths_cum_gpu[tb_num];
-    eidx = res_data_lengths_cum_gpu[tb_num + 1];
-    
-    search(&res_buffer_gpu[sidx * WIDTH], &out_buffer_gpu[sidx * OUT_WIDTH], tss, idx, eidx - sidx, scope);
-    
-}""")
+#
+# mod = SourceModule("""
+# #include <stdio.h>
+# enum{LABEL, INDEX, OUT_WIDTH};
+# enum{START, END, WIDTH};
+# #define MAXLEN  1 << 10
+#
+#
+# __device__ int* search(int *res_buffer, int *out_buffer_gpu, const int ref_tss, const int idx, const int N, const int scope)
+# {
+#     int ref_start = ref_tss - scope;
+#     int ref_end = ref_tss + scope;
+#     int res_start, res_end;
+#
+#     for(int i=0; i<N; i++) {
+#         res_start = res_buffer[i * WIDTH + START];
+#         res_end = res_buffer[i * WIDTH + END];
+#         if(ref_start > res_end || ref_end < res_start)  continue;
+#         else {
+#             out_buffer_gpu[OUT_WIDTH * i + LABEL] = 1;
+#             out_buffer_gpu[OUT_WIDTH * i + INDEX] = idx;
+#         }
+#     }
+# }
+#
+# __device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
+# {
+#     for(int i=0; i<N-1; i++) {
+#         if(ref_data_lengths_cum_gpu[i] <= idx && ref_data_lengths_cum_gpu[i+1] > idx) return i;
+#     }
+#     return N;
+# }
+#
+# __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, int *res_buffer_gpu, int *res_data_lengths_cum_gpu, int *out_buffer_gpu, const int N, const int M, const int scope)
+# {
+#     int idx = threadIdx.x + blockIdx.x * blockDim.x;
+#     if (idx >= N) return;
+#
+#     int tb_num, sidx, eidx, tss;
+#
+#     tss = ref_buffer_gpu[idx];
+#     tb_num = get_table_num(ref_data_lengths_cum_gpu, idx, M);
+#     sidx = res_data_lengths_cum_gpu[tb_num];
+#     eidx = res_data_lengths_cum_gpu[tb_num + 1];
+#
+#     search(&res_buffer_gpu[sidx * WIDTH], &out_buffer_gpu[sidx * OUT_WIDTH], tss, idx, eidx - sidx, scope);
+#
+# }""")
 
 
 class Comparison:
@@ -74,17 +74,17 @@ class Comparison:
         self.chr_str_map = {}
 
     def to_server(self):
-        server = Server()
+        which = 'newton'
+        server = Server(self.root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
-
-        server.job_script(fname)
-
-        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
+        server.job_script(fname, src_root=server_root, time='04:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -238,15 +238,15 @@ class Comparison:
             print(tname)
             df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
             res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
-            df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
-            df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
-            df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
-
-            gene_name = [None] * df_res.shape[0]
-            for i, idx in zip(df_res.index, df_res['index']):
-                gene_name[i] = df_ref.loc[idx, 'gene_name']
-            df_res.loc[:, 'gene_name'] = gene_name
-            df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
+            # df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
+            # df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
+            # df_res = df_res[df_res['label'] > 0].reset_index(drop=True)
+            #
+            # gene_name = [None] * df_res.shape[0]
+            # for i, idx in zip(df_res.index, df_res['index']):
+            #     gene_name[i] = df_ref.loc[idx, 'gene_name']
+            # df_res.loc[:, 'gene_name'] = gene_name
+            # df_res.drop(['label', 'index'], axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
 
     def rna_to_gene(self):
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation2.db')

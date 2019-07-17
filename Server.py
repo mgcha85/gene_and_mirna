@@ -1,39 +1,25 @@
 import paramiko
 import socket
 import os
-from fa_to_bed import fa2bed
-import time
-import shutil
 
 
 class Server:
-    def __init__(self):
-        hostname = socket.gethostname()
-        if hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        elif hostname == 'mingyu-Inspiron-7559':
-            self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-
+    def __init__(self, root, which='newton'):
+        self.root = root
+        self.which = which
         self.server = '/lustre/fs0/home/mcha/Bioinformatics'
-        # self.rna_dir = os.path.join(self.server, 'database/RNA-seq/fastq/{}')
-        self.rna_dir = os.path.join(self.server, 'database/RNA-seq/bam/{}')
-        self.f2b = fa2bed()
 
-    def connect(self, which='newton'):
+    def connect(self):
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
 
-        hostname = '{}.ist.ucf.edu'.format(which)
+        hostname = '{}.ist.ucf.edu'.format(self.which)
         username = 'mcha'
         password = 'Serenade Seedling cameras Dauphin'
         key_filename = '/home/mingyu/mcha-keys/mcha_id_rsa_1'
         self.ssh.connect(hostname, username=username, password=password, key_filename=key_filename)
 
-    def job_script(self, fname, src_root=None, time='12:00:00', which='newton'):
+    def job_script(self, fname, src_root=None, time='12:00:00'):
         if src_root is None:
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
 
@@ -43,7 +29,7 @@ class Server:
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
                   'module load cuda/cuda-9.0', 'module load anaconda/anaconda3',
                   'time python {}'.format(os.path.join(src_root, fname))]
-        if which == 'stokes':
+        if self.which == 'stokes':
             script.pop(6)
             script.pop(-3)
 
@@ -59,53 +45,3 @@ class Server:
         ftp_client = self.ssh.open_sftp()
         ftp_client.put(local_file, server_file)
         ftp_client.close()
-
-    def split_files(self, root_dir, batch_size, ext='.fastq'):
-        flist = os.listdir(root_dir)
-        flist = sorted([os.path.join(root_dir, x) for x in flist if x.endswith(ext)])
-
-        N = len(flist)
-        M = (N + (batch_size - 1)) // batch_size
-        for i, fpath in enumerate(flist):
-            dirnum = (i // M) + 1
-            _, fname = os.path.split(fpath)
-
-            dirname = os.path.join(root_dir, str(dirnum))
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
-            shutil.move(fpath, os.path.join(dirname, fname))
-
-    def run(self):
-        batch_size = 4
-
-        for i in range(batch_size):
-            # if i == 0:
-            #     root_dir = os.path.join(self.root, 'database/RNA-seq/fastq')
-            #     self.split_files(root_dir, batch_size=batch_size, ext='.gz')
-            #     exit(1)
-
-            if i <= 5:
-                which = 'newton'
-            else:
-                which = 'stokes'
-            self.connect(which)
-
-            scr_name = 'Convert.py'
-            # scr_name = 'download_RNA_seq.py'
-            self.job_script(scr_name, time='03:00:00', which=which)
-
-            src_root = os.path.join(self.server, 'source/gene_and_mirna')
-            self.upload('dl-submit.slurm', os.path.join(src_root, 'dl-submit.slurm'))
-            self.upload('requirements.txt', os.path.join(src_root, 'requirements.txt'))
-            self.upload(scr_name, os.path.join(src_root, scr_name))
-
-            dirname = self.rna_dir.format(i+1)
-            print(dirname)
-            stdin, stdout, stderr = self.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(dirname, src_root))
-            job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
-            print('job ID: {}'.format(job))
-
-
-if __name__ == '__main__':
-    server = Server()
-    server.run()

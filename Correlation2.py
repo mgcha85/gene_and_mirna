@@ -33,18 +33,17 @@ class Correlation2:
         self.num_cores = multiprocessing.cpu_count()
 
     def to_server(self):
-        server = Server()
         which = 'newton'
-        server.connect(which=which)
+        server = Server(self.root, which=which)
+        server.connect()
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
-
-        server.job_script(fname, time='04:00:00', which=which)
-
-        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
+        server.job_script(fname, src_root=server_root, time='04:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -542,20 +541,20 @@ class Correlation2:
 
 
 if __name__ == '__main__':
-    from Comparison_gpu import Comparison
-    comp = Comparison()
-
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        # cor.to_server()
-        cor.intersection_versions()
+        cor.to_server()
+        # cor.intersection_versions()
         # for band in [100, 500]:
         #     cor.correlation_mir_gene(band)
 
     else:
+        from Comparison_gpu import Comparison
+        comp = Comparison()
+
         # cor.rna_unique_gene()
         for band in [100, 500]:
-            comp.fantom_to_gene(band)
+            # comp.fantom_to_gene(band)
             comp.fantom_to_mir(band)
 
             cor.band = band
@@ -567,10 +566,10 @@ if __name__ == '__main__':
                 for i in range(4):
                     cor.version = i
                     cor.fantom_unique_gene()
-                    cor.run()
-                    cor.correlation()
-                cor.merge_versions()
-                cor.get_high_correlated_genes(band, cluster_size)
+                    # cor.run()
+                    # cor.correlation()
+                # cor.merge_versions()
+                # cor.get_high_correlated_genes(band, cluster_size)
 
             cor.get_scores_by_tissues(band)
             cor.correlation_mir_gene(band)

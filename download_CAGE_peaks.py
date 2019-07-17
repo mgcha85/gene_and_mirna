@@ -9,6 +9,7 @@ from Server import Server
 import sys
 import gzip
 import shutil
+import numpy as np
 
 
 class Download_RNA_seq:
@@ -27,17 +28,17 @@ class Download_RNA_seq:
         self.f2b = fa2bed()
 
     def to_server(self):
-        server = Server()
+        which = 'newton'
+        server = Server(self.root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
         dirname, fname = os.path.split(local_path)
-
-        server.job_script(fname)
-
-        server_root = os.path.join(server.server, 'source/gene_and_mirna')
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
+        server.job_script(fname, src_root=server_root, time='04:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -52,6 +53,47 @@ class Download_RNA_seq:
                 return html
         except Exception as e:
             raise e
+
+    def get_list(self):
+        url = 'http://fantom.gsc.riken.jp/5/datafiles/latest/basic/human.tissue.hCAGE/'
+        page = self.get_script(url)
+        soup = BeautifulSoup(page, "lxml")
+        items = soup.findAll("tr")
+
+        contents = []
+        for row in items:
+            for col in row.findAll("td"):
+                ele = col.text
+                if '.ctss.bed.gz' in ele:
+                    ele = ele.replace('%', '%25')
+                    idx = ele.split('%')[0]
+                    contents.append([idx, url + ele])
+
+        df = pd.DataFrame(data=contents, columns=['index', 'link'])
+        df.to_csv('fantom_tissue_list.txt', index=None)
+
+    def download_tissue_fantom(self):
+        import urllib.request
+
+        df = pd.read_csv('fantom_tissue_list.txt')
+        df_grp = df.groupby('index')
+
+        lens = {}
+        for tissue, df_sub in df_grp:
+            lens[tissue] = df_sub.shape[0]
+
+        for tissue, num in lens.items():
+            print(tissue)
+            df_sub = df_grp.get_group(tissue)
+            for i in df_sub.index:
+                print(i)
+                link = df_sub.loc[i, 'link']
+                url, fname = os.path.split(link)
+                dirname = os.path.join(self.root, 'database/Fantom/v5/tissues', tissue)
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
+                fpath = os.path.join(dirname, fname)
+                urllib.request.urlretrieve(link, fpath)
 
     def get_cage_peak_id(self):
         fpath = os.path.join(self.root, 'Papers/complement', 'supp_gkv608_nar-00656-h-2015-File009.xls')
@@ -172,7 +214,7 @@ class Download_RNA_seq:
 if __name__ == '__main__':
     drs = Download_RNA_seq()
     if drs.hostname == 'mingyu-Precision-Tower-7810':
-        drs.run()
-        # drs.to_server()
+        # drs.download_tissue_fantom()
+        drs.to_server()
     else:
-        drs.run()
+        drs.download_tissue_fantom()
