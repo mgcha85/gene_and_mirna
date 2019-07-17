@@ -555,7 +555,7 @@ if __name__ == '__main__':
         # cor.rna_unique_gene()
         for band in [100, 500]:
             # comp.fantom_to_gene(band)
-            comp.fantom_to_mir(band)
+            # comp.fantom_to_mir(band)
 
             cor.band = band
             cor.get_vector('fantom_cage_by_tissue_{}.db'.format(band))
