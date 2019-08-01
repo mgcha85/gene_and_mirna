@@ -137,13 +137,13 @@ class Extract:
         df_res = pd.DataFrame(contents, columns=['mir', 'gene', 'mir_chr', 'mir_strand', 'gene_chr', 'gene_strand', 'distance'])
         # df_res = df_res.dropna(how='all', axis=0)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_100_score_vector_corr3.xlsx')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_100_score_vector_corr3.xlsx')
         df_res.to_excel(out_path, index=None)
 
     def stats(self):
         import matplotlib.pyplot as plt
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_100_score_vector_corr3.xlsx')
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_100_score_vector_corr3.xlsx')
         df = pd.read_excel(fpath)
         df_sub = df[df['distance']]
         print('{:0.2f}%'.format(100 * df_sub.shape[0] / df.shape[0]))
@@ -154,14 +154,15 @@ class Extract:
         contents = []
         for mir in df.index:
             row = df.loc[mir, :]
-            row = row[row < -0.3]
+            row = row[row > 0.6]
             if len(row) > 0:
                 contents.append([mir, ';'.join(row.index), ';'.join(row.round(2).astype(str))])
         return pd.DataFrame(data=contents, columns=['miRNA', 'GENEs', 'corr (pearson)'])
 
     def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_100_score_vector_corr.xlsx')
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_100_score_corr.xlsx')
         df = pd.read_excel(fpath, index_col=0).T
+        df = df.dropna(axis=1)
         df = self.get_high_corr(df)
         df.to_excel(fpath.replace('.xlsx', '2.xlsx'), index=None)
 
@@ -170,6 +171,6 @@ if __name__ == '__main__':
     ex = Extract()
     if ex.hostname == 'mingyu-Precision-Tower-7810':
         # ex.get_distance()
-        ex.to_server()
+        ex.run()
     else:
-        ex.get_distance()
+        ex.run()

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
-#SBATCH --time=04:00:00
+#SBATCH --time=12:00:00
 #SBATCH --error=mchajobresults-%J.err
 #SBATCH --output=mchajobresults-%J.out
 #SBATCH --gres=gpu:1

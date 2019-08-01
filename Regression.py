@@ -43,19 +43,19 @@ class Regression:
         print('job ID: {}'.format(job))
 
     def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_vector_corr2.xlsx'.format(self.scope))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_corr3.xlsx'.format(self.scope))
         df = pd.read_excel(fpath, index_col=0)
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_vector.xlsx'.format(self.scope))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_vector.xlsx'.format(self.scope))
         df_gene = pd.read_excel(fpath, index_col=0)
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}_score_vector.xlsx'.format(self.scope))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_mir_{}_score_vector.xlsx'.format(self.scope))
         df_mir = pd.read_excel(fpath, index_col=0)
 
         contents = {}
         for mir in df.index:
             genes = df.loc[mir, 'GENEs'].split(';')
-            corr = df.loc[mir, 'corr (pearson)']
+            corr = df.loc[mir, 'corr']
 
             # mir_values = ';'.join(df_mir.loc[mir, :].round(4).astype(str))
             for gene in genes:
@@ -150,7 +150,7 @@ class Regression:
         dfs = []
         for pmir in set(df_cor.index):
             df_cor_sub = df_cor.loc[pmir]
-            mir = df_fan.loc[pmir, 'miRNA']
+            mir = df_fan.loc[pmir, 'miRNA'].lower()
             gene = df_cor_sub['gene']
             if mir not in df_ref.index:
                 continue
@@ -205,13 +205,13 @@ class Regression:
 
     #
     # def run(self):
-    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_vector_corr2.xlsx'.format(self.scope))
+    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'human_cell_line_hCAGE_{}_score_vector_corr2.xlsx'.format(self.scope))
     #     df = pd.read_excel(fpath, index_col=0)
     #
-    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_vector.xlsx'.format(self.scope))
+    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'human_cell_line_hCAGE_{}_score_vector.xlsx'.format(self.scope))
     #     df_gene = pd.read_excel(fpath, index_col=0)
     #
-    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}_score_vector.xlsx'.format(self.scope))
+    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'human_cell_line_hCAGE_mir_{}_score_vector.xlsx'.format(self.scope))
     #     df_mir = pd.read_excel(fpath, index_col=0)
     #
     #     contents = {}
@@ -251,13 +251,46 @@ class Regression:
     #     with open(self.__class__.__name__ + '.cha', 'wb') as f:
     #         pkl.dump(data, f)
 
+    def filter_by_db(self):
+        fname = 'human_cell_line_hCAGE_{}_score_corr2_with_target_indicator_ts.csv'.format(self.scope)
+        df_ref = pd.read_csv(os.path.join(self.root, 'Papers/Lasso', fname), index_col=0)
+
+        pairs = {}
+        for mir in df_ref.index:
+            genes = df_ref.loc[mir, 'GENEs'].split(';')
+            ti = map(int, df_ref.loc[mir, 'Target Indicator'].split(';'))
+            for g, i in zip(genes, ti):
+                if i > 0:
+                    if mir not in pairs:
+                        pairs[mir] = [g]
+                    else:
+                        pairs[mir].append(g)
+        return pairs
+
+    def evaluation(self):
+        df_reg = pd.read_excel(self.__class__.__name__ + '.xlsx')
+        pairs = self.filter_by_db()
+
+        pidx = []
+        for idx in df_reg.index:
+            mir = df_reg.loc[idx, 'miRNA']
+            gene = df_reg.loc[idx, 'gene']
+            if mir in pairs and gene in pairs[mir]:
+                pidx.append(idx)
+
+        nidx = list(set(df_reg.index) - set(pidx))
+        df_reg_pos = df_reg.loc[pidx]
+        df_reg_neg = df_reg.loc[nidx]
+
+        df_reg_pos.to_excel(self.__class__.__name__ + '_pos.xlsx', index=None)
+        df_reg_neg.to_excel(self.__class__.__name__ + '_neg.xlsx', index=None)
+
 
 if __name__ == '__main__':
     rg = Regression()
     if rg.hostname == 'mingyu-Precision-Tower-7810':
-        # rg.run()
         # rg.to_server()
-        # rg.run()
-        rg.add_truth()
+        rg.run()
+        # rg.evaluation()
     else:
         rg.run()

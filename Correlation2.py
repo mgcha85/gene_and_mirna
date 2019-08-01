@@ -43,7 +43,7 @@ class Correlation2:
         server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
-        server.job_script(fname, src_root=server_root, time='04:00:00')
+        server.job_script(fname, src_root=server_root, time='12:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -127,7 +127,7 @@ class Correlation2:
         return [chromosome, strand, tss, widths, scores, score, score_norm, gene]
 
     def fantom_unique_gene(self):
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}.db'.format(self.band))
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}.db'.format(self.band))
         con_fan = sqlite3.connect(fpath_fan)
         con_out = sqlite3.connect(fpath_fan.replace('.db', '_{}_v{}.db'.format(self.csize, self.version)))
         tlist_rna = Database.load_tableList(con_fan)
@@ -139,7 +139,7 @@ class Correlation2:
         threshold = None
         for tname in tlist_rna:
             print(tname)
-            df_fan = pd.read_sql_query("SELECT * FROM {}".format(tname), con_fan)
+            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
             mean = df_fan['score'].mean()
             std = df_fan['score'].std()
             df_fan.loc[:, 'score (norm)'] = ((df_fan['score'] - mean) / std).round(4)
@@ -182,7 +182,7 @@ class Correlation2:
         return table_names
 
     def correlation(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'correlation_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -327,19 +327,14 @@ class Correlation2:
         con = sqlite3.connect(fpath)
         df_ref = pd.read_sql_query("SELECT chromosome, start, end, strand, gene_name FROM 'human_genes_wo_duplicates'", con, index_col='gene_name')
 
-        fpath_rna = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_out2.db')
-        con_rna = sqlite3.connect(fpath_rna)
-        tlist_rna = Database.load_tableList(con_rna)
-
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out/', 'fantom_cage_by_tissue_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
         con_fan = sqlite3.connect(fpath_fan)
         tlist_fan = Database.load_tableList(con_fan)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'correlation_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'correlation_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
         out_con = sqlite3.connect(out_path)
 
-        tlist = self.get_valid_tissues(tlist_rna, tlist_fan)
-        for tissue, tname_rna in tlist.items():
+        for tissue, tname_rna in tlist_fan.items():
             print(tissue)
             df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con_fan, index_col='gene_name')
             for rtname in tname_rna:
@@ -367,7 +362,7 @@ class Correlation2:
         return [gene, ','.join(df_sub['score'].astype(str)), ','.join(df_sub['start'].astype(str))]
 
     def get_vector(self, fname):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', fname)
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', fname)
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -376,6 +371,8 @@ class Correlation2:
 
         for tname in tlist:
             print(tname)
+            if "/" in tname:
+                continue
             df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
             df_grp = df.groupby('gene_name')
 
@@ -388,13 +385,23 @@ class Correlation2:
     def processInput_correlation_mir_gene0(self, df_mir, mir, i):
         if i % 100 == 0 or i + 1 == df_mir.shape[0]:
             print('{:0.2f}%'.format((i + 1) * 100 / df_mir.shape[0]))
-        scores_mir = np.array(list(map(int, df_mir.loc[mir, 'scores'].split(','))))
+
+        score = df_mir.loc[mir, 'scores']
+        if isinstance(score, str):
+            scores_mir = np.array(list(map(int, score.split(','))))
+        else:
+            scores_mir = np.array(score)
         return scores_mir.mean()
 
     def processInput_correlation_mir_gene1(self, df_gene, gene, i):
         if i % 1000 == 0 or i + 1 == df_gene.shape[0]:
             print('{:0.2f}%'.format((i + 1) * 100 / df_gene.shape[0]))
-        scores_gene = np.array(list(map(int, df_gene.loc[gene, 'scores'].split(','))))
+
+        score = df_gene.loc[gene, 'scores']
+        if isinstance(score, str):
+            scores_gene = np.array(list(map(int, score.split(','))))
+        else:
+            scores_gene = np.array(score)
         return scores_gene.mean()
 
     def processInput_correlation_mir_gene2(self, mmean, df_res_gene, gene):
@@ -409,18 +416,18 @@ class Correlation2:
         return df[df['corr (spearman)'] > 0.6].to_excel(fpath.replace('.xlsx', '_high.xlsx'))
 
     def get_scores_by_tissues(self, band):
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}.xlsx'.format(band))
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_mir_{}.xlsx'.format(band))
         df_mirs = pd.ExcelFile(fpath_mir)
         tissues = df_mirs.sheet_names
 
-        high_correlated_genes = pd.read_excel('correlation_{}_20_high.xlsx'.format(band), index_col=0).index
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}.xlsx'.format(band))
+        # high_correlated_genes = pd.read_excel('correlation_{}_20.xlsx'.format(band), index_col=0).index
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}.xlsx'.format(band))
         df_genes = pd.ExcelFile(fpath_gene)
 
         mirs, genes = [], []
         for tissue in tissues:
             df_mir = df_mirs.parse(tissue, index_col=0)
-            df_gene = df_genes.parse(tissue, index_col=0).loc[high_correlated_genes, :]
+            df_gene = df_genes.parse(tissue, index_col=0)
             mirs.append(set(df_mir.index))
             genes.append(set(df_gene.index))
         
@@ -452,10 +459,10 @@ class Correlation2:
         df_res_gene.to_excel(fpath_gene.replace('.xlsx', '_score_vector.xlsx'))
 
     def correlation_mir_gene(self, band):
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_mir_{}_score_vector.xlsx'.format(band))
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_mir_{}_score_vector.xlsx'.format(band))
         df_res_mir = pd.read_excel(fpath_mir, index_col=0)
 
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_score_vector.xlsx'.format(band))
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_vector.xlsx'.format(band))
         df_res_gene = pd.read_excel(fpath_gene, index_col=0)
 
         fpath_out = fpath_gene.replace('_vector.xlsx', '_corr.xlsx')
@@ -543,33 +550,54 @@ class Correlation2:
 if __name__ == '__main__':
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        cor.to_server()
-        # cor.intersection_versions()
+        # from Comparison_gpu import Comparison
+        # comp = Comparison()
+        #
+        # # cor.rna_unique_gene()
         # for band in [100, 500]:
+        #     # comp.fantom_to_gene(band)
+        #     # comp.fantom_to_mir(band)
+        #
+        #     cor.band = band
+        #     # cor.get_vector('human_cell_line_hCAGE_{}.db'.format(band))
+        #     # cor.get_vector('human_cell_line_hCAGE_mir_{}.db'.format(band))
+        #
+        #     for cluster_size in [20, 100]:
+        #         cor.csize = cluster_size
+        #         for i in range(4):
+        #             cor.version = i
+        #             # cor.fantom_unique_gene()
+        #             # cor.run()
+        #             # cor.correlation()
+        #         # cor.merge_versions()
+        #     #     cor.get_high_correlated_genes(band, cluster_size)
+        #
+        #     cor.get_scores_by_tissues(band)
         #     cor.correlation_mir_gene(band)
+        cor.to_server()
 
     else:
         from Comparison_gpu import Comparison
         comp = Comparison()
 
         # cor.rna_unique_gene()
-        for band in [100, 500]:
+        for band in [100]:
             # comp.fantom_to_gene(band)
             # comp.fantom_to_mir(band)
 
             cor.band = band
-            cor.get_vector('fantom_cage_by_tissue_{}.db'.format(band))
-            cor.get_vector('fantom_cage_by_tissue_mir_{}.db'.format(band))
+            # cor.get_vector('human_cell_line_hCAGE_{}.db'.format(band))
+            # cor.get_vector('human_cell_line_hCAGE_mir_{}.db'.format(band))
 
-            for cluster_size in [20, 100]:
-                cor.csize = cluster_size
-                for i in range(4):
-                    cor.version = i
-                    cor.fantom_unique_gene()
-                    # cor.run()
-                    # cor.correlation()
-                # cor.merge_versions()
-                # cor.get_high_correlated_genes(band, cluster_size)
+            # for cluster_size in [20, 100]:
+            #     cor.csize = cluster_size
+            #     for i in range(4):
+            #         cor.version = i
+            #         cor.fantom_unique_gene()
+            #         cor.run()
+            #         cor.correlation()
+            #     cor.merge_versions()
+            #     cor.get_high_correlated_genes(band, cluster_size)
 
             cor.get_scores_by_tissues(band)
             cor.correlation_mir_gene(band)
