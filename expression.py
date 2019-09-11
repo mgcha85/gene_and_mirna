@@ -60,7 +60,7 @@ __global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu,
 }""")
 
 
-class Comparison:
+class Expression:
     def __init__(self):
         self.hostname = socket.gethostname()
         if self.hostname == 'mingyu-Precision-Tower-7810':
@@ -206,9 +206,6 @@ class Comparison:
         tlist_fan = Database.load_tableList(con_fan)
 
         fpath_fan_out = fpath_fan.replace('.db', '_{}.db'.format(scope))
-        # if os.path.exists(fpath_fan_out):
-        #     print('{} exists'.format(fpath_fan_out))
-        #     return
 
         con_out = sqlite3.connect(fpath_fan_out)
         for i, tname in enumerate(tlist_fan):
@@ -275,10 +272,11 @@ class Comparison:
 
 
 if __name__ == '__main__':
-    comp = Comparison()
+    comp = Expression()
     if comp.hostname == 'mingyu-Precision-Tower-7810':
         comp.to_server()
-        # comp.run()
     else:
-        comp.fantom_to_gene(100)
-        comp.fantom_to_gene(500)
+
+        for scope in [100, 500]:
+            for func in [comp.fantom_to_gene, comp.fantom_to_mir]:
+                func(scope)

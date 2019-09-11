@@ -20,6 +20,7 @@ class Extract:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.num_cores = multiprocessing.cpu_count()
+        self.scope = 500
 
     def to_server(self):
         which = 'newton'
@@ -137,13 +138,13 @@ class Extract:
         df_res = pd.DataFrame(contents, columns=['mir', 'gene', 'mir_chr', 'mir_strand', 'gene_chr', 'gene_strand', 'distance'])
         # df_res = df_res.dropna(how='all', axis=0)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_100_score_vector_corr3.xlsx')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_vector_corr3.xlsx'.format(self.scope))
         df_res.to_excel(out_path, index=None)
 
     def stats(self):
         import matplotlib.pyplot as plt
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_100_score_vector_corr3.xlsx')
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_vector_corr3.xlsx'.format(self.scope))
         df = pd.read_excel(fpath)
         df_sub = df[df['distance']]
         print('{:0.2f}%'.format(100 * df_sub.shape[0] / df.shape[0]))
@@ -159,8 +160,30 @@ class Extract:
                 contents.append([mir, ';'.join(row.index), ';'.join(row.round(2).astype(str))])
         return pd.DataFrame(data=contents, columns=['miRNA', 'GENEs', 'corr (pearson)'])
 
+    def split_mir_table(self):
+        fpath = os.path.join(self.root, 'database', 'fantom5.db')
+        con = sqlite3.connect(fpath)
+        out_con = sqlite3.connect(fpath.replace('.db', '_mir.db'))
+
+        df = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con)
+        print(df.shape[0])
+
+        df_chr = df.groupby('chromosome')
+        cnt = 0
+        for chr, df_sub in df_chr:
+            df_sub_str = df_sub.groupby('strand')
+            for str, df_sub_sub in df_sub_str:
+                cnt += df_sub_sub.shape[0]
+                print(cnt)
+                df_sub_sub = df_sub_sub.rename(columns={"premiRNA": "gene_name"})
+                if str == '+':
+                    df_sub_sub['start'] = df_sub_sub['tss']
+                else:
+                    df_sub_sub['end'] = df_sub_sub['tss']
+                df_sub_sub.to_sql('human_promoters_{}_{}'.format(chr, str), out_con, index=None, if_exists='replace')
+
     def run(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_100_score_corr.xlsx')
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_corr.xlsx'.format(self.scope))
         df = pd.read_excel(fpath, index_col=0).T
         df = df.dropna(axis=1)
         df = self.get_high_corr(df)

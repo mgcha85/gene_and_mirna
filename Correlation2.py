@@ -27,7 +27,7 @@ class Correlation2:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.cells = []
-        self.version = 1
+        self.version = 0
         self.band = 100
         self.csize = 100
         self.num_cores = multiprocessing.cpu_count()
@@ -243,9 +243,10 @@ class Correlation2:
             # if np.isnan(spearman_xcor.correlation):
             #     continue
             report.append([gname, loc, ':'.join(tsss), spec,
-                           ':'.join(scores.astype(str)), ','.join(fpkm_str), '{:0.4f}'.format(spearman_xcor[0])])
+                           ':'.join(scores.astype(str)), ','.join(fpkm_str), '{:0.4f}'.format(spearman_xcor[0]),
+                           '{:0.4f}'.format(spearman_xcor[1])])
 
-        df_rep = pd.DataFrame(data=report, columns=['gnames', 'loc', 'tss', 'spec', 'scores', 'fpkms', 'corr (spearman)'])
+        df_rep = pd.DataFrame(data=report, columns=['gnames', 'loc', 'tss', 'spec', 'scores', 'fpkms', 'corr', 'p-value'])
         df_rep.to_excel('correlation_{}_{}_v{}.xlsx'.format(self.band, self.csize, self.version), index=None)
 
     def cut_by_threshold(self, df):
@@ -375,6 +376,7 @@ class Correlation2:
                 continue
             df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
             df_grp = df.groupby('gene_name')
+            print(tname, len(df_grp))
 
             contents = Parallel(n_jobs=self.num_cores)(delayed(self.processInput_get_vector)(df_sub, gene) for gene, df_sub in df_grp)
             df_res = pd.DataFrame(data=contents, columns=['gene', 'scores', 'starts'])
@@ -550,54 +552,23 @@ class Correlation2:
 if __name__ == '__main__':
     cor = Correlation2()
     if cor.hostname == 'mingyu-Precision-Tower-7810':
-        # from Comparison_gpu import Comparison
-        # comp = Comparison()
-        #
-        # # cor.rna_unique_gene()
-        # for band in [100, 500]:
-        #     # comp.fantom_to_gene(band)
-        #     # comp.fantom_to_mir(band)
-        #
-        #     cor.band = band
-        #     # cor.get_vector('human_cell_line_hCAGE_{}.db'.format(band))
-        #     # cor.get_vector('human_cell_line_hCAGE_mir_{}.db'.format(band))
-        #
-        #     for cluster_size in [20, 100]:
-        #         cor.csize = cluster_size
-        #         for i in range(4):
-        #             cor.version = i
-        #             # cor.fantom_unique_gene()
-        #             # cor.run()
-        #             # cor.correlation()
-        #         # cor.merge_versions()
-        #     #     cor.get_high_correlated_genes(band, cluster_size)
-        #
-        #     cor.get_scores_by_tissues(band)
-        #     cor.correlation_mir_gene(band)
         cor.to_server()
 
     else:
-        from Comparison_gpu import Comparison
-        comp = Comparison()
-
-        # cor.rna_unique_gene()
-        for band in [100]:
-            # comp.fantom_to_gene(band)
-            # comp.fantom_to_mir(band)
-
+        for band in [100, 500]:
             cor.band = band
             # cor.get_vector('human_cell_line_hCAGE_{}.db'.format(band))
             # cor.get_vector('human_cell_line_hCAGE_mir_{}.db'.format(band))
 
-            # for cluster_size in [20, 100]:
-            #     cor.csize = cluster_size
-            #     for i in range(4):
-            #         cor.version = i
-            #         cor.fantom_unique_gene()
-            #         cor.run()
-            #         cor.correlation()
-            #     cor.merge_versions()
-            #     cor.get_high_correlated_genes(band, cluster_size)
+            for cluster_size in [100]:
+                cor.csize = cluster_size
+                for i in range(0):
+                    cor.version = i
+                    # cor.fantom_unique_gene()
+                    # cor.run()
+                    cor.correlation()
+                cor.merge_versions()
+                cor.get_high_correlated_genes(band, cluster_size)
 
             cor.get_scores_by_tissues(band)
             cor.correlation_mir_gene(band)
