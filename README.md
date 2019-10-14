@@ -14,3 +14,6 @@ download_RNA_seq.py:
 4. bam_to_gtf: from bam to gtf
 5. to_bed: from fastq to gtf
 
+Correlation_gpu.py:
+1. get_tpm: TPM comparing to GENCODE's (v30) transcripts.
+
