@@ -8,151 +8,97 @@ import matplotlib.pyplot as plt
 import scipy.stats
 from Server import Server
 import sys
-
-import pycuda.driver as cuda
-import pycuda.autoinit
-from pycuda.compiler import SourceModule
 from Database import Database
 
-mod = SourceModule("""
-#include <stdio.h>
-#include <math.h>
 
-enum{TABLE_NUM, SCORE_OUT, OUT_WIDTH};
-enum{SUM, MEAN, OPT_WIDTH};
-enum{START, END, SCORE, WIDTH};
-enum{REF_START, REF_END, REF_WIDTH};
+hostname = socket.gethostname()
+if hostname == 'mingyu-Precision-Tower-7810':
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    from pycuda.compiler import SourceModule
 
-__device__ float get_rpkm(int *res_buffer, const int ref_start, const int ref_end, const int N, const int idx)
-{
-    int cnt=0;
-    int res_start, res_end;
-    int length = ref_end - ref_start;
-    float rpkm = 0.0;
-
-    for(int i=0; i<N; i++) {
-        res_start = res_buffer[i * WIDTH + START];      
-        res_end = res_buffer[i * WIDTH + END];      
-        if(ref_start > res_end || ref_end < res_start)  continue;
-        else                                            cnt++;
+    mod = SourceModule("""
+    #include <stdio.h>
+    #include <math.h>
+    
+    enum{REF_START, REF_END, REF_WIDTH};
+    enum{START, END, SCORE, WIDTH};
+    enum{SUM1, SUM2, OUT_WIDTH};
+    
+    __device__ void rankify(float *X, float *Rank_X, const int N) {
+        for(int i=0; i<N; i++)
+        {
+            int r=1, s=1;
+    
+            for(int j=0; j<i; j++) {
+                if(X[j] < X[i]) r++;
+                if(X[j] == X[i]) s++;
+            }
+            for(int j=i+1; j<N; j++) {
+                if (X[j] < X[i]) r++;
+                if (X[j] == X[i]) s++;
+            }
+            Rank_X[i] = r + (s-1) * 0.5;
+        }
     }
-    rpkm = (cnt / 1e6) / length;
-    return rpkm;
-}
-
-__device__ void rankify(float *X, float *Rank_X, const int N) {
-    for(int i=0; i<N; i++)  
+    
+    __device__ float correlationCoefficient(float *X, float *Y, const int N)
     {
-        int r=1, s=1; 
+        float sum_X=0, sum_Y=0, sum_XY=0;
+        float squareSum_X=0, squareSum_Y=0;
+    
+        for(int i=0; i<N; i++)
+        {
+            sum_X = sum_X + X[i];
+            sum_Y = sum_Y + Y[i];
+            sum_XY = sum_XY + X[i] * Y[i];
+    
+            // sum of square of array elements.
+            squareSum_X = squareSum_X + X[i] * X[i];
+            squareSum_Y = squareSum_Y + Y[i] * Y[i];
+        }
+        return (N*sum_XY-sum_X*sum_Y) / sqrt((N*squareSum_X-sum_X*sum_X) * (N*squareSum_Y-sum_Y*sum_Y));
+    }
+    
+    __device__ float spearman_correlation(float *X, float *Y, const int N)
+    {
+        float *X_rank = (float*) malloc(sizeof(float) * N);
+        float *Y_rank = (float*) malloc(sizeof(float) * N);
+        float coeff;
+    
+        rankify(X, X_rank, N);
+        rankify(Y, Y_rank, N);
+        coeff = correlationCoefficient(X_rank, Y_rank, N);
+    
+        free(X_rank);
+        free(Y_rank);
+        return coeff;
+    }
+    
+    __device__ int get_sum(int start, int end, int *X_rsc_gpu, const int N)
+    {
+        float sum = 0;
+        for(int i=0; i<N; i++) {
+            if(X_rsc_gpu1[i * WIDTH + START] > end) break;
+            else if(!(X_rsc_gpu1[i * WIDTH + END] < start) && !(X_rsc_gpu1[i * WIDTH + START] > end)) {
+                sum += X_rsc_gpu1[i * WIDTH + SCORE];
+            }
+        }
+    }
+    
+    __global__ void cuda_corr(float *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, float out_buffer_gpu, int N, int M1, int M2)
+    {
+        int idx = threadIdx.x + blockIdx.x * blockDim.x;
+        if (idx >= N) return;
+    
+        int ref_start = X_ref_gpu[idx * REF_WIDTH + START];
+        int ref_end = X_ref_gpu[idx * REF_WIDTH + END];
         
-        for(int j=0; j<i; j++) { 
-            if(X[j] < X[i]) r++; 
-            if(X[j] == X[i]) s++; 
-        } 
-        for(int j=i+1; j<N; j++) { 
-            if (X[j] < X[i]) r++; 
-            if (X[j] == X[i]) s++; 
-        }
-        Rank_X[i] = r + (s-1) * 0.5;         
-    } 
-}
-
-__device__ float correlationCoefficient(float *X, float *Y, const int N) 
-{ 
-    float sum_X=0, sum_Y=0, sum_XY=0; 
-    float squareSum_X=0, squareSum_Y=0; 
-
-    for(int i=0; i<N; i++) 
-    {
-        sum_X = sum_X + X[i];
-        sum_Y = sum_Y + Y[i];
-        sum_XY = sum_XY + X[i] * Y[i];
-  
-        // sum of square of array elements. 
-        squareSum_X = squareSum_X + X[i] * X[i];
-        squareSum_Y = squareSum_Y + Y[i] * Y[i];
-    }
-    return (N*sum_XY-sum_X*sum_Y) / sqrt((N*squareSum_X-sum_X*sum_X) * (N*squareSum_Y-sum_Y*sum_Y));
-}
-
-__device__ float spearman_correlation(float *X, float *Y, const int N)
-{
-    float *X_rank = (float*) malloc(sizeof(float) * N);
-    float *Y_rank = (float*) malloc(sizeof(float) * N);
-    float coeff;
-    
-    rankify(X, X_rank, N);
-    rankify(Y, Y_rank, N);
-    coeff = correlationCoefficient(X_rank, Y_rank, N);
-    
-    free(X_rank);
-    free(Y_rank);
-    return coeff;
-}
-
-__device__ void get_reads_count(float *res_buffer, float* out_buffer_gpu, const int ref_start, const int ref_end, const int N, const int idx, const int opt)
-{
-    int cnt=0;
-    int res_start, res_end;
-    float score=0.0;
-    
-    for(int i=0; i<N; i++) {
-        res_start = res_buffer[i * WIDTH + START];  
-        res_end = res_buffer[i * WIDTH + END];  
-        if(ref_start > res_end || ref_end < res_start)
-            continue;
-        else {
-            score += res_buffer[i * WIDTH + SCORE];
-            cnt += 1;
-        }
-    }
-    if(cnt>0) {
-        if(opt == SUM)
-            out_buffer_gpu[idx * OUT_WIDTH + SCORE_OUT] = score;
-        else if(opt == MEAN)
-            out_buffer_gpu[idx * OUT_WIDTH + SCORE_OUT] = score / cnt;
-    }
-}
-
-__device__ int get_table_num(int *ref_data_lengths_cum_gpu, const int idx, const int N)
-{
-    for(int i=0; i<N-1; i++) {  
-        if(ref_data_lengths_cum_gpu[i] <= idx && ref_data_lengths_cum_gpu[i+1] > idx) return i;
-    }
-    return N;
-}
-
-__global__ void cuda_corr(float *X_gene, float *X_mir, float *out, const int N, const int M, const int WIDTH)
-{
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx >= N) return;
-    
-    // M: number of mir
-    for(int i=0; i<M; i++) {
-        out[idx * M + i] = spearman_correlation(&X_gene[WIDTH * idx], &X_mir[WIDTH * i], WIDTH);
-    }
-}
-
-__global__ void cuda_scanner(int *ref_buffer_gpu, int *ref_data_lengths_cum_gpu, float *res_buffer_gpu, int *res_data_lengths_cum_gpu, float *out_buffer_gpu, const int N, const int M, const int opt)
-{
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx >= N) return;
-
-    int tb_num, sidx, eidx;
-    int ref_start, ref_end;
-
-    ref_start = ref_buffer_gpu[idx * REF_WIDTH + REF_START];
-    ref_end = ref_buffer_gpu[idx * REF_WIDTH + REF_END];
-
-    tb_num = get_table_num(ref_data_lengths_cum_gpu, idx, M);
-
-    sidx = res_data_lengths_cum_gpu[tb_num];
-    eidx = res_data_lengths_cum_gpu[tb_num + 1];
-
-    out_buffer_gpu[idx * OUT_WIDTH + TABLE_NUM] = (float) tb_num;
-    get_reads_count(&res_buffer_gpu[sidx * WIDTH], out_buffer_gpu, ref_start, ref_end, eidx - sidx, idx, opt);
-
-}""")
+        for(int i=0; i<M1; i++)
+            out_buffer_gpu[idx * OUT_WIDTH + SUM1] = get_sum(ref_start, ref_end, X_rsc_gpu1, M1);
+        for(int i=0; i<M2; i++)
+            out_buffer_gpu[idx * OUT_WIDTH + SUM2] = get_sum(ref_start, ref_end, X_rsc_gpu2, M2);
+    }""")
 
 
 class Correlation:
@@ -185,101 +131,156 @@ class Correlation:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
-    def split_table_for_res(self, df, labels):
-        df_sorted = []
-        dfs = []
-        data_length = []
-        df_chr = df.groupby('chromosome')
+    def correlation_fan_rna_cpu(self):
+        # tissue list
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
+        df_tis = pd.read_excel(fpath, sheet_name='Sheet2')
+        tissues = df_tis['FANTOM']
 
-        for tname, tnum in self.table_names.items():
-            chr, str = tname.split(';')
-            if len(chr) > 5 or chr not in df_chr.groups:
-                continue
-            df_sub = df_chr.get_group(chr)
-            # df_sub_sub = df_sub[df_sub['strand'] == str]
+        # reference GENCODE
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
+        ref_con = sqlite3.connect(ref_path)
 
-            dfs.append(df_sub[labels].values.flatten().astype(np.float32))
-            data_length.append(df_sub.shape[0])
-            df_sorted.append(df_sub)
-        return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
+        # Fantom5
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'fantom_cage_by_tissue_spt.db')
+        con_fan = sqlite3.connect(fan_path)
 
-    def split_table_for_ref(self, df):
-        RANGE = 500
+        # RNA-seq
+        rna_path = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_spt.db')
+        con_rna = sqlite3.connect(rna_path)
 
-        df_sorted = []
-        dfs = []
-        data_length = []
-        df_chr = df.groupby('chromosome')
-        chromosomes = sorted(df_chr.groups)
+        # only intersection
+        tlist_fan = Database.load_tableList(con_fan)
+        tlist_rna = Database.load_tableList(con_rna)
+        tlist = sorted(list(set.intersection(set(tlist_fan), set(tlist_rna))))
+        N = len(tlist)
 
-        cnt = 0
-        for chr in chromosomes:
-            if len(chr) > 5:
-                continue
-            df_sub = df_chr.get_group(chr)
-            df_sub_str = df_sub.groupby('strand')
-            strands = sorted(df_sub_str.groups)
-            for str in strands:
-                tname = '{};{}'.format(chr, str)
-                self.table_names[tname] = cnt
-                cnt += 1
-                df_sub_sub = df_sub_str.get_group(str)
-                if str == '+':
-                    tss = deepcopy(df_sub_sub['start'])
-                else:
-                    tss = deepcopy(df_sub_sub['end'])
-
-                df_sub_sub.loc[:, 'start'] = tss - RANGE
-                df_sub_sub.loc[:, 'end'] = tss + RANGE
-                dfs.append(df_sub_sub[['start', 'end']].values.flatten().astype(np.int32))
-                data_length.append(df_sub_sub.shape[0])
-                df_sorted.append(df_sub_sub)
-        return dfs, data_length, pd.concat(df_sorted).reset_index(drop=True)
-
-    def set_data(self, dfs, data_length):
-        dfs = np.concatenate(dfs)
-        data_length = np.array(data_length)
-        data_length_cum = np.zeros(data_length.shape[0] + 1)
-        data_length_cum[1:] = data_length.cumsum()
-        return dfs, data_length_cum.astype(np.int32)
-
-    def load_reference(self):
-        fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export_hg19_pc.db')
-        con = sqlite3.connect(fpath)
-        dfs = []
-        tlist = Database.load_tableList(con)
+        contents = []
+        tlist = Database.load_tableList(ref_con)
         for tname in tlist:
-            dfs.append(pd.read_sql_query("SELECT chromosome, start, end, strand, gene_name, transcript_name FROM '{}'".format(tname), con))
-        return pd.concat(dfs)
+            source, version, chromosome, strand = tname.split('.')
+            df_ref = pd.read_sql_query("SELECT * FROM '{}''".format(tname), ref_con)
+            print(chromosome, strand)
 
-    def to_gpu(self, dfs_ref, data_length_cum_ref, dfs_res, data_length_cum_src, N, opt, out_labels):
+            for idx in df_ref.index:
+                if strand == '+':
+                    tss = df_ref['start']
+                else:
+                    tss = df_ref['end']
+
+                df_ref['end'] = tss + 500
+                df_ref['start'] = tss - 500
+
+                start = df_ref.loc[idx, 'start']
+                end = df_ref.loc[idx, 'end']
+                gene_name = df_ref.loc[idx, 'gene_name']
+                transcript_name = df_ref.loc[idx, 'transcript_name']
+                transcript_type = df_ref.loc[idx, 'transcript_type']
+
+                buffer = np.zeros((N, 2))
+                for i, tissue in enumerate(tissues):
+                    tname_rsc = '_'.join([tissue, chromosome, strand])
+                    df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
+                                               "start>{end} AND NOT end<{start}".format(tname_rsc, chromosome, strand,
+                                                                                        start=start, end=end), con_fan)
+                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
+                                               "start>{end} AND NOT end<{start}".format(tname_rsc, chromosome, strand,
+                                                                                        start=start, end=end), con_rna)
+                    buffer[i, 0] = df_fan['score'].sum()
+                    buffer[i, 1] = df_rna['FPKM'].sum()
+
+                corr = np.corrcoef(buffer[:, 0], buffer[:, 1])
+                contents.append([chromosome, start, end, strand, gene_name, transcript_name, transcript_type, corr[0, 1]])
+
+        df_res = pd.DataFrame(contents, columns=['chromosome', 'start', 'end', 'strand', 'gene_name', 'transcript_name', 'transcript_type', 'corr'])
+        out_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'corr_fan_RNA_by_tissue.db'))
+        df_res.to_sql('corr_fan_RNA_by_tissue', out_con, if_exists='replace', index=None)
+
+    def set_gpu_buffer(self, df_ref, df_rsc):
+        N = np.int32(df_ref.shape[0])
+
+        X_ref = df_ref.values.flatten().astype(np.int32)
+        X_ref_gpu = cuda.mem_alloc(X_ref.nbytes)
+        cuda.memcpy_htod(X_ref_gpu, X_ref)
+
+        M = []
+        X_rsc = []
+        X_rsc_gpu = []
+        for df in df_rsc:
+            M.append(np.int32(df.shape[0]))
+            rsc = df.values.flatten().astype(np.int32)
+            rsc_gpu = cuda.mem_alloc(rsc.nbytes)
+            cuda.memcpy_htod(rsc_gpu, X_rsc)
+
+            X_rsc.append(rsc)
+            X_rsc_gpu.append(rsc_gpu)
+
+        return X_ref_gpu, X_rsc_gpu, N, M
+
+    def cuda_run(self, X_ref_gpu, X_rsc_gpu, N, M):
         THREADS_PER_BLOCK = 1 << 10
-        OUT_WDITH = 2
-
-        ref_buffer_gpu = cuda.mem_alloc(dfs_ref.nbytes)
-        cuda.memcpy_htod(ref_buffer_gpu, dfs_ref)
-
-        res_buffer_gpu = cuda.mem_alloc(dfs_res.nbytes)
-        cuda.memcpy_htod(res_buffer_gpu, dfs_res)
-
-        ref_data_lengths_cum_gpu = cuda.mem_alloc(data_length_cum_ref.nbytes)
-        cuda.memcpy_htod(ref_data_lengths_cum_gpu, data_length_cum_ref)
-
-        res_data_lengths_cum_gpu = cuda.mem_alloc(data_length_cum_src.nbytes)
-        cuda.memcpy_htod(res_data_lengths_cum_gpu, data_length_cum_src)
-
-        M = np.int32(data_length_cum_ref.shape[0])
-
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        out_buffer = np.zeros((N, OUT_WDITH)).flatten().astype(np.float32)
+
+        out_buffer = np.zeros((N, 2)).flatten().astype(np.float32)
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
-        func = mod.get_function("cuda_scanner")
-        func(ref_buffer_gpu, ref_data_lengths_cum_gpu, res_buffer_gpu, res_data_lengths_cum_gpu, out_buffer_gpu, N, M, opt,
-             block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        func = mod.get_function("cuda_corr")
+        func(X_ref_gpu, X_rsc_gpu[0], X_rsc_gpu[1], out_buffer_gpu, N, M[0], M[1], block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
-        out_buffer = out_buffer.reshape((-1, OUT_WDITH))
-        return pd.DataFrame(data=out_buffer, columns=out_labels)
+        out_buffer = out_buffer.reshape((N, 2))
+        return out_buffer
+
+    def correlation_fan_rna(self):
+        # tissue list
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
+        df_tis = pd.read_excel(fpath, sheet_name='Sheet2')
+        tissues = df_tis['FANTOM']
+
+        # reference GENCODE
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
+        ref_con = sqlite3.connect(ref_path)
+
+        # Fantom5
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'fantom_cage_by_tissue_spt.db')
+        con_fan = sqlite3.connect(fan_path)
+
+        # RNA-seq
+        rna_path = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_spt.db')
+        con_rna = sqlite3.connect(rna_path)
+
+        # output
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
+        con_out = sqlite3.connect(out_path)
+
+        # only intersection
+        tlist_fan = Database.load_tableList(con_fan)
+        tlist_rna = Database.load_tableList(con_rna)
+        tlist = sorted(list(set.intersection(set(tlist_fan), set(tlist_rna))))
+        M = len(tissues)
+
+        tlist = Database.load_tableList(ref_con)
+        for tname in tlist:
+            source, version, chromosome, strand = tname.split('.')
+            df_ref = pd.read_sql_query("SELECT * FROM '{}''".format(tname), ref_con)
+            N = df_ref.shape[0]
+            print(chromosome, strand)
+
+            buffer = np.zeros((N, 2, M))
+            for i, tissue in enumerate(tissues):
+                tname_rsc = '_'.join([tissue, chromosome, strand])
+                df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                                           "".format(tname_rsc, chromosome, strand), con_fan)
+                df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                                           "".format(tname_rsc, chromosome, strand), con_rna)
+
+                X_ref_gpu, X_rsc_gpu, N, M = self.set_gpu_buffer(df_ref, [df_fan, df_rna])
+                buffer[:, :, i] = self.cuda_run(X_ref_gpu, X_rsc_gpu, N, M)
+
+            df_ref['corr'] = np.zeros(N)
+            for idx in df_ref.index:
+                df_ref.loc[idx, 'corr'] = np.corrcoef(buffer[idx, 0, :], buffer[idx, 1, :])[0, 1]
+            df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
     def get_tpm(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue.db')
@@ -317,34 +318,40 @@ class Correlation:
                 dfs_rna, data_length_cum_src = self.set_data(dfs_rna, data_length_rna)
 
                 df_out = self.to_gpu(dfs_ref, data_length_cum_ref, dfs_rna, data_length_cum_src, np.int32(df_ref.shape[0]), np.int32(1), out_labels=['TABLE_NUM', 'FPKM'])
-                df_out = pd.concat([df_sorted, df_out], axis=1)
+                df_out = pd.concat([df_sorted, df_out], axis=1).dropna()
+                df_out[['start', 'end']] = df_out[['start', 'end']].astype(int)
                 df_out.to_sql(tname_rna, con_out_rna, if_exists='replace', index=None)
 
-    def run(self, df_gene, df_mir):
-        THREADS_PER_BLOCK = 1 << 9
+    def get_score_distribution(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues/out')
+        fpath = os.path.join(dirname, 'fantom_cage_by_tissue.db')
+        con_fan = sqlite3.connect(fpath)
 
-        N = np.int32(df_gene.shape[0])
-        M = np.int32(df_mir.shape[0])
-        WIDTH = np.int32(df_mir.shape[1])
-        
-        X_mir = df_mir.values.flatten().astype(np.int32)
-        X_gene = df_gene.values.flatten().astype(np.int32)
+        fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        con_rna = sqlite3.connect(fpath)
 
-        X_mir_gpu = cuda.mem_alloc(X_mir.nbytes)
-        cuda.memcpy_htod(X_mir_gpu, X_mir)
+        tlist_fan = Database.load_tableList(con_fan)
+        tlist_rna = Database.load_tableList(con_rna)
 
-        X_gene_gpu = cuda.mem_alloc(X_gene.nbytes)
-        cuda.memcpy_htod(X_gene_gpu, X_gene)
+        tlist = sorted(list(set.intersection(set(tlist_fan), set(tlist_rna))))
+        for tname in tlist:
+            df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE FPKM>0".format(tname), con_rna)
+            df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE score>0".format(tname), con_fan)
 
-        gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        out_buffer = np.zeros((N, M)).flatten().astype(np.float32)
-        out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
+            hist_rna, bin_rna = np.histogram(df_rna['FPKM'].values, bins=20)
+            hist_fan, bin_fan = np.histogram(df_fan['score'].values, bins=20)
+            plt.subplot(211)
+            plt.bar(bin_rna[:-1], np.log(hist_rna), label='RNA-seq', color='b', alpha=.5, width=bin_rna[1]-bin_rna[0])
+            plt.grid()
+            plt.legend()
+            plt.title(tname)
 
-        func = mod.get_function("cuda_corr")
-        func(X_gene_gpu, X_mir_gpu, out_buffer_gpu, N, M, WIDTH, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
-        cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
-        out_buffer = out_buffer.reshape((N, M))
-        return pd.DataFrame(data=out_buffer, columns=df_mir.index, index=df_gene.index)
+            plt.subplot(212)
+            plt.bar(bin_fan[:-1], np.log(hist_fan), label='FANTOM', color='g', alpha=.5, width=bin_fan[1]-bin_fan[0])
+            plt.grid()
+            plt.legend()
+            plt.savefig(os.path.join(dirname, 'figures', tname + '.png'))
+            plt.close()
 
 
 if __name__ == '__main__':
@@ -352,5 +359,5 @@ if __name__ == '__main__':
     if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
-        cor.get_tpm()
-        cor.run()
+        cor.correlation_fan_rna()
+        # cor.run()

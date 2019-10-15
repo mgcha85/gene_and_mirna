@@ -138,17 +138,17 @@ class Download_RNA_seq:
                 urllib.request.urlretrieve(download_url, local_path)
                 # self.to_db(local_path)
         return content
-
-    def run(self):
-        cage_id = self.get_cage_peak_id()[2:]
-        N = len(cage_id)
-
-        contents = []
-        for i, cid in enumerate(cage_id):
-            contents.append(self.pc_run(cid, i, N))
-
-        df = pd.DataFrame(data=contents, columns=['download_url', 'loca_path'])
-        df.to_csv('download_cage_peak_id.csv', index=None)
+    #
+    # def run(self):
+    #     cage_id = self.get_cage_peak_id()[2:]
+    #     N = len(cage_id)
+    #
+    #     contents = []
+    #     for i, cid in enumerate(cage_id):
+    #         contents.append(self.pc_run(cid, i, N))
+    #
+    #     df = pd.DataFrame(data=contents, columns=['download_url', 'loca_path'])
+    #     df.to_csv('download_cage_peak_id.csv', index=None)
 
     def check_not_download(self):
         with open('temp.csv') as f:
@@ -279,25 +279,60 @@ class Download_RNA_seq:
                 df, cline, ename = row
                 df[['chromosome', 'start', 'end', 'strand', 'score']].to_sql(cline, con, if_exists='replace', index=None)
 
-    def temp(self):
-        from Database import Database
+    def run(self):
+        columns = ['chromosome', 'start', 'end', 'index', 'score', 'strand']
+        root = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        out_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/tissues', 'fantom_cage_by_tissue.db'))
+        # flist__ = os.listdir(root)
 
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines')
-        con = sqlite3.connect(os.path.join(dirname, 'human_cell_line_hCAGE.db'))
-        con_out = sqlite3.connect(os.path.join(dirname, 'human_cell_line_hCAGE2.db'))
-        tlist = Database.load_tableList(con)
-        for tname in tlist:
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-            cline, fid = tname.split('_')
-            df.to_sql(cline, con_out, if_exists='replace', index=None)
+        df_ref = pd.read_excel(os.path.join(root, 'tissues_fantom_rna.xlsx'), index_col=1)
+        df_rep = pd.DataFrame(index=df_ref['RNA-seq'], columns=['#data', 'fnames'])
+        for fname in df_ref.index:
+            print(fname)
+            dirname = os.path.join(root, fname)
+            if not os.path.isdir(dirname):
+                continue
+
+            flist = os.listdir(dirname)
+            df_rep.loc[df_ref.loc[fname, 'RNA-seq'], '#data'] = len(flist)
+            df_rep.loc[df_ref.loc[fname, 'RNA-seq'], 'fnames'] = ';'.join(flist)
+
+            indecies = []
+            contents = []
+            if len(flist) == 0:
+                continue
+            elif len(flist) == 1:
+                df_res = pd.read_csv(os.path.join(dirname, flist[0]), compression='gzip', sep='\t', names=columns, header=None)
+                df_res = df_res.drop('index', axis=1)
+            else:
+                for fpath in flist:
+                    df = pd.read_csv(os.path.join(dirname, fpath), compression='gzip', sep='\t', names=columns, header=None)
+                    df = df.set_index('index', drop=True)
+                    contents.append(df)
+                    indecies.append(set(df.index))
+                    del df
+
+                index = set.union(*indecies)
+                df_res = pd.DataFrame(index=sorted(list(index)), columns=['chromosome', 'start', 'end', 'score', 'strand'])
+                df_res['score'] = 0
+
+                for df in contents:
+                    df_res.loc[df.index, ['chromosome', 'start', 'end', 'score', 'strand']] = df[['chromosome', 'start', 'end', 'score', 'strand']]
+                    df_res.loc[df.index, 'score'] += df.loc[df.index, 'score']
+                    del df
+
+                df_res['score'] /= len(contents)
+            df_res.to_sql(df_ref.loc[fname, 'RNA-seq'], out_con, if_exists='replace', index=None)
+            del df_res, indecies, contents
+        df_rep.to_excel('temp.xlsx')
 
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    if drs.hostname == 'mingyu-Precision-Tower-7810':
+    if drs.hostname == 'mingyu-Precision-Tower-781':
         # drs.download_tissue_fantom()
         # drs.get_list()
         # drs.merge_cline_db()
         drs.to_server()
     else:
-        drs.merge_cline_db()
+        drs.run()

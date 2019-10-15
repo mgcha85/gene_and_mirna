@@ -207,7 +207,7 @@ class Regression(DeepLearning):
         contents = {}
         for mir in df.index:
             genes = df.loc[mir, 'GENEs'].split(';')
-            corr = df.loc[mir, 'corr']
+            corr = df.loc[mir, 'corr (pearson)']
 
             # mir_values = ';'.join(df_mir.loc[mir, :].round(4).astype(str))
             for gene in genes:
@@ -483,7 +483,7 @@ if __name__ == '__main__':
     if rg.hostname == 'mingyu-Precision-Tower-7810':
         # rg.to_server()
         rg.run()
-        rg.filter_by_lasso()
+        # rg.filter_by_lasso()
         # rg.dl_pred()
         # rg.evaluation()
     else:

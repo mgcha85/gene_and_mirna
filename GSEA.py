@@ -255,6 +255,6 @@ if __name__ == '__main__':
     # gs.set_data()
     # gs.filter_by_hgnc()
     # gs.get_class()
-    # gs.lasso_gsea()
-    gs.compare_amlan()
+    gs.lasso_gsea()
+    # gs.compare_amlan()
     # gs.chart_plot()

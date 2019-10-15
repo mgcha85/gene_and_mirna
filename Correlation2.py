@@ -326,11 +326,22 @@ class Correlation2:
     def run(self):
         fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation.db')
         con = sqlite3.connect(fpath)
-        df_ref = pd.read_sql_query("SELECT chromosome, start, end, strand, gene_name FROM 'human_genes_wo_duplicates'", con, index_col='gene_name')
+        df_ref = pd.read_sql_query("SELECT chromosome, start, end, strand, gene_name FROM 'gencode.v30lift37' WHERE "
+                                   "feature='transcript'", con, index_col='gene_name')
 
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
+        fpath_rna = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        con_rna = sqlite3.connect(fpath_rna)
+
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'fantom_cage_by_tissue_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
         con_fan = sqlite3.connect(fpath_fan)
         tlist_fan = Database.load_tableList(con_fan)
+
+        # fpath_rna = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_out.db')
+        # con_rna = sqlite3.connect(fpath_rna)
+
+        # fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
+        # con_fan = sqlite3.connect(fpath_fan)
+        # tlist_fan = Database.load_tableList(con_fan)
 
         out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'correlation_{}_{}_v{}.db'.format(self.band, self.csize, self.version))
         out_con = sqlite3.connect(out_path)
@@ -409,7 +420,7 @@ class Correlation2:
     def processInput_correlation_mir_gene2(self, mmean, df_res_gene, gene):
         gmean = df_res_gene.loc[gene]
         ccoeff = pearsonr(mmean, gmean)
-        return [gene, ccoeff[0]]
+        return [gene, ccoeff[0], ccoeff[1]]
         # return [gene, ccoeff.correlation]
 
     def get_high_correlated_genes(self, band, scope):
@@ -468,25 +479,31 @@ class Correlation2:
         df_res_gene = pd.read_excel(fpath_gene, index_col=0)
 
         fpath_out = fpath_gene.replace('_vector.xlsx', '_corr.xlsx')
-        writer = pd.ExcelWriter(fpath_out, engine='xlsxwriter')
+        writer_corr = pd.ExcelWriter(fpath_out, engine='xlsxwriter')
 
-        dfs = []
-        for mir in df_res_mir.index:
-            print(mir)
+        fpath_out = fpath_gene.replace('_vector.xlsx', '_pval.xlsx')
+        writer_pval = pd.ExcelWriter(fpath_out, engine='xlsxwriter')
+
+        dfs_corr = []
+        dfs_pval = []
+        N = df_res_mir.shape[0]
+        for i, mir in enumerate(df_res_mir.index):
+            print('{} [{} / {}]'.format(mir, i + 1, N))
             mmean = df_res_mir.loc[mir]
 
-            for gene in df_res_gene.index:
-                self.processInput_correlation_mir_gene2(mmean, df_res_gene, gene)
-
             table = Parallel(n_jobs=self.num_cores)(delayed(self.processInput_correlation_mir_gene2)(mmean, df_res_gene, gene) for gene in df_res_gene.index)
-            df = pd.DataFrame(data=table, columns=['gene', 'ccoeff']).set_index('gene')
-            df.columns = [mir]
-            dfs.append(df)
+            df = pd.DataFrame(data=table, columns=['gene', 'ccoeff', 'p-value']).set_index('gene')
+            df.columns = [mir, mir]
+            print(df.iloc[:, 0])
+            print(df.iloc[:, 1])
+            dfs_corr.append(df.iloc[:, 0])
+            dfs_pval.append(df.iloc[:, 1])
 
-        df = pd.concat(dfs, axis=1)
-        df.to_excel(writer)
-        writer.save()
-        writer.close()
+        for df, writer in zip([dfs_corr, dfs_pval], [writer_corr, writer_pval]):
+            df = pd.concat(df, axis=1)
+            df.to_excel(writer)
+            writer.save()
+            writer.close()
 
     def intersection_versions(self):
         df = pd.read_excel('correlation_v0.xlsx', index_col=0)
@@ -555,7 +572,7 @@ if __name__ == '__main__':
         cor.to_server()
 
     else:
-        for band in [100, 500]:
+        for band in [500]:
             cor.band = band
             # cor.get_vector('human_cell_line_hCAGE_{}.db'.format(band))
             # cor.get_vector('human_cell_line_hCAGE_mir_{}.db'.format(band))
@@ -564,8 +581,8 @@ if __name__ == '__main__':
                 cor.csize = cluster_size
                 for i in range(0):
                     cor.version = i
-                    # cor.fantom_unique_gene()
-                    # cor.run()
+                    cor.fantom_unique_gene()
+                    cor.run()
                     cor.correlation()
                 cor.merge_versions()
                 cor.get_high_correlated_genes(band, cluster_size)

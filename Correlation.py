@@ -98,14 +98,16 @@ class Correlation:
         tlist_fan = Database.load_tableList(con_fan)
         tlist_rna = Database.load_tableList(con_rna)
 
+        con_out = sqlite3.connect(os.path.join(self.root, 'Papers/complement', 'correlation.db'))
+
         reports = {}
-        for tname_fan in tlist_fan[:2]:
+        for tname_fan in tlist_fan:
             print(tname_fan)
             df_ref = self.load_reference(tname_fan)
             if df_ref is None:
                 continue
 
-            df_ref = df_ref[:1000]
+            # df_ref = df_ref[:1000]
             contents = []
             for idx in df_ref.index:
                 if idx % 100 == 0 or idx + 1 == df_ref.shape[0]:
@@ -133,14 +135,9 @@ class Correlation:
                                      df_rna['FPKM'].astype(float).sum(), df_rna['TPM'].astype(float).sum(),
                                      tname_rna])
             reports[tname_fan] = pd.DataFrame(data=contents, columns=out_columns)
-            print(reports[tname_fan])
 
-        out_path = os.path.join(self.root, 'Papers/complement', 'correlation.xlsx')
-        writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
         for tissue, df in reports.items():
-            df.to_excel(writer, sheet_name=tissue, index=None)
-        writer.save()
-        writer.close()
+            df.to_sql(tissue, con_out, index=None, if_exists='replace')
 
     def split(self):
         fname = 'correlation_report'
@@ -293,7 +290,7 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-7810':
+    if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
         # cor.run()
     else:

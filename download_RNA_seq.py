@@ -168,8 +168,8 @@ class Download_RNA_seq:
             ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
             if ret == 0:
                 self.f2b.sam_to_bam(sam_path)
-                self.f2b.bam_to_gff(sam_path.replace('.sam', '.bam'))
-                self.f2b.gff_to_gtf(sam_path.replace('.sam', '.gff'))
+                self.f2b.bam_to_gtf(sam_path.replace('.bam', '.gtf'))
+                # self.f2b.gff_to_gtf(sam_path.replace('.sam', '.gff'))
                 # self.f2b.gtf_to_db(sam_path.replace('.sam', '.gtf'))
 
             elapsed = time() - start
@@ -190,6 +190,12 @@ class Download_RNA_seq:
 
 
 if __name__ == '__main__':
+    # root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq'
+    # flist_bam = [os.path.splitext(x)[0] for x in os.listdir(os.path.join(root, 'bam'))]
+    # flist_gtf = [os.path.splitext(x)[0] for x in os.listdir(os.path.join(root, 'gtf'))]
+    # print(set(flist_bam) - set(flist_gtf))
+    # exit(1)
+
     drs = Download_RNA_seq()
     drs.to_bed()
 
