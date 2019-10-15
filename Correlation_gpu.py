@@ -25,6 +25,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
     enum{REF_START, REF_END, REF_WIDTH};
     enum{START, END, SCORE, WIDTH};
     enum{SUM1, SUM2, OUT_WIDTH};
+    enum{ADDR_START, ADDR_END, ADDR_WIDTH};
     
     #define NUM_TISSUE  22
     
@@ -78,11 +79,35 @@ if hostname != 'mingyu-Precision-Tower-7810':
         return coeff;
     }
     
-    __device__ float get_sum(int start, int end, float *X_rsc_gpu, const int N)
+    __device__ binary_search(float *X, int val, int N)
+    {
+        int start = 0;
+        int end = N - 1;
+        
+        while(start < end) {
+            if(start == end) return start;
+            
+            int mid = (start + end) / 2;
+            if(X[mid] > val)    start = mid + 1;
+            else    end = mid - 1;
+        }
+    }
+
+    __device__ first_filter(float *X, int *addr, int ref_start, int ref_end, int idx, int N)
+    {
+    
+        addr[idx * ADDR_WIDTH + ADDR_START] = binary_search(X, ref_start, N);
+        addr[idx * ADDR_WIDTH + ADDR_END] = binary_search(X, ref_end, N);
+    }
+        
+    __device__ float get_sum(int start, int end, float *X_rsc_gpu, int *addr)
     {
         float sum = 0;
         int rsc_start, rsc_end;
-        for(int i=0; i<N; i++) {
+        int offset = addr[idx * ADDR_WIDTH + ADDR_START];
+        int N = addr[idx * ADDR_WIDTH + ADDR_END];
+        
+        for(int i=offset; i<N; i++) {
             rsc_start = X_rsc_gpu[i * WIDTH + START];
             rsc_end = X_rsc_gpu[i * WIDTH + END];
             
@@ -102,7 +127,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
         out[idx] = correlationCoefficient(&X1[offset], &X2[offset], NUM_TISSUE);        
     }
     
-    __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, float *out_buffer_gpu, int N, int M1, int M2)
+    __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, int *addr, float *out_buffer_gpu, int N, int M1, int M2)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         if (idx >= N) return;
@@ -110,8 +135,11 @@ if hostname != 'mingyu-Precision-Tower-7810':
         int ref_start = X_ref_gpu[idx * REF_WIDTH + REF_START];
         int ref_end = X_ref_gpu[idx * REF_WIDTH + REF_END];
         
-        out_buffer_gpu[idx * OUT_WIDTH + SUM1] = get_sum(ref_start, ref_end, X_rsc_gpu1, M1);
-        out_buffer_gpu[idx * OUT_WIDTH + SUM2] = get_sum(ref_start, ref_end, X_rsc_gpu2, M2);
+        first_filter(X_rsc_gpu1, addr, ref_start, ref_end, idx, M1);
+        out_buffer_gpu[idx * OUT_WIDTH + SUM1] = get_sum(ref_start, ref_end, X_rsc_gpu1, addr);
+
+        first_filter(X_rsc_gpu1, addr, ref_start, ref_end, idx, M1);
+        out_buffer_gpu[idx * OUT_WIDTH + SUM2] = get_sum(ref_start, ref_end, X_rsc_gpu2, addr);
     }""")
 
 
@@ -237,8 +265,11 @@ class Correlation:
         out_buffer = np.zeros((N, 2)).flatten().astype(np.float32)
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
+        addr = np.zeros((N, 2)).flatten().astype(np.float32)
+        addr_gpu = cuda.mem_alloc(addr.nbytes)
+
         func = mod.get_function("cuda_sum")
-        func(X_ref_gpu, X_rsc_gpu[0], X_rsc_gpu[1], out_buffer_gpu, N, M[0], M[1], block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        func(X_ref_gpu, X_rsc_gpu[0], X_rsc_gpu[1], addr_gpu, out_buffer_gpu, N, M[0], M[1], block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
 
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
         out_buffer = out_buffer.reshape((N, 2))
@@ -293,6 +324,9 @@ class Correlation:
         tlist = Database.load_tableList(ref_con)
         for tname in tlist:
             source, version, chromosome, strand = tname.split('.')
+            if chromosome == 'chrM' or chromosome == 'chrY':
+                continue
+
             df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
             if df_ref.empty:
                 continue
@@ -323,11 +357,11 @@ class Correlation:
                     X_ref_gpu, X_rsc_gpu, N, M = self.set_gpu_buffer(df_ref[['start', 'end']], [df_fan, df_rna])
                     buffer[:, :, i] = self.cuda_sum(X_ref_gpu, X_rsc_gpu, N, M)
 
-            # df_ref['corr'] = np.zeros(N_)
-            # for i, buf in enumerate(buffer):
-            #     corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
-            #     df_ref.loc[i, 'corr'] = corr_coeff
-            df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
+            df_ref['corr'] = np.zeros(N_)
+            for i, buf in enumerate(buffer):
+                corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
+                df_ref.loc[i, 'corr'] = corr_coeff
+            # df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
             df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
 
