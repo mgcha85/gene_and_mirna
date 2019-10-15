@@ -84,17 +84,21 @@ class Convert:
         attribute = df['attribute'].str.split('; ')
 
         pkm = []
-        for attr in attribute:
+        for idx in attribute.index:
+            attr = attribute[idx]
             dict = {}
             for a in attr:
                 key, value = a.split(' ')
                 dict[key] = value.replace('"', '')
 
-            if 'ref_gene_name' not in dict:
-                continue
-            pkm.append([dict['ref_gene_name'], dict['transcript_id'], dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')])
+            row = [idx, None, None, dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')]
+            if 'ref_gene_name' in dict:
+                row[1] = dict['ref_gene_name']
+                row[2] = dict['transcript_id']
+            pkm.append(row)
 
-        df_res = pd.DataFrame(data=pkm, columns=['gene_name', 'transcript_id', 'cov', 'FPKM', 'TPM'])
+        df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'cov', 'FPKM', 'TPM'])
+        df_res = df_res.set_index('index', drop=True)
         df = pd.concat([df, df_res], axis=1)
         df.drop(['attribute', 'frame'], axis=1).to_sql(os.path.splitext(fname)[0], con, index=None)
 
@@ -180,14 +184,15 @@ class Convert:
 
 if __name__ == '__main__':
     con = Convert()
-    if con.hostname == 'mingyu-Precision-Tower-781':
+    if con.hostname == 'mingyu-Precision-Tower-7810':
         con.to_server()
 
     else:
-        con.stats_by_tissue()
+        # con.stats_by_tissue()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq')
         # con.gtf_to_db_all(dirname)
 
+        con.avg_rna_seq_by_tissues()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq', 'bam')
         # flist = os.listdir(dirname)
         # for fname in flist:
