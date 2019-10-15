@@ -258,9 +258,11 @@ class Correlation:
 
         out = np.zeros(N).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
+        cuda.memcpy_htod(out_gpu, out)
 
         func = mod.get_function("cuda_corr")
-        func(X, Y, out_gpu, N, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        N = np.int32(N)
+        func(X_gpu, Y_gpu, out_gpu, N, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out, out_gpu)
         return out
 
@@ -321,11 +323,11 @@ class Correlation:
                     X_ref_gpu, X_rsc_gpu, N, M = self.set_gpu_buffer(df_ref[['start', 'end']], [df_fan, df_rna])
                     buffer[:, :, i] = self.cuda_sum(X_ref_gpu, X_rsc_gpu, N, M)
 
-            df_ref['corr'] = np.zeros(N_)
-            for i, buf in enumerate(buffer):
-                corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
-                df_ref.loc[i, 'corr'] = corr_coeff
-            # df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
+            # df_ref['corr'] = np.zeros(N_)
+            # for i, buf in enumerate(buffer):
+            #     corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
+            #     df_ref.loc[i, 'corr'] = corr_coeff
+            df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
             df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
 
