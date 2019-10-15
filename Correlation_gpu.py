@@ -98,8 +98,8 @@ if hostname != 'mingyu-Precision-Tower-7810':
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         if (idx >= N) return;
         
-        int offset = NUM_TISSUE * idx; 
-        out[idx] = correlationCoefficient(X1[offset], X2[offset], NUM_TISSUE);        
+        int offset = NUM_TISSUE * idx;
+        out[idx] = correlationCoefficient(&X1[offset], &X2[offset], NUM_TISSUE);        
     }
     
     __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, float *out_buffer_gpu, int N, int M1, int M2)
@@ -248,8 +248,8 @@ class Correlation:
         THREADS_PER_BLOCK = 1 << 10
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
-        X = X.values.flatten().astype(np.float32)
-        Y = Y.values.flatten().astype(np.float32)
+        X = X.flatten().astype(np.float32)
+        Y = Y.flatten().astype(np.float32)
         X_gpu = cuda.mem_alloc(X.nbytes)
         Y_gpu = cuda.mem_alloc(Y.nbytes)
 
@@ -320,8 +320,12 @@ class Correlation:
                 else:
                     X_ref_gpu, X_rsc_gpu, N, M = self.set_gpu_buffer(df_ref[['start', 'end']], [df_fan, df_rna])
                     buffer[:, :, i] = self.cuda_sum(X_ref_gpu, X_rsc_gpu, N, M)
-            
-            df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
+
+            df_ref['corr'] = np.zeros(N_)
+            for i, buf in enumerate(buffer):
+                corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
+                df_ref.loc[i, 'corr'] = corr_coeff
+            # df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
             df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
 
