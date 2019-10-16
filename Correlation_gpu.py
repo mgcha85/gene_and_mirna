@@ -253,7 +253,7 @@ class Correlation:
         con_rna = sqlite3.connect(rna_path)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
         con_out = sqlite3.connect(out_path)
 
         M_ = len(tissues)
@@ -291,12 +291,17 @@ class Correlation:
                 buffer[:, 0, i] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
                 buffer[:, 1, i] = self.get_score_sum(df_ref[['start', 'end']], df_rna[['start', 'end', 'score']])
 
-            df_ref['corr'] = np.zeros(N_)
-            for i, buf in enumerate(buffer):
-                corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
-                df_ref.loc[i, 'corr'] = corr_coeff
-            # df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
-            df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
+            for i, tissue in enumerate(tissues):
+                df_ref.loc[:, 'Score_(FANTOM)'] = buffer[:, 0, i]
+                df_ref.loc[:, 'Score_(RNA-seq)'] = buffer[:, 1, i]
+                df_ref.to_sql('_'.join([tissue, chromosome, strand]), con_out, index=None, if_exists='replace')
+
+            # df_ref['corr'] = np.zeros(N_)
+            # for i, buf in enumerate(buffer):
+            #     corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
+            #     df_ref.loc[i, 'corr'] = corr_coeff
+            # # df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
+            # df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
     def high_correlation(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
