@@ -35,14 +35,11 @@ __device__ int binary_search(const int *X, const int val, const int N, const int
     return -1;
 }
 
-__device__ int binary_search_loc(const int *X, const int val, const int N, const int col, const int idx)
+__device__ int binary_search_loc(const int *X, const int ref_val, int *addr, const int col, const int N, const int idx)
 {
     // X: array, val: nth value, N: length of X, col: columns number
     // if X has no val, return -1 
-
-    if(N <= 1) return -1;    
-    if(val < X[col]) return -1;
-    if(val > X[WIDTH * (N - 1) + END]) return -1;
+    if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return;
 
     int start = 0;
     int end = N - 1;
@@ -52,11 +49,16 @@ __device__ int binary_search_loc(const int *X, const int val, const int N, const
         int mid = (start + end) / 2;
         int res_val = X[mid * WIDTH + col];
         
-        if(res_val == val)      return mid;
-        else if(res_val < val)  start = mid + 1;
-        else                    end = mid - 1;
+        if(res_val == ref_val) {
+             return mid;
+        }
+        else if(res_val < ref_val)  start = mid + 1;
+        else                        end = mid - 1;
         
-        if(start >= end) return start-1;
+        if(start >= end) {
+            if(res_val < ref_val) start++;
+            return start;
+        }
     }
     return -1;
 }
@@ -110,6 +112,29 @@ __global__ void cuda_sql(const int *ref, const int *res, int *addr, float *score
     
     get_overlap(res, ref_start, ref_end, addr, M, idx);
     cuda_sum(score, addr, out, N, idx);
+}
+
+
+__global__ void cuda_sql2(const int *ref, const int *res, int *addr, float *score, float *out, const int N, const int M)
+{
+    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx >= N) return;
+    
+    int ref_start = ref[idx * WIDTH + START];
+    int ref_end = ref[idx * WIDTH + END];
+    
+    int out_start = binary_search_loc(res, ref_start, addr, END, M, idx);
+    int out_end = binary_search_loc(res, ref_end, addr, START, M, idx);
+    
+    if(out_start == out_end) {
+        int res_start = res[WIDTH * out_start + START];
+        int res_end = res[WIDTH * out_start + END];
+        if((ref_start > res_end) || (ref_end < res_start)) {
+            return;
+        }
+    }
+    addr[WIDTH * idx + START] = out_start;
+    addr[WIDTH * idx + END] = out_end;
 }
 
 """)
@@ -166,7 +191,7 @@ class Sqlgpu:
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
-        func = mod.get_function("cuda_sql")
+        func = mod.get_function("cuda_sql2")
         func(ref_gpu, res_gpu, addr_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(addr, addr_gpu)
         cuda.memcpy_dtoh(out, out_gpu)

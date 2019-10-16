@@ -190,17 +190,18 @@ class Correlation:
             df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
             print(chromosome, strand)
 
+            if strand == '+':
+                tss = deepcopy(df_ref['start'])
+            else:
+                tss = deepcopy(df_ref['end'])
+
+            df_ref['end'] = tss + 500
+            df_ref['start'] = tss - 500
+
             df_res = pd.DataFrame(index=df_ref.index, columns=columns)
             for idx in df_ref.index:
                 if idx % 100 == 0 or idx + 1 == df_ref.shape[0]:
                     print('{:,d} / {:,d}'.format(idx + 1, df_ref.shape[0]))
-                if strand == '+':
-                    tss = df_ref['start']
-                else:
-                    tss = df_ref['end']
-
-                df_ref['end'] = tss + 500
-                df_ref['start'] = tss - 500
 
                 start = df_ref.loc[idx, 'start']
                 end = df_ref.loc[idx, 'end']
@@ -318,5 +319,5 @@ if __name__ == '__main__':
     if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
-        cor.correlation_fan_rna()
+        cor.correlation_fan_rna_cpu()
         # cor.run()
