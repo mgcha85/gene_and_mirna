@@ -11,7 +11,6 @@ import sys
 from Database import Database
 from copy import deepcopy
 
-
 hostname = socket.gethostname()
 if hostname != 'mingyu-Precision-Tower-7810':
     import pycuda.driver as cuda
@@ -21,19 +20,18 @@ if hostname != 'mingyu-Precision-Tower-7810':
     mod = SourceModule("""
     #include <stdio.h>
     #include <math.h>
-    
+
     enum{REF_START, REF_END, REF_WIDTH};
     enum{START, END, SCORE, WIDTH};
     enum{SUM1, SUM2, OUT_WIDTH};
-    enum{ADDR_START, ADDR_END, ADDR_WIDTH};
-    
+
     #define NUM_TISSUE  22
-    
+
     __device__ void rankify(float *X, float *Rank_X, const int N) {
         for(int i=0; i<N; i++)
         {
             int r=1, s=1;
-    
+
             for(int j=0; j<i; j++) {
                 if(X[j] < X[i]) r++;
                 if(X[j] == X[i]) s++;
@@ -45,101 +43,89 @@ if hostname != 'mingyu-Precision-Tower-7810':
             Rank_X[i] = r + (s-1) * 0.5;
         }
     }
-    
+
     __device__ float correlationCoefficient(float *X, float *Y, const int N)
     {
         float sum_X=0, sum_Y=0, sum_XY=0;
         float squareSum_X=0, squareSum_Y=0;
-    
+
         for(int i=0; i<N; i++)
         {
             sum_X = sum_X + X[i];
             sum_Y = sum_Y + Y[i];
             sum_XY = sum_XY + X[i] * Y[i];
-    
+
             // sum of square of array elements.
             squareSum_X = squareSum_X + X[i] * X[i];
             squareSum_Y = squareSum_Y + Y[i] * Y[i];
         }
         return (N*sum_XY-sum_X*sum_Y) / sqrt((N*squareSum_X-sum_X*sum_X) * (N*squareSum_Y-sum_Y*sum_Y));
     }
-    
+
     __device__ float spearman_correlation(float *X, float *Y, const int N)
     {
         float *X_rank = (float*) malloc(sizeof(float) * N);
         float *Y_rank = (float*) malloc(sizeof(float) * N);
         float coeff;
-    
+
         rankify(X, X_rank, N);
         rankify(Y, Y_rank, N);
         coeff = correlationCoefficient(X_rank, Y_rank, N);
-    
+
         free(X_rank);
         free(Y_rank);
         return coeff;
     }
-    
-    __device__ binary_search(float *X, int val, int N)
+
+    __device__ int binary_search(float *X, int val, int N)
     {
         int start = 0;
         int end = N - 1;
-        
+
         while(start < end) {
             if(start == end) return start;
-            
+
             int mid = (start + end) / 2;
             if(X[mid] > val)    start = mid + 1;
             else    end = mid - 1;
         }
+        return -1;
     }
 
-    __device__ first_filter(float *X, int *addr, int ref_start, int ref_end, int idx, int N)
-    {
-    
-        addr[idx * ADDR_WIDTH + ADDR_START] = binary_search(X, ref_start, N);
-        addr[idx * ADDR_WIDTH + ADDR_END] = binary_search(X, ref_end, N);
-    }
-        
-    __device__ float get_sum(int start, int end, float *X_rsc_gpu, int *addr)
+    __device__ float get_sum(int start, int end, float *X_rsc_gpu, const int N)
     {
         float sum = 0;
         int rsc_start, rsc_end;
-        int offset = addr[idx * ADDR_WIDTH + ADDR_START];
-        int N = addr[idx * ADDR_WIDTH + ADDR_END];
-        
-        for(int i=offset; i<N; i++) {
+        for(int i=0; i<N; i++) {
             rsc_start = X_rsc_gpu[i * WIDTH + START];
             rsc_end = X_rsc_gpu[i * WIDTH + END];
-            
+
             if(rsc_end < start) continue;
             else if(rsc_start > end) break;
             else {sum += X_rsc_gpu[i * WIDTH + SCORE];}
         }
         return sum;
     }
-    
+
     __global__ void cuda_corr(float *X1, float *X2, float *out, const int N)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         if (idx >= N) return;
-        
+
         int offset = NUM_TISSUE * idx;
         out[idx] = correlationCoefficient(&X1[offset], &X2[offset], NUM_TISSUE);        
     }
-    
-    __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, int *addr, float *out_buffer_gpu, int N, int M1, int M2)
+
+    __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, float *out_buffer_gpu, int N, int M1, int M2)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         if (idx >= N) return;
-    
+
         int ref_start = X_ref_gpu[idx * REF_WIDTH + REF_START];
         int ref_end = X_ref_gpu[idx * REF_WIDTH + REF_END];
-        
-        first_filter(X_rsc_gpu1, addr, ref_start, ref_end, idx, M1);
-        out_buffer_gpu[idx * OUT_WIDTH + SUM1] = get_sum(ref_start, ref_end, X_rsc_gpu1, addr);
 
-        first_filter(X_rsc_gpu1, addr, ref_start, ref_end, idx, M1);
-        out_buffer_gpu[idx * OUT_WIDTH + SUM2] = get_sum(ref_start, ref_end, X_rsc_gpu2, addr);
+        out_buffer_gpu[idx * OUT_WIDTH + SUM1] = get_sum(ref_start, ref_end, X_rsc_gpu1, M1);
+        out_buffer_gpu[idx * OUT_WIDTH + SUM2] = get_sum(ref_start, ref_end, X_rsc_gpu2, M2);
     }""")
 
 
@@ -169,7 +155,8 @@ class Correlation:
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command(
+            "cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -236,7 +223,8 @@ class Correlation:
                     buffer[i, 1] = df_rna['FPKM'].sum()
 
                 corr = np.corrcoef(buffer[:, 0], buffer[:, 1])
-                df_res.loc[idx, :] = [chromosome, start, end, strand, gene_name, transcript_name, transcript_type, corr[0, 1]]
+                df_res.loc[idx, :] = [chromosome, start, end, strand, gene_name, transcript_name, transcript_type,
+                                      corr[0, 1]]
             dfs.append(df_res)
         pd.concat(dfs).to_sql(tname, con_out, if_exists='replace', index=None)
 
@@ -265,11 +253,9 @@ class Correlation:
         out_buffer = np.zeros((N, 2)).flatten().astype(np.float32)
         out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
 
-        addr = np.zeros((N, 2)).flatten().astype(np.float32)
-        addr_gpu = cuda.mem_alloc(addr.nbytes)
-
         func = mod.get_function("cuda_sum")
-        func(X_ref_gpu, X_rsc_gpu[0], X_rsc_gpu[1], addr_gpu, out_buffer_gpu, N, M[0], M[1], block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        func(X_ref_gpu, X_rsc_gpu[0], X_rsc_gpu[1], out_buffer_gpu, N, M[0], M[1], block=(THREADS_PER_BLOCK, 1, 1),
+             grid=(gridN, 1))
 
         cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
         out_buffer = out_buffer.reshape((N, 2))
