@@ -1,0 +1,146 @@
+import pandas as pd
+
+import pycuda.driver as cuda
+import pycuda.autoinit
+from pycuda.compiler import SourceModule
+import numpy as np
+
+
+mod = SourceModule("""
+#include <stdio.h>
+
+enum{START, END, WIDTH};
+
+__device__ int binary_search(float *X, int val, const int N, cont int col)
+{
+    // X: array, val: exact value, N: length of X, col: columns number
+    // if X has no val, return -1 
+
+    if(N <= 1) return;    
+    if(val <= X[col]) return 0;
+    if(val >= X[WIDTH * (N - 1) + col]) return N;
+
+    int start = 0;
+    int end = N - 1;
+
+    while(start <= end) {        
+        int mid = (start + end) / 2;
+        if(X[mid * WIDTH + col] == val)     return mid;
+        else if(X[mid * WIDTH + col] < val) start = mid + 1;
+        else                                end = mid - 1;
+    }
+    return -1;
+}
+
+__device__ int binary_search_pos(float *X, int val, const int N, cont int col)
+{
+    // X: array, val: nth value, N: length of X, col: columns number
+    // if X has no val, return -1 
+
+    if(N <= 1) return;    
+    if(val <= X[col]) return 0;
+    if(val >= X[WIDTH * (N - 1) + col]) return N;
+    
+    int start = 0;
+    int end = N - 1;
+    
+    while(start <= end) {
+        if(start == end) return start;
+        
+        int mid = (start + end) / 2;
+        if(X[mid * WIDTH + col] == val)     return mid + 1;
+        else if(X[mid * WIDTH + col] < val) start = mid;
+        else                                end = mid - 1;
+    }
+    return -1;
+}
+
+__global__ void cuda_sql(float *ref, float *res, int *out, int N, int M)
+{
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx >= N) return;
+    
+    int ref_start = ref[idx * WIDTH + START];
+    int ref_end = ref[idx * WIDTH + END];
+    
+    for(int i=START, i<=END; i++)
+        out[WIDTH * idx + i] = binary_search_pos(res, ref_start, M, i);
+}
+
+""")
+
+
+class Sqlgpu:
+    def cpu_run(self, df_ref, df_res):
+        out = pd.DataFrame(data=-np.ones(df_ref.shape[0], 2), index=df_ref.index, columns=['start', 'end'])
+        for idx in df_ref.index:
+            start = df_ref.loc[idx, 'start']
+            end = df_ref.loc[idx, 'end']
+            df_res_sub = df_res[~(df_res['start'] > end) & ~(df_res['end'] < start)]
+            out.loc[idx, 'start'] = df_res_sub.index[0]
+            out.loc[idx, 'end'] = df_res_sub.index[-1]
+        return out
+
+    def run(self, df_ref, df_res):
+        # df_ref, df_res should be DataFrame
+        # they should have start, end only
+        # they should be separated by chromosome and strand
+
+        THREADS_PER_BLOCK = 1 << 10
+
+        # df_ref: [start, end]
+        ref = df_ref.values.flatten().astype(np.int32)
+        ref_gpu = cuda.mem_alloc(ref.nbytes)
+        cuda.memcpy_htod(ref_gpu, ref)
+
+        # df_res: [start, end, score]
+        res = df_res.values.flatten().astype(np.int32)
+        res_gpu = cuda.mem_alloc(res.nbytes)
+        cuda.memcpy_htod(res_gpu, res)
+
+        N = np.int32(df_ref.shape[0])
+        M = np.int32(df_res.shape[0])
+
+        # output
+        out = np.zeros((N, 2)).flatten().astype(np.float32)
+        out_gpu = cuda.mem_alloc(out.nbytes)
+
+        gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+
+        func = mod.get_function("cuda_sql")
+        func(ref_gpu, res_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        cuda.memcpy_dtoh(out, out_gpu)
+        return out.reshape((N, 2))
+
+
+if __name__ == '__main__':
+    import socket, os, sqlite3
+    from Database import Database
+
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6':
+        root = 'D:/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    # reference GENCODE
+    ref_path = os.path.join(root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
+    con_ref = sqlite3.connect(ref_path)
+
+    # Fantom5
+    fan_path = os.path.join(root, 'database/Fantom/v5/tissues', 'fantom_cage_by_tissue_spt.db')
+    con_fan = sqlite3.connect(fan_path)
+
+    # RNA-seq
+    rna_path = os.path.join(root, 'database/RNA-seq/out', 'RNA_seq_tissue_spt.db')
+    con_rna = sqlite3.connect(rna_path)
+
+    tlist = Database.load_tableList(con_ref)
+    sqlgpu = Sqlgpu()
+    for tname in tlist:
+        source, version, chromosome, strand = tname.split('.')
+        df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
+        df_res = pd.read_sql_query("SELECT start, end FROM 'adrenal_{}_{}'".format(tname, chromosome, strand), con_rna)
+        out = sqlgpu.run(df_ref, df_res)

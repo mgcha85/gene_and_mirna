@@ -151,7 +151,7 @@ class Correlation:
         server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
-        server.job_script(fname, src_root=server_root, time='04:00:00')
+        server.job_script(fname, src_root=server_root, time='12:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -180,16 +180,14 @@ class Correlation:
 
         # out
         M = len(tissues)
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_cpu.db')
         con_out = sqlite3.connect(out_path)
 
         columns = ['chromosome', 'start', 'end', 'strand', 'gene_name', 'transcript_name', 'transcript_type', 'corr']
         tlist = Database.load_tableList(ref_con)
-        dfs = []
         for tname in tlist:
             source, version, chromosome, strand = tname.split('.')
             df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
-            N = df_ref.shape[0]
             print(chromosome, strand)
 
             df_res = pd.DataFrame(index=df_ref.index, columns=columns)
@@ -210,7 +208,7 @@ class Correlation:
                 transcript_name = df_ref.loc[idx, 'transcript_name']
                 transcript_type = df_ref.loc[idx, 'transcript_type']
 
-                buffer = np.zeros((M, 2))
+                df_buf = pd.DataFrame(data=np.zeros((M, 2)), index=tissues, columns=['FANTOM', 'RNA-seq'])
                 for i, tissue in enumerate(tissues):
                     tname_rsc = '_'.join([tissue, chromosome, strand])
                     df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
@@ -219,14 +217,15 @@ class Correlation:
                     df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
                                                "start>{end} AND NOT end<{start}".format(tname_rsc, chromosome, strand,
                                                                                         start=start, end=end), con_rna)
-                    buffer[i, 0] = df_fan['score'].sum()
-                    buffer[i, 1] = df_rna['FPKM'].sum()
-
-                corr = np.corrcoef(buffer[:, 0], buffer[:, 1])
+                    if not df_fan.empty:
+                        df_buf.loc[tissue, 'FANTOM'] = df_fan['score'].sum()
+                    if not df_rna.empty:
+                        df_buf.loc[tissue, 'RNA-seq'] = df_rna['FPKM'].sum()
+                
+                corr = np.corrcoef(df_buf['FANTOM'], df_buf['RNA-seq'])
                 df_res.loc[idx, :] = [chromosome, start, end, strand, gene_name, transcript_name, transcript_type,
                                       corr[0, 1]]
-            dfs.append(df_res)
-        pd.concat(dfs).to_sql(tname, con_out, if_exists='replace', index=None)
+            df_res.to_sql(tname, con_out, if_exists='replace', index=None)
 
     def set_gpu_buffer(self, df_ref, df_rsc):
         N = np.int32(df_ref.shape[0])
@@ -350,11 +349,25 @@ class Correlation:
             # df_ref['corr'] = self.cuda_corr(buffer[:, 0, :], buffer[:, 0, :], N_)
             df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
+    def high_correlation(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        dfs = []
+        for tname in tlist:
+            source, version, chromosome, strand = tname.split('.')
+            df = pd.read_sql_query("SELECT * FROM '{}' WHERE corr>0.9".format(tname), con)
+            df.loc[:, 'chromosome'] = chromosome
+            df.loc[:, 'strand'] = strand
+            dfs.append(df)
+        pd.concat(dfs).to_excel(fpath.replace('.db', '.xlsx'), index=None)
+
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-7810':
+    if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
-        cor.correlation_fan_rna()
+        cor.correlation_fan_rna_cpu()
         # cor.run()

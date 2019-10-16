@@ -45,6 +45,8 @@ class Util:
 
         out_con = sqlite3.connect(out_path)
         for chr, df_chr in df.groupby('chromosome'):
+            if len(chr) > 5:
+                continue
             for str, df_str in df_chr.groupby('strand'):
                 df_str = df_str.sort_values(by=['start', 'end'])
                 df_str.to_sql('_'.join([tname, chr, str]), out_con, if_exists='replace', index=None)
@@ -52,7 +54,7 @@ class Util:
 
 if __name__ == '__main__':
     ut = Util()
-    if ut.hostname == 'mingyu-Precision-Tower-7810':
+    if ut.hostname == 'mingyu-Precision-Tower-781':
         ut.to_server()
     else:
         # fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')

@@ -189,8 +189,8 @@ if __name__ == '__main__':
 
     else:
         # con.stats_by_tissue()
-        # dirname = os.path.join(con.root, 'database', 'RNA-seq')
-        # con.gtf_to_db_all(dirname)
+        dirname = os.path.join(con.root, 'database', 'RNA-seq')
+        con.gtf_to_db_all(dirname)
 
         con.avg_rna_seq_by_tissues()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq', 'bam')
