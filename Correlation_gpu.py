@@ -227,73 +227,12 @@ class Correlation:
                                       corr[0, 1]]
             df_res.to_sql(tname, con_out, if_exists='replace', index=None)
 
-    def set_gpu_buffer(self, df_ref, df_rsc):
-        N = np.int32(df_ref.shape[0])
-
-        X_ref = df_ref.values.flatten().astype(np.int32)
-        X_ref_gpu = cuda.mem_alloc(X_ref.nbytes)
-        cuda.memcpy_htod(X_ref_gpu, X_ref)
-
-        M = []
-        X_rsc_gpu = []
-        for df in df_rsc:
-            M.append(np.int32(df.shape[0]))
-            rsc = df.values.flatten().astype(np.float32)
-            rsc_gpu = cuda.mem_alloc(rsc.nbytes)
-            cuda.memcpy_htod(rsc_gpu, rsc)
-            X_rsc_gpu.append(rsc_gpu)
-
-        return X_ref_gpu, X_rsc_gpu, N, M
-
-    def cuda_sum(self, X_ref_gpu, X_rsc_gpu, N, M):
-        THREADS_PER_BLOCK = 1 << 10
-        gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-
-        out_buffer = np.zeros((N, 2)).flatten().astype(np.float32)
-        out_buffer_gpu = cuda.mem_alloc(out_buffer.nbytes)
-
-        func = mod.get_function("cuda_sum")
-        func(X_ref_gpu, X_rsc_gpu[0], X_rsc_gpu[1], out_buffer_gpu, N, M[0], M[1], block=(THREADS_PER_BLOCK, 1, 1),
-             grid=(gridN, 1))
-
-        cuda.memcpy_dtoh(out_buffer, out_buffer_gpu)
-        out_buffer = out_buffer.reshape((N, 2))
-        return out_buffer
-
-    def cuda_corr(self, X, Y, N):
-        THREADS_PER_BLOCK = 1 << 10
-        gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-
-        X = X.flatten().astype(np.float32)
-        Y = Y.flatten().astype(np.float32)
-        X_gpu = cuda.mem_alloc(X.nbytes)
-        Y_gpu = cuda.mem_alloc(Y.nbytes)
-
-        cuda.memcpy_htod(X_gpu, X)
-        cuda.memcpy_htod(Y_gpu, Y)
-
-        out = np.zeros(N).astype(np.float32)
-        out_gpu = cuda.mem_alloc(out.nbytes)
-        cuda.memcpy_htod(out_gpu, out)
-
-        func = mod.get_function("cuda_corr")
-        N = np.int32(N)
-        func(X_gpu, Y_gpu, out_gpu, N, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
-        cuda.memcpy_dtoh(out, out_gpu)
-        return out
-
-    def score_sum(self, df_res, loc, score_col):
-        score_sum = np.zeros(loc.shape[0])
-        for i, row in enumerate(loc):
-            out_start, out_end = row
-            score_sum[i] = df_res.iloc[out_start: out_end + 1][score_col].sum()
-        return score_sum
-
-    def extract_loc(self, df_ref, df_res):
+    def get_score_sum(self, df_ref, df_res):
         from sqlgpu import Sqlgpu
 
         sqlgpu = Sqlgpu()
-        return sqlgpu.run(df_ref, df_res)
+        _, out = sqlgpu.run(df_ref, df_res)
+        return out
 
     def correlation_fan_rna(self):
         # tissue list
@@ -348,10 +287,9 @@ class Correlation:
                 df_rna = pd.read_sql_query("SELECT start, end, FPKM FROM '{}' WHERE chromosome='{}' AND strand='{}'"
                                            "".format(tname_rsc, chromosome, strand), con_rna).sort_values(by=['start'])
 
-                loc_fan = self.extract_loc(df_ref, df_fan)
-                loc_rna = self.extract_loc(df_ref, df_rna)
-                self.score_sum(df_fan, loc_fan, 'score')
-                self.score_sum(df_rna, loc_rna, 'FPKM')
+                df_rna = df_rna[['start', 'end', 'FPKM']].rename(columns={"FPKM": "score"})
+                buffer[:, 0, i] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
+                buffer[:, 1, i] = self.get_score_sum(df_ref[['start', 'end']], df_rna[['start', 'end', 'score']])
 
             df_ref['corr'] = np.zeros(N_)
             for i, buf in enumerate(buffer):
@@ -380,5 +318,5 @@ if __name__ == '__main__':
     if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
-        cor.correlation_fan_rna_cpu()
+        cor.correlation_fan_rna()
         # cor.run()

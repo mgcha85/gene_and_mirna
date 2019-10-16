@@ -61,7 +61,7 @@ __device__ int binary_search_loc(const int *X, const int val, const int N, const
     return -1;
 }
 
-__device__ int get_overlap(const int *X, const int ref_start, const int ref_end, int *out, const int N, const int idx)
+__device__ void get_overlap(const int *X, const int ref_start, const int ref_end, int *addr, const int N, const int idx)
 {
     int offset = -1;
     int num_ele = 0;
@@ -81,11 +81,26 @@ __device__ int get_overlap(const int *X, const int ref_start, const int ref_end,
     }
     if(offset < 0) return;
     
-    out[WIDTH * idx + START] = offset;
-    out[WIDTH * idx + END] = offset + num_ele - 1;    
+    addr[WIDTH * idx + START] = offset;
+    addr[WIDTH * idx + END] = offset + num_ele - 1;    
 }
 
-__global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, const int M)
+__device__ void cuda_sum(const float *score, const int *addr, float *out, const int N, const int idx)
+{
+    for(int i=0; i<N; i++) {
+        int out_start = addr[WIDTH * i + START];   
+        int out_end = addr[WIDTH * i + END];   
+        if(out_start < 0) continue;
+        
+        float sum = 0.0;
+        for(int j=out_start; j<=out_end; j++) {
+            sum += score[j];
+        }
+        if(sum > 0) out[i] = sum;
+    }
+}
+
+__global__ void cuda_sql(const int *ref, const int *res, int *addr, float *score, float *out, const int N, const int M)
 {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -93,7 +108,8 @@ __global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, 
     int ref_start = ref[idx * WIDTH + START];
     int ref_end = ref[idx * WIDTH + END];
     
-    get_overlap(res, ref_start, ref_end, out, M, idx);
+    get_overlap(res, ref_start, ref_end, addr, M, idx);
+    cuda_sum(score, addr, out, N, idx);
 }
 
 """)
@@ -128,24 +144,33 @@ class Sqlgpu:
         cuda.memcpy_htod(ref_gpu, ref)
 
         # df_res: [start, end, score]
-        res = df_res.values.flatten().astype(np.int32)
+        res = df_res[['start', 'end']].values.flatten().astype(np.int32)
         res_gpu = cuda.mem_alloc(res.nbytes)
         cuda.memcpy_htod(res_gpu, res)
+
+        score = df_res[['score']].values.flatten().astype(np.float32)
+        score_gpu = cuda.mem_alloc(score.nbytes)
+        cuda.memcpy_htod(score_gpu, score)
 
         N = np.int32(df_ref.shape[0])
         M = np.int32(df_res.shape[0])
 
         # output
-        out = (-1 * np.ones(N * 2)).astype(np.int32)
+        addr = (-1 * np.ones(N * 2)).astype(np.int32)
+        addr_gpu = cuda.mem_alloc(addr.nbytes)
+        cuda.memcpy_htod(addr_gpu, addr)
+
+        out = np.zeros(N).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
         func = mod.get_function("cuda_sql")
-        func(ref_gpu, res_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        func(ref_gpu, res_gpu, addr_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        cuda.memcpy_dtoh(addr, addr_gpu)
         cuda.memcpy_dtoh(out, out_gpu)
-        return np.sort(out.reshape((N, 2)), axis=1)
+        return addr.reshape((N, 2)), out
 
 
 if __name__ == '__main__':
@@ -175,10 +200,13 @@ if __name__ == '__main__':
     tlist = Database.load_tableList(con_ref)
     sqlgpu = Sqlgpu()
     for tname in tlist[:1]:
+        print(tname)
         source, version, chromosome, strand = tname.split('.')
         df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
-        df_res = pd.read_sql_query("SELECT start, end FROM 'adrenal_{}_{}'".format(chromosome, strand), con_rna)
+        df_res = pd.read_sql_query("SELECT start, end, FPKM FROM 'adrenal_{}_{}'".format(chromosome, strand), con_rna)
+        df_res = df_res.rename(columns={"FPKM": "score"})
 
         # out = sqlgpu.cpu_run(df_ref, df_res)
-        out = sqlgpu.run(df_ref, df_res)
-        pd.DataFrame(out, columns=['start', 'end']).to_excel(sqlgpu.__class__.__name__ + '.xlsx', index=None)
+        addr, out = sqlgpu.run(df_ref, df_res)
+        pd.DataFrame(addr, columns=['start', 'end']).to_excel(sqlgpu.__class__.__name__ + '_addr.xlsx', index=None)
+        pd.DataFrame(out, columns=['score']).to_excel(sqlgpu.__class__.__name__ + '_score.xlsx', index=None)
