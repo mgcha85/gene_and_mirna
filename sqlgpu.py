@@ -35,13 +35,13 @@ __device__ int binary_search(const int *X, const int val, const int N, const int
     return -1;
 }
 
-__device__ int binary_search_pos(const int *X, const int val, const int N, const int col, const int idx)
+__device__ int binary_search_loc(const int *X, const int val, const int N, const int col, const int idx)
 {
     // X: array, val: nth value, N: length of X, col: columns number
     // if X has no val, return -1 
 
     if(N <= 1) return -1;    
-    if(val < X[START]) return -1;
+    if(val < X[col]) return -1;
     if(val > X[WIDTH * (N - 1) + END]) return -1;
 
     int start = 0;
@@ -56,43 +56,44 @@ __device__ int binary_search_pos(const int *X, const int val, const int N, const
         else if(res_val < val)  start = mid + 1;
         else                    end = mid - 1;
         
-        if(start >= end) return start;
+        if(start >= end) return start-1;
     }
     return -1;
 }
 
-__device__ void is_overlap(const int *X, const int ref_start, const int ref_end, int *out, int idx)
+__device__ int get_overlap(const int *X, const int ref_start, const int ref_end, int *out, const int N, const int idx)
 {
-    if(out[START] < 0 && out[END] < 0) return;
-    if(out[START] < 0) out[START] = 0;
+    int offset = -1;
+    int num_ele = 0;
     
-    int out_start = out[START];
-    int out_end = out[END] - 1;
+    if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return;
     
-    if(idx < 10) printf("[%d] out_start: %d, out_end: %d, ref_start: %d, ref_end: %d\\n", idx, out_start, out_end, ref_start, ref_end);
-    for(int i=out_start; i<=out_end; i++) {
-        if(idx == 2) printf("[%d] out_start: %d, out_end: %d, ref_start: %d, ref_end: %d, res_start: %d, res_end: %d\\n", idx, out_start, out_end, ref_start, ref_end, X[WIDTH * i + START], X[WIDTH * i + END]);
-        if(!(X[WIDTH * i + START] > ref_end) && !(X[WIDTH * i + END] < ref_start))
-            continue;
-        else {
-            out[START] = -1;
-            out[END] = -1;
-        }  
+    for(int i=0; i<N; i++) {
+        int res_start = X[WIDTH * i + START];
+        int res_end = X[WIDTH * i + END];
+        
+        if(!(res_start > ref_end) && !(res_end < ref_start)) {
+            if(offset < 0)
+                offset = i;
+            num_ele++;        
+        }
+        if(ref_end < res_start) break;
     }
+    if(offset < 0) return;
+    
+    out[WIDTH * idx + START] = offset;
+    out[WIDTH * idx + END] = offset + num_ele - 1;    
 }
 
 __global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, const int M)
 {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
     
     int ref_start = ref[idx * WIDTH + START];
     int ref_end = ref[idx * WIDTH + END];
     
-    for(int i=START; i<=END; i++)
-        out[WIDTH * idx + i] = binary_search_pos(res, ref[idx * WIDTH + i], M, START, idx);
-    
-    is_overlap(res, ref_start, ref_end, &out[WIDTH * idx], idx);
+    get_overlap(res, ref_start, ref_end, out, M, idx);
 }
 
 """)
@@ -102,7 +103,7 @@ class Sqlgpu:
     def cpu_run(self, df_ref, df_res):
         out = pd.DataFrame(data=-np.ones((df_ref.shape[0], 2)), index=df_ref.index, columns=['start', 'end'])
         for idx in df_ref.index:
-            if idx > 10:
+            if idx > 100:
                 break
             start = df_ref.loc[idx, 'start']
             end = df_ref.loc[idx, 'end']
@@ -135,8 +136,9 @@ class Sqlgpu:
         M = np.int32(df_res.shape[0])
 
         # output
-        out = -np.ones((N, 2)).flatten().astype(np.int32)
+        out = (-1 * np.ones(N * 2)).astype(np.int32)
         out_gpu = cuda.mem_alloc(out.nbytes)
+        cuda.memcpy_htod(out_gpu, out)
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
