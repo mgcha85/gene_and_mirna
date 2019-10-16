@@ -217,15 +217,30 @@ class Correlation:
                     df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
                                                "start>{end} AND NOT end<{start}".format(tname_rsc, chromosome, strand,
                                                                                         start=start, end=end), con_rna)
-                    if not df_fan.empty:
-                        df_buf.loc[tissue, 'FANTOM'] = df_fan['score'].sum()
-                    if not df_rna.empty:
-                        df_buf.loc[tissue, 'RNA-seq'] = df_rna['FPKM'].sum()
-                
+
+                    loc_fan = self.extract_loc(df_ref, df_fan, 'score')
+                    loc_rna = self.extract_loc(df_ref, df_rna, 'FPKM')
+                    df_buf.loc[i, 'FANTOM'] = self.score_sum(df_fan, loc_fan, 'score')
+                    df_buf.loc[i, 'RNA-seq'] = self.score_sum(df_fan, loc_rna, 'FPKM')
+
                 corr = np.corrcoef(df_buf['FANTOM'], df_buf['RNA-seq'])
                 df_res.loc[idx, :] = [chromosome, start, end, strand, gene_name, transcript_name, transcript_type,
                                       corr[0, 1]]
             df_res.to_sql(tname, con_out, if_exists='replace', index=None)
+
+    def score_sum(self, df_res, out, score_col):
+        score_sum = np.zeros(out.shape[0])
+        for i, row in enumerate(out):
+            out_start, out_end = row
+            score_sum[i] = df_res.iloc[out_start: out_end + 1][score_col].sum()
+        return score_sum
+
+    def extract_loc(self, df_ref, df_res, score_col='score'):
+        from sqlgpu import Sqlgpu
+
+        sqlgpu = Sqlgpu()
+        out = sqlgpu.run(df_ref, df_res)
+        return self.score_sum(df_res, out, score_col)
 
     def set_gpu_buffer(self, df_ref, df_rsc):
         N = np.int32(df_ref.shape[0])
