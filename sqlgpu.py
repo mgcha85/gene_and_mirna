@@ -11,12 +11,12 @@ mod = SourceModule("""
 
 enum{START, END, WIDTH};
 
-__device__ int binary_search(float *X, int val, const int N, cont int col)
+__device__ int binary_search(int *X, int val, const int N, const int col)
 {
     // X: array, val: exact value, N: length of X, col: columns number
     // if X has no val, return -1 
 
-    if(N <= 1) return;    
+    if(N <= 1) return -1;    
     if(val <= X[col]) return 0;
     if(val >= X[WIDTH * (N - 1) + col]) return N;
 
@@ -32,39 +32,48 @@ __device__ int binary_search(float *X, int val, const int N, cont int col)
     return -1;
 }
 
-__device__ int binary_search_pos(float *X, int val, const int N, cont int col)
+__device__ int binary_search_pos(const int *X, const int val, const int N, const int col, const int idx)
 {
     // X: array, val: nth value, N: length of X, col: columns number
     // if X has no val, return -1 
 
-    if(N <= 1) return;    
+    if(N <= 1) return -1;    
     if(val <= X[col]) return 0;
     if(val >= X[WIDTH * (N - 1) + col]) return N;
-    
+
     int start = 0;
     int end = N - 1;
     
-    while(start <= end) {
-        if(start == end) return start;
-        
+    while(start < end) {        
         int mid = (start + end) / 2;
-        if(X[mid * WIDTH + col] == val)     return mid + 1;
-        else if(X[mid * WIDTH + col] < val) start = mid;
-        else                                end = mid - 1;
+        int res_val = X[mid * WIDTH + col];
+        
+        if(res_val == val)      return mid + 1;
+        else if(res_val < val)  start = mid;
+        else                    end = mid - 1;
+        
+        if(idx < 5) printf("[%d] start: %d, end: %d, mid: %d, val: %d, res_val: %d\\n", idx, start, end, mid, val, res_val);
+        if(start == end) {
+            if(idx < 5) printf("[%d] found\\n", idx);
+            break;
+        }
+        if(idx < 5) printf("see\\n");
     }
-    return -1;
+    if(idx < 5) printf("see\\n");
+    return start;
 }
 
-__global__ void cuda_sql(float *ref, float *res, int *out, int N, int M)
+__global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, const int M)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
     
-    int ref_start = ref[idx * WIDTH + START];
-    int ref_end = ref[idx * WIDTH + END];
-    
-    for(int i=START, i<=END; i++)
-        out[WIDTH * idx + i] = binary_search_pos(res, ref_start, M, i);
+    for(int i=START; i<=END; i++) {
+        int temp = binary_search_pos(res, ref[idx * WIDTH + i], M, i, idx);
+        printf("[%d] temp: %d\\n", idx, temp);
+        
+        out[WIDTH * idx + i] = temp;
+    }
 }
 
 """)
@@ -85,8 +94,9 @@ class Sqlgpu:
         # df_ref, df_res should be DataFrame
         # they should have start, end only
         # they should be separated by chromosome and strand
+        # they should be sorted already
 
-        THREADS_PER_BLOCK = 1 << 10
+        THREADS_PER_BLOCK = 1 << 9
 
         # df_ref: [start, end]
         ref = df_ref.values.flatten().astype(np.int32)
@@ -102,7 +112,7 @@ class Sqlgpu:
         M = np.int32(df_res.shape[0])
 
         # output
-        out = np.zeros((N, 2)).flatten().astype(np.float32)
+        out = -np.ones((N, 2)).flatten().astype(np.int32)
         out_gpu = cuda.mem_alloc(out.nbytes)
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
@@ -110,7 +120,7 @@ class Sqlgpu:
         func = mod.get_function("cuda_sql")
         func(ref_gpu, res_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out, out_gpu)
-        return out.reshape((N, 2))
+        return np.sort(out.reshape((N, 2)), axis=1)
 
 
 if __name__ == '__main__':
@@ -139,8 +149,9 @@ if __name__ == '__main__':
 
     tlist = Database.load_tableList(con_ref)
     sqlgpu = Sqlgpu()
-    for tname in tlist:
+    for tname in tlist[:1]:
         source, version, chromosome, strand = tname.split('.')
         df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
-        df_res = pd.read_sql_query("SELECT start, end FROM 'adrenal_{}_{}'".format(tname, chromosome, strand), con_rna)
+        df_res = pd.read_sql_query("SELECT start, end FROM 'adrenal_{}_{}'".format(chromosome, strand), con_rna)
         out = sqlgpu.run(df_ref, df_res)
+        pd.DataFrame(out, columns=['start', 'end']).to_excel(sqlgpu.__class__.__name__ + '.xlsx', index=None)
