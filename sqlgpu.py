@@ -11,23 +11,26 @@ mod = SourceModule("""
 
 enum{START, END, WIDTH};
 
-__device__ int binary_search(int *X, int val, const int N, const int col)
+__device__ int binary_search(const int *X, const int val, const int N, const int col, const int idx)
 {
     // X: array, val: exact value, N: length of X, col: columns number
     // if X has no val, return -1 
 
-    if(N <= 1) return -1;    
+    if(N <= 1) return -1;
     if(val <= X[col]) return 0;
     if(val >= X[WIDTH * (N - 1) + col]) return N;
 
     int start = 0;
     int end = N - 1;
-
-    while(start <= end) {        
+    
+    while(start <= end) 
+    {
         int mid = (start + end) / 2;
-        if(X[mid * WIDTH + col] == val)     return mid;
-        else if(X[mid * WIDTH + col] < val) start = mid + 1;
-        else                                end = mid - 1;
+        int res_val = X[mid * WIDTH + col];
+        
+        if(res_val == val)      return mid;
+        else if(res_val < val)  start = mid + 1;
+        else                    end = mid - 1;
     }
     return -1;
 }
@@ -38,29 +41,44 @@ __device__ int binary_search_pos(const int *X, const int val, const int N, const
     // if X has no val, return -1 
 
     if(N <= 1) return -1;    
-    if(val <= X[col]) return 0;
-    if(val >= X[WIDTH * (N - 1) + col]) return N;
+    if(val < X[START]) return -1;
+    if(val > X[WIDTH * (N - 1) + END]) return -1;
 
     int start = 0;
     int end = N - 1;
     
-    while(start < end) {        
+    while(start < end) 
+    {
         int mid = (start + end) / 2;
         int res_val = X[mid * WIDTH + col];
         
-        if(res_val == val)      return mid + 1;
-        else if(res_val < val)  start = mid;
+        if(res_val == val)      return mid;
+        else if(res_val < val)  start = mid + 1;
         else                    end = mid - 1;
         
-        if(idx < 5) printf("[%d] start: %d, end: %d, mid: %d, val: %d, res_val: %d\\n", idx, start, end, mid, val, res_val);
-        if(start == end) {
-            if(idx < 5) printf("[%d] found\\n", idx);
-            break;
-        }
-        if(idx < 5) printf("see\\n");
+        if(start >= end) return start;
     }
-    if(idx < 5) printf("see\\n");
-    return start;
+    return -1;
+}
+
+__device__ void is_overlap(const int *X, const int ref_start, const int ref_end, int *out, int idx)
+{
+    if(out[START] < 0 && out[END] < 0) return;
+    if(out[START] < 0) out[START] = 0;
+    
+    int out_start = out[START];
+    int out_end = out[END] - 1;
+    
+    if(idx < 10) printf("[%d] out_start: %d, out_end: %d, ref_start: %d, ref_end: %d\\n", idx, out_start, out_end, ref_start, ref_end);
+    for(int i=out_start; i<=out_end; i++) {
+        if(idx == 2) printf("[%d] out_start: %d, out_end: %d, ref_start: %d, ref_end: %d, res_start: %d, res_end: %d\\n", idx, out_start, out_end, ref_start, ref_end, X[WIDTH * i + START], X[WIDTH * i + END]);
+        if(!(X[WIDTH * i + START] > ref_end) && !(X[WIDTH * i + END] < ref_start))
+            continue;
+        else {
+            out[START] = -1;
+            out[END] = -1;
+        }  
+    }
 }
 
 __global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, const int M)
@@ -68,12 +86,13 @@ __global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, 
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
     
-    for(int i=START; i<=END; i++) {
-        int temp = binary_search_pos(res, ref[idx * WIDTH + i], M, i, idx);
-        printf("[%d] temp: %d\\n", idx, temp);
-        
-        out[WIDTH * idx + i] = temp;
-    }
+    int ref_start = ref[idx * WIDTH + START];
+    int ref_end = ref[idx * WIDTH + END];
+    
+    for(int i=START; i<=END; i++)
+        out[WIDTH * idx + i] = binary_search_pos(res, ref[idx * WIDTH + i], M, START, idx);
+    
+    is_overlap(res, ref_start, ref_end, &out[WIDTH * idx], idx);
 }
 
 """)
@@ -81,11 +100,15 @@ __global__ void cuda_sql(const int *ref, const int *res, int *out, const int N, 
 
 class Sqlgpu:
     def cpu_run(self, df_ref, df_res):
-        out = pd.DataFrame(data=-np.ones(df_ref.shape[0], 2), index=df_ref.index, columns=['start', 'end'])
+        out = pd.DataFrame(data=-np.ones((df_ref.shape[0], 2)), index=df_ref.index, columns=['start', 'end'])
         for idx in df_ref.index:
+            if idx > 10:
+                break
             start = df_ref.loc[idx, 'start']
             end = df_ref.loc[idx, 'end']
             df_res_sub = df_res[~(df_res['start'] > end) & ~(df_res['end'] < start)]
+            if df_res_sub.empty:
+                continue
             out.loc[idx, 'start'] = df_res_sub.index[0]
             out.loc[idx, 'end'] = df_res_sub.index[-1]
         return out
@@ -96,7 +119,7 @@ class Sqlgpu:
         # they should be separated by chromosome and strand
         # they should be sorted already
 
-        THREADS_PER_BLOCK = 1 << 9
+        THREADS_PER_BLOCK = 1 << 10
 
         # df_ref: [start, end]
         ref = df_ref.values.flatten().astype(np.int32)
@@ -153,5 +176,7 @@ if __name__ == '__main__':
         source, version, chromosome, strand = tname.split('.')
         df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
         df_res = pd.read_sql_query("SELECT start, end FROM 'adrenal_{}_{}'".format(chromosome, strand), con_rna)
+
+        # out = sqlgpu.cpu_run(df_ref, df_res)
         out = sqlgpu.run(df_ref, df_res)
         pd.DataFrame(out, columns=['start', 'end']).to_excel(sqlgpu.__class__.__name__ + '.xlsx', index=None)
