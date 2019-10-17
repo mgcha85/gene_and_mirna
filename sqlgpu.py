@@ -82,6 +82,9 @@ __device__ void get_overlap(const int *X, const int ref_start, const int ref_end
         if(!(res_start > ref_end) && !(res_end < ref_start)) {
             if(offset < 0) offset = i;
             num_ele++;
+            
+            if(idx == 20)
+                printf("[%d] [%d/ %d] [%d, %d] res_start: %d, res_end: %d, ref_start: %d, ref_end: %d\\n", idx, i, N, offset, num_ele, res_start, res_end, ref_start, ref_end);
         }
         if(ref_end < res_start) break;
     }
@@ -89,6 +92,24 @@ __device__ void get_overlap(const int *X, const int ref_start, const int ref_end
     
     addr[WIDTH * idx + START] = offset;
     addr[WIDTH * idx + END] = offset + num_ele - 1;    
+}
+
+__device__ float get_sum(const int *X, const int ref_start, const int ref_end, const float *score, const int N, const int idx)
+{
+    float sum = 0.0;
+    
+    if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return -1;
+    
+    for(int i=0; i<N; i++) {
+        int res_start = X[WIDTH * i + START];
+        int res_end = X[WIDTH * i + END];
+        
+        if(!(res_start > ref_end) && !(res_end < ref_start)) {
+            sum += score[i];
+        }
+        if(ref_end < res_start) break;
+    }
+    return sum;
 }
 
 __device__ void cuda_sum(const float *score, const int *addr, float *out, const int N, const int idx)
@@ -106,7 +127,7 @@ __device__ void cuda_sum(const float *score, const int *addr, float *out, const 
     }
 }
 
-__global__ void cuda_sql(const int *ref, const int *res, int *addr, float *score, float *out, const int N, const int M)
+__global__ void cuda_sql(const int *ref, const int *res, float *score, float *out, const int N, const int M)
 {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -114,12 +135,13 @@ __global__ void cuda_sql(const int *ref, const int *res, int *addr, float *score
     int ref_start = ref[idx * WIDTH + START];
     int ref_end = ref[idx * WIDTH + END];
     
-    get_overlap(res, ref_start, ref_end, addr, M, idx);
-    cuda_sum(score, addr, out, N, idx);
+    out[idx] = get_sum(res, ref_start, ref_end, score, M, idx);
+    //get_overlap(res, ref_start, ref_end, addr, M, idx);
+    //cuda_sum(score, addr, out, N, idx);
 }
 
 
-__global__ void cuda_sql2(const int *ref, const int *res, int *addr, float *score, float *out, const int N, const int M)
+__global__ void cuda_sql2(const int *ref, const int *res, float *score, int *addr, float *out, const int N, const int M)
 {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -186,9 +208,9 @@ class Sqlgpu:
         M = np.int32(df_res.shape[0])
 
         # output
-        addr = (-1 * np.ones(N * 2)).astype(np.int32)
-        addr_gpu = cuda.mem_alloc(addr.nbytes)
-        cuda.memcpy_htod(addr_gpu, addr)
+        # addr = (-1 * np.ones(N * 2)).astype(np.int32)
+        # addr_gpu = cuda.mem_alloc(addr.nbytes)
+        # cuda.memcpy_htod(addr_gpu, addr)
 
         out = np.zeros(N).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
@@ -197,10 +219,11 @@ class Sqlgpu:
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
         func = mod.get_function("cuda_sql")
-        func(ref_gpu, res_gpu, addr_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
-        cuda.memcpy_dtoh(addr, addr_gpu)
+        func(ref_gpu, res_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        # cuda.memcpy_dtoh(addr, addr_gpu)
         cuda.memcpy_dtoh(out, out_gpu)
-        return addr.reshape((N, 2)), out
+        return out
+        # return addr.reshape((N, 2)), out
 
 
 if __name__ == '__main__':
@@ -234,18 +257,20 @@ if __name__ == '__main__':
 
     tlist = Database.load_tableList(con_ref)
     sqlgpu = Sqlgpu()
-    for tname in tlist:
+    for tname in tlist[:1]:
         source, version, chromosome, strand = tname.split('.')
+        if chromosome == 'chrM' or chromosome == 'chrY':
+            continue
         writer = pd.ExcelWriter('_'.join([sqlgpu.__class__.__name__, chromosome, strand, 'addr.xlsx']), engine='xlsxwriter')
         print(tname)
 
         df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
-        for tissue in tissues:
+        df_rep = pd.DataFrame(index=df_ref.index, columns=['start', 'end', 'sum'])
+        df_rep[['start', 'end']] = df_ref[['start', 'end']]
+        for tissue in tissues[2:3]:
             df_res = pd.read_sql_query("SELECT start, end, FPKM FROM '{}_{}_{}'".format(tissue, chromosome, strand), con_rna)
             df_res = df_res.rename(columns={"FPKM": "score"})
-
-            # out = sqlgpu.cpu_run(df_ref, df_res)
-            addr, out = sqlgpu.run(df_ref, df_res)
-            pd.DataFrame(addr, columns=['start', 'end']).to_excel(writer, sheet_name=tname, index=None)
+            df_rep.loc[:, 'score'] = sqlgpu.run(df_ref, df_res)
+            df_rep.to_excel(writer, sheet_name=tissue, index=None)
         writer.save()
         writer.close()
