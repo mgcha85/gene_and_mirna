@@ -80,9 +80,8 @@ __device__ void get_overlap(const int *X, const int ref_start, const int ref_end
         int res_end = X[WIDTH * i + END];
         
         if(!(res_start > ref_end) && !(res_end < ref_start)) {
-            if(offset < 0)
-                offset = i;
-            num_ele++;        
+            if(offset < 0) offset = i;
+            num_ele++;
         }
         if(ref_end < res_start) break;
     }
@@ -197,7 +196,7 @@ class Sqlgpu:
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
-        func = mod.get_function("cuda_sql2")
+        func = mod.get_function("cuda_sql")
         func(ref_gpu, res_gpu, addr_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(addr, addr_gpu)
         cuda.memcpy_dtoh(out, out_gpu)
@@ -228,16 +227,25 @@ if __name__ == '__main__':
     rna_path = os.path.join(root, 'database/RNA-seq/out', 'RNA_seq_tissue_spt.db')
     con_rna = sqlite3.connect(rna_path)
 
+    # tissue list
+    fpath = os.path.join(root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
+    df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
+    tissues = df_tis['RNA-seq']
+
     tlist = Database.load_tableList(con_ref)
     sqlgpu = Sqlgpu()
-    for tname in tlist[:1]:
-        print(tname)
+    for tname in tlist:
         source, version, chromosome, strand = tname.split('.')
-        df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
-        df_res = pd.read_sql_query("SELECT start, end, FPKM FROM 'adrenal_{}_{}'".format(chromosome, strand), con_rna)
-        df_res = df_res.rename(columns={"FPKM": "score"})
+        writer = pd.ExcelWriter('_'.join([sqlgpu.__class__.__name__, chromosome, strand, 'addr.xlsx']), engine='xlsxwriter')
+        print(tname)
 
-        # out = sqlgpu.cpu_run(df_ref, df_res)
-        addr, out = sqlgpu.run(df_ref, df_res)
-        pd.DataFrame(addr, columns=['start', 'end']).to_excel(sqlgpu.__class__.__name__ + '_addr.xlsx', index=None)
-        pd.DataFrame(out, columns=['score']).to_excel(sqlgpu.__class__.__name__ + '_score.xlsx', index=None)
+        df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
+        for tissue in tissues:
+            df_res = pd.read_sql_query("SELECT start, end, FPKM FROM '{}_{}_{}'".format(tissue, chromosome, strand), con_rna)
+            df_res = df_res.rename(columns={"FPKM": "score"})
+
+            # out = sqlgpu.cpu_run(df_ref, df_res)
+            addr, out = sqlgpu.run(df_ref, df_res)
+            pd.DataFrame(addr, columns=['start', 'end']).to_excel(writer, sheet_name=tname, index=None)
+        writer.save()
+        writer.close()
