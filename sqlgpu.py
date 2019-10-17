@@ -35,11 +35,13 @@ __device__ int binary_search(const int *X, const int val, const int N, const int
     return -1;
 }
 
-__device__ int binary_search_loc(const int *X, const int ref_val, int *addr, const int col, const int N, const int idx)
+__device__ int binary_search_loc(const int *X, const int ref_val, int *addr, const int col, const int N, const int idx, const int opt)
 {
     // X: array, val: nth value, N: length of X, col: columns number
     // if X has no val, return -1 
-    if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return;
+    if(N <= 1) return -1;
+    if(ref_val <= X[col]) return 0;
+    if(ref_val >= X[WIDTH * (N - 1) + col]) return N;
 
     int start = 0;
     int end = N - 1;
@@ -55,8 +57,11 @@ __device__ int binary_search_loc(const int *X, const int ref_val, int *addr, con
         else if(res_val < ref_val)  start = mid + 1;
         else                        end = mid - 1;
         
-        if(start >= end) {
-            if(res_val < ref_val) start++;
+        if(idx==11) printf("res_val: %d, ref_val: %d, start: %d, end: %d, mid: %d\\n", res_val, ref_val, start, end, mid);
+        if(start==end) return start;
+        if(start > end) {
+            if(ref_val > res_val) mid++;
+            else mid--;
             return start;
         }
     }
@@ -123,10 +128,11 @@ __global__ void cuda_sql2(const int *ref, const int *res, int *addr, float *scor
     int ref_start = ref[idx * WIDTH + START];
     int ref_end = ref[idx * WIDTH + END];
     
-    int out_start = binary_search_loc(res, ref_start, addr, END, M, idx);
-    int out_end = binary_search_loc(res, ref_end, addr, START, M, idx);
+    int out_start = binary_search_loc(res, ref_start, addr, START, M, idx, 0);
+    int out_end = binary_search_loc(res, ref_end, addr, END, M, idx, -1);
     
-    if(out_start == out_end) {
+    if(out_start > out_end) return;
+    else if(out_start == out_end) {
         int res_start = res[WIDTH * out_start + START];
         int res_end = res[WIDTH * out_start + END];
         if((ref_start > res_end) || (ref_end < res_start)) {

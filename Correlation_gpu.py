@@ -254,9 +254,9 @@ class Correlation:
         con_rna = sqlite3.connect(rna_path)
 
         # output
-        # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
-        # con_out = sqlite3.connect(out_path)
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.xlsx')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
+        con_out = sqlite3.connect(out_path)
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.xlsx')
 
         M_ = len(tissues)
 
