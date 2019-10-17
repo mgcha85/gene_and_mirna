@@ -163,8 +163,8 @@ class Correlation:
     def correlation_fan_rna_cpu(self):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
-        df_tis = pd.read_excel(fpath, sheet_name='Sheet2')
-        tissues = df_tis['RNA-seq'].iloc[:22]
+        df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
+        tissues = df_tis['RNA-seq']
 
         # reference GENCODE
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
@@ -238,8 +238,8 @@ class Correlation:
     def correlation_fan_rna(self):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
-        df_tis = pd.read_excel(fpath, sheet_name='Sheet2')
-        tissues = df_tis['RNA-seq'].iloc[:22]
+        df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
+        tissues = df_tis['RNA-seq']
 
         # reference GENCODE
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
@@ -254,8 +254,9 @@ class Correlation:
         con_rna = sqlite3.connect(rna_path)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
-        con_out = sqlite3.connect(out_path)
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
+        # con_out = sqlite3.connect(out_path)
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.xlsx')
 
         M_ = len(tissues)
 
@@ -280,7 +281,9 @@ class Correlation:
             N_ = df_ref.shape[0]
             print(chromosome, strand)
 
-            buffer = np.zeros((N_, 2, M_))
+            # buffer = np.zeros((N_, 2, M_))
+            df_fan_buf = pd.DataFrame(data=np.zeros((N_, M_)))
+            df_rna_buf = pd.DataFrame(data=np.zeros((N_, M_)))
             for i, tissue in enumerate(tissues):
                 tname_rsc = '_'.join([tissue, chromosome, strand])
                 df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
@@ -289,14 +292,21 @@ class Correlation:
                                            "".format(tname_rsc, chromosome, strand), con_rna).sort_values(by=['start'])
 
                 df_rna = df_rna[['start', 'end', 'FPKM']].rename(columns={"FPKM": "score"})
-                buffer[:, 0, i] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
-                buffer[:, 1, i] = self.get_score_sum(df_ref[['start', 'end']], df_rna[['start', 'end', 'score']])
+                df_fan_buf.loc[:, i] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
+                df_rna_buf.loc[:, i] = self.get_score_sum(df_ref[['start', 'end']], df_rna[['start', 'end', 'score']])
+                # buffer[:, 0, i] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
+                # buffer[:, 1, i] = self.get_score_sum(df_ref[['start', 'end']], df_rna[['start', 'end', 'score']])
 
-            for i, tissue in enumerate(tissues):
-                df_ref.loc[:, 'Score_(FANTOM)'] = buffer[:, 0, i]
-                df_ref.loc[:, 'Score_(RNA-seq)'] = buffer[:, 1, i]
-                df_ref.to_sql('_'.join([tissue, chromosome, strand]), con_out, index=None, if_exists='replace')
+            writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
+            df_fan_buf.to_excel(writer, sheet_name='FANTOM')
+            df_rna_buf.to_excel(writer, sheet_name='RNA-seq')
+            writer.save()
+            writer.close()
 
+            # for i, tissue in enumerate(tissues):
+            #     df_ref.loc[:, 'Score_(FANTOM)'] = buffer[:, 0, i]
+            #     df_ref.loc[:, 'Score_(RNA-seq)'] = buffer[:, 1, i]
+            #     df_ref.to_sql('_'.join([tissue, chromosome, strand]), con_out, index=None, if_exists='replace')
             # df_ref['corr'] = np.zeros(N_)
             # for i, buf in enumerate(buffer):
             #     corr_coeff = np.corrcoef(buf[0, :], buf[1, :])[0, 1]
@@ -321,8 +331,8 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-781':
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
-        cor.correlation_fan_rna_cpu()
+        cor.correlation_fan_rna()
         # cor.run()
