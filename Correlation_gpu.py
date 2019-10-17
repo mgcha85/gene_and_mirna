@@ -285,7 +285,7 @@ class Correlation:
         from sqlgpu import Sqlgpu
 
         sqlgpu = Sqlgpu()
-        _, out = sqlgpu.run(df_ref, df_res)
+        out = sqlgpu.run(df_ref, df_res)
         return out
 
     def correlation_fan_rna(self):
@@ -422,6 +422,6 @@ if __name__ == '__main__':
     if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
-        # cor.correlation_fan_rna_cpu()
-        cor.correlation_fan_rna()
+        cor.correlation_fan_rna_cpu()
+        # cor.correlation_fan_rna()
         # cor.run()

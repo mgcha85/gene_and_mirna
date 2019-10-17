@@ -35,13 +35,13 @@ __device__ int binary_search(const int *X, const int val, const int N, const int
     return -1;
 }
 
-__device__ int binary_search_loc(const int *X, const int ref_val, int *addr, const int col, const int N, const int idx, const int opt)
+__device__ int binary_search_loc(const int *X, const int ref_val, const int col, const int N)
 {
     // X: array, val: nth value, N: length of X, col: columns number
     // if X has no val, return -1 
     if(N <= 1) return -1;
-    if(ref_val <= X[col]) return 0;
-    if(ref_val >= X[WIDTH * (N - 1) + col]) return N;
+    if(val <= X[col]) return 0;
+    if(val >= X[WIDTH * (N - 1) + col]) return N;
 
     int start = 0;
     int end = N - 1;
@@ -51,17 +51,14 @@ __device__ int binary_search_loc(const int *X, const int ref_val, int *addr, con
         int mid = (start + end) / 2;
         int res_val = X[mid * WIDTH + col];
         
-        if(res_val == ref_val) {
+        if(res_val == val) {
              return mid;
         }
-        else if(res_val < ref_val)  start = mid + 1;
-        else                        end = mid - 1;
+        else if(res_val < val)  start = mid + 1;
+        else                    end = mid - 1;
         
-        if(idx==11) printf("res_val: %d, ref_val: %d, start: %d, end: %d, mid: %d\\n", res_val, ref_val, start, end, mid);
-        if(start==end) return start;
-        if(start > end) {
-            if(ref_val > res_val) mid++;
-            else mid--;
+        if(start>=end) {
+            if(val > res_val) start++;
             return start;
         }
     }
@@ -140,8 +137,7 @@ __global__ void cuda_sql(const int *ref, const int *res, float *score, float *ou
     //cuda_sum(score, addr, out, N, idx);
 }
 
-
-__global__ void cuda_sql2(const int *ref, const int *res, float *score, int *addr, float *out, const int N, const int M)
+__global__ void cuda_sql2(const int *ref, const int *res, int *addr, const int N, const int M)
 {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
@@ -149,19 +145,8 @@ __global__ void cuda_sql2(const int *ref, const int *res, float *score, int *add
     int ref_start = ref[idx * WIDTH + START];
     int ref_end = ref[idx * WIDTH + END];
     
-    int out_start = binary_search_loc(res, ref_start, addr, START, M, idx, 0);
-    int out_end = binary_search_loc(res, ref_end, addr, END, M, idx, -1);
-    
-    if(out_start > out_end) return;
-    else if(out_start == out_end) {
-        int res_start = res[WIDTH * out_start + START];
-        int res_end = res[WIDTH * out_start + END];
-        if((ref_start > res_end) || (ref_end < res_start)) {
-            return;
-        }
-    }
-    addr[WIDTH * idx + START] = out_start;
-    addr[WIDTH * idx + END] = out_end;
+    addr[WIDTH * idx + START] = binary_search_loc(res, ref_end, START, M);
+    addr[WIDTH * idx + END] = binary_search_loc(res, ref_start, END, M) - 1;
 }
 
 """)
@@ -181,6 +166,43 @@ class Sqlgpu:
             out.loc[idx, 'start'] = df_res_sub.index[0]
             out.loc[idx, 'end'] = df_res_sub.index[-1]
         return out
+
+    def addr_run(self, df_ref, df_res):
+        # df_ref, df_res should be DataFrame
+        # they should have start, end only
+        # they should be separated by chromosome and strand
+        # they should be sorted already
+
+        THREADS_PER_BLOCK = 1 << 10
+
+        # df_ref: [start, end]
+        ref = df_ref.values.flatten().astype(np.int32)
+        ref_gpu = cuda.mem_alloc(ref.nbytes)
+        cuda.memcpy_htod(ref_gpu, ref)
+
+        # df_res: [start, end, score]
+        res = df_res[['start', 'end']].values.flatten().astype(np.int32)
+        res_gpu = cuda.mem_alloc(res.nbytes)
+        cuda.memcpy_htod(res_gpu, res)
+
+        N = np.int32(df_ref.shape[0])
+        M = np.int32(df_res.shape[0])
+
+        # output
+        addr = (-1 * np.ones(N * 2)).astype(np.int32)
+        addr_gpu = cuda.mem_alloc(addr.nbytes)
+        cuda.memcpy_htod(addr_gpu, addr)
+
+        out = np.zeros(N).astype(np.float32)
+        out_gpu = cuda.mem_alloc(out.nbytes)
+        cuda.memcpy_htod(out_gpu, out)
+
+        gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+
+        func = mod.get_function("cuda_sql")
+        func(ref_gpu, res_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        cuda.memcpy_dtoh(addr, addr_gpu)
+        return addr
 
     def run(self, df_ref, df_res):
         # df_ref, df_res should be DataFrame
@@ -265,12 +287,12 @@ if __name__ == '__main__':
         print(tname)
 
         df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
-        df_rep = pd.DataFrame(index=df_ref.index, columns=['start', 'end', 'sum'])
-        df_rep[['start', 'end']] = df_ref[['start', 'end']]
-        for tissue in tissues[2:3]:
+        df_rep = pd.DataFrame(index=df_ref.index, columns=['ref_start', 'ref_end', 'start', 'end'])
+        df_rep[['ref_start', 'ref_end']] = df_ref[['start', 'end']]
+        for tissue in tissues:
             df_res = pd.read_sql_query("SELECT start, end, FPKM FROM '{}_{}_{}'".format(tissue, chromosome, strand), con_rna)
             df_res = df_res.rename(columns={"FPKM": "score"})
-            df_rep.loc[:, 'score'] = sqlgpu.run(df_ref, df_res)
+            df_rep.loc[:, ['start', 'end']] = sqlgpu.addr_run(df_ref, df_res)
             df_rep.to_excel(writer, sheet_name=tissue, index=None)
         writer.save()
         writer.close()
