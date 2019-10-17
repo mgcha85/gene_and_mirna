@@ -260,11 +260,11 @@ class Correlation:
                 df_buf = pd.DataFrame(data=np.zeros((M, 2)), index=tissues, columns=['FANTOM', 'RNA-seq'])
                 for i, tissue in enumerate(tissues):
                     tname_rsc = '_'.join([tissue, chromosome, strand])
-                    df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
-                                               "start>{end} AND NOT end<{start}".format(tname_rsc, chromosome, strand,
+                    df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND "
+                                               "start<={end} AND NOT end>={start}".format(tname_rsc, chromosome, strand,
                                                                                         start=start, end=end), con_fan)
-                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT "
-                                               "start>{end} AND NOT end<{start}".format(tname_rsc, chromosome, strand,
+                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND  "
+                                               "start<={end} AND end>={start}".format(tname_rsc, chromosome, strand,
                                                                                         start=start, end=end), con_rna)
                     if not df_fan.empty:
                         df_buf.loc[tissue, 'FANTOM'] = df_fan['score'].sum()
@@ -412,7 +412,7 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-781':
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
         # cor.correlation_fan_rna_cpu()
