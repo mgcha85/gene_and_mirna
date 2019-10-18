@@ -252,27 +252,13 @@ class Correlation:
                 transcript_name = df_ref.loc[idx, 'transcript_name']
                 transcript_type = df_ref.loc[idx, 'transcript_type']
 
-                # buffer = Parallel(n_jobs=num_cores)(delayed(self.processInput)(tissue, [chromosome, strand, start, end]) for i, tissue in enumerate(tissues))
-                # df_buf = pd.DataFrame(data=buffer, index=tissues, columns=['FANTOM', 'RNA-seq'])
-                # df_fan_sum.loc[idx, tissues] = df_buf.loc[tissues, 'FANTOM']
-                # df_rna_sum.loc[idx, tissues] = df_buf.loc[tissues, 'RNA-seq']
-
                 df_buf = pd.DataFrame(data=np.zeros((M, 2)), index=tissues, columns=['FANTOM', 'RNA-seq'])
                 for i, tissue in enumerate(tissues):
                     tname_rsc = '_'.join([tissue, chromosome, strand])
-                    df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND "
-                                               "start<={end} AND NOT end>={start}".format(tname_rsc, chromosome, strand,
-                                                                                        start=start, end=end), con_fan)
-                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND  "
-                                               "start<={end} AND end>={start}".format(tname_rsc, chromosome, strand,
-                                                                                        start=start, end=end), con_rna)
-                    if not df_fan.empty:
-                        df_buf.loc[tissue, 'FANTOM'] = df_fan['score'].sum()
-                        df_fan_sum.loc[idx, tissue] = df_fan['score'].sum()
-                    if not df_rna.empty:
-                        df_buf.loc[tissue, 'RNA-seq'] = df_rna['FPKM'].sum()
-                        df_rna_sum.loc[idx, tissue] = df_rna['score'].sum()
-
+                    sql = "SELECT SUM(score) FROM '{}' WHERE chromosome='{} AND strand='{}' AND start<={end} AND NOT " \
+                          "end>={start}".format(tname_rsc, chromosome, strand, start=start, end=end)
+                    df_buf.loc[tissue, 'FANTOM'] = pd.read_sql_query(sql, con_fan)
+                    df_buf.loc[tissue, 'RNA-seq'] = pd.read_sql_query(sql, con_rna)
                 corr = np.corrcoef(df_buf['FANTOM'], df_buf['RNA-seq'])
                 df_res.loc[idx, :] = [chromosome, start, end, strand, gene_name, transcript_name, transcript_type,
                                       corr[0, 1]]
@@ -338,17 +324,10 @@ class Correlation:
             N_ = df_ref.shape[0]
             print(chromosome, strand)
 
-            # buffer = np.zeros((N_, 2, M_))
-
             df_buf = {}
             for src in ['fantom', 'rna-seq']:
                 df_buf[src] = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *tissues])
                 df_buf[src][['start', 'end']] = df_ref[['start', 'end']]
-
-            # df_fan_buf = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end',  *tissues])
-            # df_fan_buf[['start', 'end']] = df_ref[['start', 'end']]
-            # df_rna_buf = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end',  *tissues])
-            # df_rna_buf[['start', 'end']] = df_ref[['start', 'end']]
 
             for i, tissue in enumerate(tissues):
                 tname_rsc = '_'.join([tissue, chromosome, strand])
@@ -361,14 +340,8 @@ class Correlation:
                 for src, df_src in zip(['fantom', 'rna-seq'], [df_fan, df_rna]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
 
-                # df_fan_buf.loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
-                # df_rna_buf.loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_rna[['start', 'end', 'score']])
-
             for src in ['fantom', 'rna-seq']:
-                df_buf[src].to_sql('_'.join(['fantom', chromosome, strand]), con_out, index=None, if_exists='replace')
-
-            # df_fan_buf.to_sql('_'.join(['fantom', chromosome, strand]), con_out, index=None, if_exists='replace')
-            # df_rna_buf.to_sql('_'.join(['rna-seq', chromosome, strand]), con_out, index=None, if_exists='replace')
+                df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
 
             for idx in df_ref.index:
                 corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
@@ -423,5 +396,6 @@ if __name__ == '__main__':
         cor.to_server()
     else:
         # cor.correlation_fan_rna_cpu()
-        cor.correlation_fan_rna()
+        # cor.correlation_fan_rna()
+        cor.high_correlation()
         # cor.run()

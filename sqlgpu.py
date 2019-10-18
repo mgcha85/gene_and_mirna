@@ -129,8 +129,6 @@ __global__ void cuda_sql(const int *ref, const int *res, float *score, float *ou
     int ref_end = ref[idx * WIDTH + END];
     
     out[idx] = get_sum(res, ref_start, ref_end, score, 0, M, idx);
-    //get_overlap(res, ref_start, ref_end, addr, M, idx);
-    //cuda_sum(score, addr, out, N, idx);
 }
 
 __global__ void cuda_sql2(const int *ref, const int *res, float *score, float *out, const int N, const int M)
@@ -138,14 +136,14 @@ __global__ void cuda_sql2(const int *ref, const int *res, float *score, float *o
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx >= N) return;
 
-    int offset, offset1, offset2;    
+    int offset1, offset2, offset;    
     int ref_start = ref[idx * WIDTH + START];
     int ref_end = ref[idx * WIDTH + END];
     
-    offset1 = binary_search_loc(res, ref_end, START, M)-1;
-    offset2 = binary_search_loc(res, ref_start, END, M)-1;
-    if(offset1 < offset2)   offset=offset1;
-    else                    offset=offset2;
+    offset1 = binary_search_loc(res, ref_start, END, M)-1;
+    offset2 = binary_search_loc(res, ref_end, START, M)-1;
+    if(offset1 < offset2)   offset = offset1;
+    else                    offset = offset2;
     
     out[idx] = get_sum(res, ref_start, ref_end, score, offset, M, idx);
 }
@@ -240,7 +238,7 @@ class Sqlgpu:
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
-        func = mod.get_function("cuda_sql")
+        func = mod.get_function("cuda_sql2")
         func(ref_gpu, res_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         # cuda.memcpy_dtoh(addr, addr_gpu)
         cuda.memcpy_dtoh(out, out_gpu)

@@ -100,7 +100,12 @@ class Convert:
         df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'cov', 'FPKM', 'TPM'])
         df_res = df_res.set_index('index', drop=True)
         df = pd.concat([df, df_res], axis=1)
-        df.drop(['attribute', 'frame'], axis=1).to_sql(os.path.splitext(fname)[0], con, index=None)
+
+        df = df.drop(['attribute', 'frame'], axis=1)
+        for chr, df_chr in df.groupby('chromosome'):
+            for str, df_str in df_chr.groupby('strand'):
+                tname = '_'.join([os.path.splitext(fname)[0], chr, str])
+                df_str.sort_values(by=['start', 'end']).to_sql(tname, con, index=None)
 
     def avg_rna_seq_by_tissues(self):
         df = pd.read_excel('RNA-seq_data_structure.xlsx')
@@ -189,10 +194,14 @@ if __name__ == '__main__':
 
     else:
         # con.stats_by_tissue()
-        dirname = os.path.join(con.root, 'database', 'RNA-seq')
-        con.gtf_to_db_all(dirname)
+        fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
+        conn = sqlite3.connect(fpath.replace('.gtf', '.db'))
+        con.gtf_to_db(fpath, conn)
 
-        con.avg_rna_seq_by_tissues()
+        # dirname = os.path.join(con.root, 'database', 'RNA-seq')
+        # con.gtf_to_db_all(dirname)
+
+        # con.avg_rna_seq_by_tissues()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq', 'bam')
         # flist = os.listdir(dirname)
         # for fname in flist:
