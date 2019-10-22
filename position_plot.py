@@ -11,7 +11,7 @@ class position_plot:
         hostname = socket.gethostname()
         print(hostname)
         if hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics'
+            self.root = '/home/mingyu/Bioinfomatics'
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         elif hostname == 'mingyu-Inspiron-7559':
