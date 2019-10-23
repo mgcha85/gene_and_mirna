@@ -274,10 +274,15 @@ class Correlation:
         out = sqlgpu.bin_run(df_ref, df_res)
         return out
 
-    def correlation_fan(self):
-        # reference GENCODE
-        ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna.db')
-        ref_con = sqlite3.connect(ref_path)
+    def correlation_fan(self, ref='gene'):
+        if ref == 'mir':
+            # reference GENCODE
+            ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
+            ref_con = sqlite3.connect(ref_path)
+        else:
+            # reference GENCODE
+            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna.db')
+            ref_con = sqlite3.connect(ref_path)
 
         # Fantom5
         fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
@@ -286,7 +291,7 @@ class Correlation:
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}.db'.format(ref))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -294,6 +299,7 @@ class Correlation:
         tlist = Database.load_tableList(ref_con)
         for tname in tlist:
             chromosome, strand = tname.split('_')
+            print(chromosome, strand)
             if chromosome == 'chrM' or chromosome == 'chrY':
                 continue
 
@@ -459,6 +465,6 @@ if __name__ == '__main__':
     else:
         # cor.correlation_fan_rna_cpu()
         # cor.correlation_fan_rna()
-        # cor.correlation_fan()
-        cor.high_correlation()
+        cor.correlation_fan(ref='mir')
+        # cor.high_correlation()
         # cor.run()
