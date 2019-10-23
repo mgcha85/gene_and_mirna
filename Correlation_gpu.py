@@ -313,8 +313,8 @@ class Correlation:
                 offset = 'end'
 
             tss = deepcopy(df_ref[offset])
-            df_ref['start'] = tss - 500
-            df_ref['end'] = tss + 500
+            df_ref['start'] = tss.astype(int) - 500
+            df_ref['end'] = tss.astype(int) + 500
             df_ref['corr'] = None
 
             N_ = df_ref.shape[0]
