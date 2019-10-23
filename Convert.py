@@ -125,13 +125,102 @@ class Convert:
 
             index = sorted(list(set.union(*index)))
             df_res = pd.DataFrame(index=index, columns=df_fid.columns)
-            df_res[['cov', 'FPKM', 'TPM']] = 0
-            for df_fid in dfs:
-                df_res.loc[df_fid.index, ['cov', 'FPKM', 'TPM']] += df_fid[['cov', 'FPKM', 'TPM']].astype(float)
+            cols = []
+            for i, df_fid in enumerate(dfs):
+                df_fid['FPKM'] = df_fid['FPKM'].astype(float)
+                cols.append('FPKM (Rep {})'.format(i + 1))
+                df_res.loc[df_fid.index, cols[-1]] = df_fid['FPKM']
                 df_res.loc[df_fid.index, columns] = df_fid[columns]
 
-            df_res[['cov', 'FPKM', 'TPM']] /= len(dfs)
+            df_res = df_res.fillna(0)
+            df_res['FPKM'] = df_res[cols].mean(axis=1)
             df_res.to_sql(src, con_out, if_exists='replace', index=None)
+
+    def avg_fantom_by_tissue(self):
+        columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
+        dirname_ = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        df = pd.read_excel('tissues_fantom_rna.xlsx', sheet_name='Sheet1')
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        con_out = sqlite3.connect(fpath)
+        for idx in df.index:
+            tissue_rna = df.loc[idx, 'RNA-seq']
+            tissue = df.loc[idx, 'FANTOM']
+            dfs = []
+            index = []
+
+            dirname = os.path.join(dirname_, tissue)
+            flist = os.listdir(dirname)
+            flist = [f for f in flist if f.endswith('.gz')]
+            print(tissue, len(flist))
+            for fname in flist:
+                fpath = os.path.join(dirname, fname)
+                df_fid = pd.read_csv(fpath, compression='gzip', sep='\t', names=columns)
+                df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
+                index.append(set(df_fid.index))
+                dfs.append(df_fid)
+
+            index = sorted(list(set.union(*index)))
+            df_res = pd.DataFrame(index=index, columns=df_fid.columns)
+            cols = []
+            for i, df_fid in enumerate(dfs):
+                df_fid['score'] = df_fid['score'].astype(float)
+                cols.append('score (Rep {})'.format(i + 1))
+                df_res.loc[df_fid.index, cols[-1]] = df_fid['score']
+                df_res.loc[df_fid.index, columns] = df_fid[columns]
+
+            df_res = df_res.fillna(0)
+            df_res['score'] = df_res[cols].mean(axis=1)
+            df_res.drop(['loc'], axis=1).to_sql(tissue_rna, con_out, if_exists='replace', index=None)
+
+    def avg_fantom_by_celllines(self):
+        columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines')
+        df = pd.read_excel(os.path.join(dirname, 'list', '00_human.cell_line.hCAGE.hg19.assay_sdrf2.xlsx'))
+
+        flist = os.listdir(dirname)
+        flist = [x for x in flist if x.endswith('.gz')]
+        flist_map = {}
+        for fname in flist:
+            fid = fname.split('.')[-5]
+            flist_map[fid] = fname
+
+        fpath = os.path.join(dirname, 'human_hCAGE.db')
+        con_out = sqlite3.connect(fpath.replace('.db', '_celllines.db'))
+        df_grp = df.groupby('cell line')
+
+        df_report = pd.DataFrame(index=df_grp.groups, columns=['#data', 'fid'])
+        for src, df_src in df_grp:
+            fid = ';'.join(df_src['Extract Name'])
+            df_report.loc[src, '#data'] = df_src.shape[0]
+            df_report.loc[src, 'fid'] = fid
+
+            print(src)
+            dfs = []
+            index = []
+            for idx in df_src.index:
+                fid = df_src.loc[idx, 'Extract Name']
+                fname = flist_map[fid]
+                fpath = os.path.join(dirname, fname)
+
+                df = pd.read_csv(fpath, sep='\t', names=columns, compression='gzip')
+                df.index = df['chromosome'] + ':' + df['start'].astype(str) + '-' + df['end'].astype(str)
+                index.append(set(df.index))
+                dfs.append(df)
+
+            if len(dfs) <= 1:
+                dfs[0].to_sql(src, con_out, if_exists='replace', index=None)
+            else:
+                index = sorted(list(set.union(*index)))
+                df_res = pd.DataFrame(index=index, columns=['chromosome', 'start', 'end', 'score', 'strand'])
+                df_res[['score']] = 0
+                for df in dfs:
+                    df_res.loc[df.index, ['score']] += df[['score']].astype(float)
+                    df_res.loc[df.index, ['chromosome', 'start', 'end', 'strand']] = df[['chromosome', 'start', 'end', 'strand']]
+
+                df_res[['score']] /= len(dfs)
+                df_res.to_sql(src, con_out, if_exists='replace', index=None)
+        df_report.to_excel('cell_line.xlsx')
 
     def stats_by_tissue(self):
         df = pd.read_excel('RNA-seq_data_structure.xlsx')
@@ -194,14 +283,31 @@ if __name__ == '__main__':
 
     else:
         # con.stats_by_tissue()
-        fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
-        conn = sqlite3.connect(fpath.replace('.gtf', '.db'))
-        con.gtf_to_db(fpath, conn)
+        con.avg_rna_seq_by_tissues()
+        # con.avg_fantom_by_tissue()
+
+        # from Util import Util
+        # from Database import Database
+        #
+        # ut = Util()
+        # fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        # tlist = Database.load_tableList(sqlite3.connect(fpath))
+        # for tname in tlist:
+        #     ut.split(fpath, tname)
+
+        from Correlation_gpu import Correlation
+        cor = Correlation()
+        cor.correlation_fan_rna()
+
+        # fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
+        # conn = sqlite3.connect(fpath.replace('.gtf', '.db'))
+        # con.gtf_to_db(fpath, conn)
 
         # dirname = os.path.join(con.root, 'database', 'RNA-seq')
         # con.gtf_to_db_all(dirname)
 
         # con.avg_rna_seq_by_tissues()
+        # con.avg_rna_seq_by_celllines()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq', 'bam')
         # flist = os.listdir(dirname)
         # for fname in flist:

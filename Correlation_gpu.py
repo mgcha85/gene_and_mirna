@@ -274,6 +274,62 @@ class Correlation:
         out = sqlgpu.bin_run(df_ref, df_res)
         return out
 
+    def correlation_fan(self):
+        # reference GENCODE
+        ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna.db')
+        ref_con = sqlite3.connect(ref_path)
+
+        # Fantom5
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
+        con_fan = sqlite3.connect(fan_path)
+
+        cell_lines = Database.load_tableList(con_fan)
+
+        # output
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db')
+        con_out = sqlite3.connect(out_path)
+
+        M_ = len(cell_lines)
+
+        tlist = Database.load_tableList(ref_con)
+        for tname in tlist:
+            chromosome, strand = tname.split('_')
+            if chromosome == 'chrM' or chromosome == 'chrY':
+                continue
+
+            df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
+            if df_ref.empty:
+                continue
+
+            if strand == '+':
+                offset = 'start'
+            else:
+                offset = 'end'
+
+            tss = deepcopy(df_ref[offset])
+            df_ref['start'] = tss - 500
+            df_ref['end'] = tss + 500
+            df_ref['corr'] = None
+
+            N_ = df_ref.shape[0]
+            print(chromosome, strand)
+
+            df_buf = {}
+            for src in ['fantom']:
+                df_buf[src] = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *cell_lines])
+                df_buf[src][['start', 'end']] = df_ref[['start', 'end']]
+
+            for i, cline in enumerate(cell_lines):
+                # tname_rsc = '_'.join([cline, chromosome, strand])
+                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                                           "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
+
+                for src, df_src in zip(['fantom'], [df_fan]):
+                    df_buf[src].loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
+
+            for src in ['fantom']:
+                df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
+
     def correlation_fan_rna(self):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
@@ -281,11 +337,11 @@ class Correlation:
         tissues = df_tis['RNA-seq']
 
         # reference GENCODE
-        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v32lift37.annotation_attr.db')
         ref_con = sqlite3.connect(ref_path)
 
         # Fantom5
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'fantom_cage_by_tissue_spt.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue_spt.db')
         con_fan = sqlite3.connect(fan_path)
 
         # RNA-seq
@@ -303,11 +359,13 @@ class Correlation:
 
         tlist = Database.load_tableList(ref_con)
         for tname in tlist:
-            source, version, chromosome, strand = tname.split('.')
+            chromosome, strand = tname.split('_')
             if chromosome == 'chrM' or chromosome == 'chrY':
                 continue
 
-            df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
+            sql = "SELECT start, end, gene_id, gene_name, gene_type, transcript_id, transcript_type, transcript_name " \
+                  "FROM '{}' WHERE feature='transcript'"
+            df_ref = pd.read_sql_query(sql.format(tname), ref_con)
             if df_ref.empty:
                 continue
 
@@ -376,14 +434,17 @@ class Correlation:
             df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
     def high_correlation(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        fpath = os.path.join(dirname, 'correlation_fan_rna.db')
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
+        con_out = sqlite3.connect(os.path.join(dirname, 'high_correlated_fan_rna.db'))
         dfs = []
         for tname in tlist:
-            source, version, chromosome, strand = tname.split('.')
+            chromosome, strand = tname.split('_')
             df = pd.read_sql_query("SELECT * FROM '{}' WHERE corr>0.9".format(tname), con)
+            df.to_sql(tname, con_out, if_exists='replace', index=None)
             df.loc[:, 'chromosome'] = chromosome
             df.loc[:, 'strand'] = strand
             dfs.append(df)
@@ -397,5 +458,6 @@ if __name__ == '__main__':
     else:
         # cor.correlation_fan_rna_cpu()
         # cor.correlation_fan_rna()
+        # cor.correlation_fan()
         cor.high_correlation()
         # cor.run()

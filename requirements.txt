@@ -17,3 +17,6 @@ gseapy
 sklearn
 tensorflow
 keras
+paramiko
+xlrd
+xlsxwriter

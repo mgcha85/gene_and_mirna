@@ -41,7 +41,7 @@ class Util:
         out_path = fpath.replace('.db', '_spt.db')
 
         con = sqlite3.connect(fpath)
-        df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+        df = pd.read_sql_query("SELECT chromosome, start, end, score, strand FROM '{}'".format(tname), con)
 
         out_con = sqlite3.connect(out_path)
         for chr, df_chr in df.groupby('chromosome'):
@@ -54,11 +54,11 @@ class Util:
 
 if __name__ == '__main__':
     ut = Util()
-    if ut.hostname == 'mingyu-Precision-Tower-781':
+    if ut.hostname == 'mingyu-Precision-Tower-7810':
         ut.to_server()
     else:
         # fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
-        fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'fantom_cage_by_tissue.db')
+        fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         tlist = Database.load_tableList(sqlite3.connect(fpath))
         for tname in tlist:
             ut.split(fpath, tname)
