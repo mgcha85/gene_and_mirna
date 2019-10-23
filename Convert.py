@@ -107,6 +107,15 @@ class Convert:
                 tname = '_'.join([os.path.splitext(fname)[0], chr, str])
                 df_str.sort_values(by=['start', 'end']).to_sql(tname, con, index=None)
 
+    def correlation_replicates(self, df, cols):
+        from itertools import combinations
+
+        report = pd.Series()
+        for comb in combinations(cols, 2):
+            coeff = np.corrcoef(df[comb[0]].fillna(0), df[comb[1]].fillna(0))
+            report['&'.join(comb)] = coeff[0, 1]
+        return report
+
     def avg_rna_seq_by_tissues(self):
         df = pd.read_excel('RNA-seq_data_structure.xlsx')
         columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'gene_name', 'transcript_id']
@@ -114,6 +123,8 @@ class Convert:
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
         con = sqlite3.connect(fpath)
         con_out = sqlite3.connect(fpath.replace('.db', '_tissue.db'))
+
+        writer = pd.ExcelWriter(os.path.join(self.root, 'database/RNA-seq/out', 'repicates_duplicates.xlsx'), engine='xlsxwriter')
         for src, df_src in df.groupby('tissue'):
             dfs = []
             index = []
@@ -132,9 +143,14 @@ class Convert:
                 df_res.loc[df_fid.index, cols[-1]] = df_fid['FPKM']
                 df_res.loc[df_fid.index, columns] = df_fid[columns]
 
-            df_res = df_res.fillna(0)
+            # df_res = df_res.fillna(0)
+            report = self.correlation_replicates(df_res, cols)
+            report.to_excel(writer, sheet_name=src)
+
             df_res['FPKM'] = df_res[cols].mean(axis=1)
             df_res.to_sql(src, con_out, if_exists='replace', index=None)
+        writer.save()
+        writer.close()
 
     def avg_fantom_by_tissue(self):
         columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
@@ -143,6 +159,8 @@ class Convert:
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         con_out = sqlite3.connect(fpath)
+
+        writer = pd.ExcelWriter(os.path.join(self.root, 'database/Fantom/v5/tissues', 'repicates_duplicates.xlsx'), engine='xlsxwriter')
         for idx in df.index:
             tissue_rna = df.loc[idx, 'RNA-seq']
             tissue = df.loc[idx, 'FANTOM']
@@ -169,9 +187,13 @@ class Convert:
                 df_res.loc[df_fid.index, cols[-1]] = df_fid['score']
                 df_res.loc[df_fid.index, columns] = df_fid[columns]
 
-            df_res = df_res.fillna(0)
+            report = self.correlation_replicates(df_res, cols)
+            report.to_excel(writer, sheet_name=tissue)
+            # df_res = df_res.fillna(0)
             df_res['score'] = df_res[cols].mean(axis=1)
             df_res.drop(['loc'], axis=1).to_sql(tissue_rna, con_out, if_exists='replace', index=None)
+        writer.save()
+        writer.close()
 
     def avg_fantom_by_celllines(self):
         columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
@@ -283,8 +305,8 @@ if __name__ == '__main__':
 
     else:
         # con.stats_by_tissue()
-        con.avg_rna_seq_by_tissues()
-        # con.avg_fantom_by_tissue()
+        # con.avg_rna_seq_by_tissues()
+        con.avg_fantom_by_tissue()
 
         # from Util import Util
         # from Database import Database
@@ -295,9 +317,9 @@ if __name__ == '__main__':
         # for tname in tlist:
         #     ut.split(fpath, tname)
 
-        from Correlation_gpu import Correlation
-        cor = Correlation()
-        cor.correlation_fan_rna()
+        # from Correlation_gpu import Correlation
+        # cor = Correlation()
+        # cor.correlation_fan_rna()
 
         # fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
         # conn = sqlite3.connect(fpath.replace('.gtf', '.db'))

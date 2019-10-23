@@ -439,11 +439,12 @@ class Correlation:
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
-        con_out = sqlite3.connect(os.path.join(dirname, 'high_correlated_fan_rna.db'))
+        fpath = os.path.join(dirname, 'high_correlated_fan_rna.db')
+        con_out = sqlite3.connect(fpath)
         dfs = []
         for tname in tlist:
             chromosome, strand = tname.split('_')
-            df = pd.read_sql_query("SELECT * FROM '{}' WHERE corr>0.9".format(tname), con)
+            df = pd.read_sql_query("SELECT * FROM '{}' WHERE corr>0.9 AND transcript_type='protein_coding'".format(tname), con)
             df.to_sql(tname, con_out, if_exists='replace', index=None)
             df.loc[:, 'chromosome'] = chromosome
             df.loc[:, 'strand'] = strand
