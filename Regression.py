@@ -16,7 +16,7 @@ class Regression(DeepLearning):
         super(DeepLearning, self).__init__()
         self.hostname = socket.gethostname()
         if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
         elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         elif self.hostname == 'mingyu-Inspiron-7559':
@@ -383,54 +383,6 @@ class Regression(DeepLearning):
         df_res = pd.concat(dfs)
         df_res.to_excel(self.__class__.__name__ + '2.xlsx', index=None)
 
-    #
-    # def run(self):
-    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'human_cell_line_hCAGE_{}_score_vector_corr2.xlsx'.format(self.scope))
-    #     df = pd.read_excel(fpath, index_col=0)
-    #
-    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'human_cell_line_hCAGE_{}_score_vector.xlsx'.format(self.scope))
-    #     df_gene = pd.read_excel(fpath, index_col=0)
-    #
-    #     fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'human_cell_line_hCAGE_mir_{}_score_vector.xlsx'.format(self.scope))
-    #     df_mir = pd.read_excel(fpath, index_col=0)
-    #
-    #     contents = {}
-    #     for mir in df.index:
-    #         genes = df.loc[mir, 'GENEs'].split(';')
-    #         # corr = df.loc[mir, 'corr (pearson)']
-    #
-    #         mir_values = ';'.join(df_mir.loc[mir, :].round(4).astype(str))
-    #         for gene in genes:
-    #             if mir_values in contents:
-    #                 contents[mir_values].append(df_gene.loc[gene, :].round(4).values)
-    #             else:
-    #                 contents[mir_values] = [df_gene.loc[gene, :].round(4).values]
-    #
-    #     with open(self.__class__.__name__ + '.cha', 'wb') as f:
-    #         pkl.dump(contents, f)
-    #
-    #     with open(self.__class__.__name__ + '.cha', 'rb') as f:
-    #         contents = pkl.load(f)
-    #
-    #     data = []
-    #     sheet = []
-    #     clf = linear_model.Lasso(alpha=0.1)
-    #     for mir_values, gene_values in contents.items():
-    #         mir_values = np.array(mir_values.split(';')).astype(float).round(4)
-    #         gene_values = np.array(gene_values).T
-    #         clf.fit(gene_values, mir_values)
-    #
-    #         Lasso(alpha=0.1, copy_X=True, fit_intercept=True, max_iter=1000,
-    #            normalize=False, positive=False, precompute=False, random_state=None,
-    #            selection='cyclic', tol=1e-4, warm_start=False)
-    #         data.append([*clf.coef_, clf.intercept_])
-    #         sheet.append(clf.intercept_)
-    #
-    #     df = pd.Series(sheet, index=df.index)
-    #     df.to_excel(self.__class__.__name__ + '.xlsx')
-    #     with open(self.__class__.__name__ + '.cha', 'wb') as f:
-    #         pkl.dump(data, f)
-
     def filter_by_db(self):
         fname = 'human_cell_line_hCAGE_{}_score_corr2_with_target_indicator_ts.csv'.format(self.scope)
         df_ref = pd.read_csv(os.path.join(self.root, 'Papers/Lasso', fname), index_col=0)
@@ -463,28 +415,47 @@ class Regression(DeepLearning):
             out_path = os.path.join(self.root, 'Papers/Lasso', 'pairs_{}.xlsx'.format(sign))
             df.to_excel(out_path, index=None)
 
-        # pidx = []
-        # for idx in df_reg.index:
-        #     mir = df_reg.loc[idx, 'miRNA']
-        #     gene = df_reg.loc[idx, 'gene']
-        #     if mir in pairs and gene in pairs[mir]:
-        #         pidx.append(idx)
-        #
-        # nidx = list(set(df_reg.index) - set(pidx))
-        # df_reg_pos = df_reg.loc[pidx]
-        # df_reg_neg = df_reg.loc[nidx]
-        #
-        # df_reg_pos.to_excel(fpath.replace('.xlsx', '_pos.xlsx'), index=None)
-        # df_reg_neg.to_excel(fpath.replace('.xlsx', '_neg.xlsx'), index=None)
+    def merge_table(self, fpath):
+        from Database import Database
+
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+        dfs = []
+        for tname in tlist:
+            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
+        return pd.concat(dfs)
+
+    def regression(self):
+        import pickle as pkl
+
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir.db'),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db')}
+        dfs = {}
+        for label, fpath in fpaths.items():
+            dfs[label] = self.merge_table(fpath)
+
+        clf = linear_model.Lasso(alpha=0.1)
+        gene = dfs['gene'].iloc[:, 3:].T.values
+        mir = dfs['mir'].iloc[:, 3:].T.values
+        clf.fit(gene, mir)
+        Lasso(alpha=0.1, copy_X=True, fit_intercept=True, max_iter=1000,
+              normalize=False, positive=False, precompute=False, random_state=None,
+              selection='cyclic', tol=1e-4, warm_start=False)
+
+        with open('regression.cha', 'wb') as f:
+            pkl.dump([*clf.coef_, clf.intercept_], f)
 
 
 if __name__ == '__main__':
+    with open('regression.cha', 'rb') as f:
+        *coef_, intercept_ = pkl.load(f)
+
     rg = Regression()
     if rg.hostname == 'mingyu-Precision-Tower-7810':
         # rg.to_server()
-        rg.run()
+        rg.regression()
         # rg.filter_by_lasso()
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        rg.run()
+        rg.regression()

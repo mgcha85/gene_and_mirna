@@ -221,7 +221,7 @@ class histogram_gpu:
         return self.histogram_gpu(df_ref, dbpath_src, src_tname)
 
     def draw_pred_result(self):
-        root = '/home/mingyu/Bioinfomatics'
+        root = '/home/mingyu/Bioinformatics'
         user_param = XmlHandler.load_param('user_param.xml')
 
         for cline in ['A549']:
@@ -269,7 +269,7 @@ if __name__ == '__main__':
     hostname = socket.gethostname()
 
     if hostname == 'mingyu-Precision-Tower-7810':
-        root = '/home/mingyu/Bioinfomatics'
+        root = '/home/mingyu/Bioinformatics'
     elif hostname == 'DESKTOP-DLOOJR6':
         root = 'D:/Bioinformatics'
     elif hostname == 'mingyu-Inspiron-7559':

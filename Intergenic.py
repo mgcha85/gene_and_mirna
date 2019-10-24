@@ -9,7 +9,7 @@ class Intergenic:
         hostname = socket.gethostname()
         print(hostname)
         if hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Independent_research/Bioinformatics'
         elif hostname == 'mingyu-Inspiron-7559':

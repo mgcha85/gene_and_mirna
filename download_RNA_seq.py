@@ -9,18 +9,40 @@ import sqlite3
 
 class Download_RNA_seq:
     def __init__(self):
-        hostname = socket.gethostname()
-        if hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
-        elif hostname == 'DESKTOP-DLOOJR6':
+        self.hostname = socket.gethostname()
+        if self.hostname == 'mingyu-Precision-Tower-7810':
+            self.root = '/home/mingyu/Bioinformatics'
+        elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
-        elif hostname == 'mingyu-Inspiron-7559':
+        elif self.hostname == 'mingyu-Inspiron-7559':
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
         self.rna_dir = os.path.join(self.root, 'database/RNA-seq/fastq')
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
+
+    def to_server(self):
+        from Server import Server
+        import sys
+
+        which = 'newton'
+        server = Server(self.root, which=which)
+        server.connect()
+
+        local_path = sys.argv[0]
+        dirname, fname = os.path.split(local_path)
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
+        server_path = local_path.replace(dirname, server_root)
+
+        server.job_script(fname, src_root=server_root, time='04:00:00')
+        server.upload(local_path, server_path)
+        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+        print('job ID: {}'.format(job))
 
     def sort_to_done(self):
         import shutil
@@ -191,16 +213,8 @@ class Download_RNA_seq:
 
 
 if __name__ == '__main__':
-    # root = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq'
-    # flist_bam = [os.path.splitext(x)[0] for x in os.listdir(os.path.join(root, 'bam'))]
-    # flist_gtf = [os.path.splitext(x)[0] for x in os.listdir(os.path.join(root, 'gtf'))]
-    # print(set(flist_bam) - set(flist_gtf))
-    # exit(1)
-
     drs = Download_RNA_seq()
-    drs.run()
-    # drs.to_bed()
-
-    # cwd = os.getcwd()
-    # print(cwd)
-    # drs.bam_to_bed(cwd)
+    if drs.hostname == 'mingyu-Precision-Tower-7810':
+        drs.to_server()
+    else:
+        drs.run()

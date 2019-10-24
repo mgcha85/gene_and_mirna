@@ -13,7 +13,7 @@ class Convert:
     def __init__(self):
         self.hostname = socket.gethostname()
         if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
         elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         elif self.hostname == 'mingyu-Inspiron-7559':
@@ -80,7 +80,7 @@ class Convert:
 
         df = pd.read_csv(gtf_file, names=gtf_columns, comment='#', sep='\t')
         df = df[df['feature'] == 'transcript'].reset_index(drop=True)
-        df['chromosome'] = 'chr' + df['chromosome'].astype(str)
+        df['chromosome'] = 'chr' + df['chromosome'].astype('str')
         attribute = df['attribute'].str.split('; ')
 
         pkm = []
@@ -91,13 +91,14 @@ class Convert:
                 key, value = a.split(' ')
                 dict[key] = value.replace('"', '')
 
-            row = [idx, None, None, dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')]
+            row = [idx, None, None, None, dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')]
             if 'ref_gene_name' in dict:
                 row[1] = dict['ref_gene_name']
                 row[2] = dict['transcript_id']
+                row[3] = dict['transcript_name']
             pkm.append(row)
 
-        df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'cov', 'FPKM', 'TPM'])
+        df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'transcript_name', 'cov', 'FPKM', 'TPM'])
         df_res = df_res.set_index('index', drop=True)
         df = pd.concat([df, df_res], axis=1)
 
@@ -118,7 +119,7 @@ class Convert:
 
     def avg_rna_seq_by_tissues(self):
         df = pd.read_excel('RNA-seq_data_structure.xlsx')
-        columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'gene_name', 'transcript_id']
+        columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'gene_name', 'transcript_id', 'transcript_name']
 
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
         con = sqlite3.connect(fpath)
@@ -212,6 +213,7 @@ class Convert:
         df_grp = df.groupby('cell line')
 
         df_report = pd.DataFrame(index=df_grp.groups, columns=['#data', 'fid'])
+        writer = pd.ExcelWriter(os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'repicates_duplicates.xlsx'), engine='xlsxwriter')
         for src, df_src in df_grp:
             fid = ';'.join(df_src['Extract Name'])
             df_report.loc[src, '#data'] = df_src.shape[0]
@@ -234,14 +236,19 @@ class Convert:
                 dfs[0].to_sql(src, con_out, if_exists='replace', index=None)
             else:
                 index = sorted(list(set.union(*index)))
-                df_res = pd.DataFrame(index=index, columns=['chromosome', 'start', 'end', 'score', 'strand'])
-                df_res[['score']] = 0
-                for df in dfs:
-                    df_res.loc[df.index, ['score']] += df[['score']].astype(float)
-                    df_res.loc[df.index, ['chromosome', 'start', 'end', 'strand']] = df[['chromosome', 'start', 'end', 'strand']]
+                df_res = pd.DataFrame(index=index, columns=dfs[-1].columns)
+                cols = []
+                for i, df_fid in enumerate(dfs):
+                    df_fid['score'] = df_fid['score'].astype(float)
+                    cols.append('score (Rep {})'.format(i + 1))
+                    df_res.loc[df_fid.index, cols[-1]] = df_fid['score']
+                    df_res.loc[df_fid.index, columns] = df_fid[columns]
 
-                df_res[['score']] /= len(dfs)
+                df_res['score'] = df_res[cols].mean(axis=1)
                 df_res.to_sql(src, con_out, if_exists='replace', index=None)
+
+        writer.save()
+        writer.close()
         df_report.to_excel('cell_line.xlsx')
 
     def stats_by_tissue(self):
@@ -306,20 +313,24 @@ if __name__ == '__main__':
     else:
         # con.stats_by_tissue()
         # con.avg_rna_seq_by_tissues()
-        con.avg_fantom_by_tissue()
-
+        # con.avg_fantom_by_tissue()
+        #
         # from Util import Util
         # from Database import Database
         #
         # ut = Util()
+        # # fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
         # fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         # tlist = Database.load_tableList(sqlite3.connect(fpath))
         # for tname in tlist:
         #     ut.split(fpath, tname)
 
+        con.avg_fantom_by_celllines()
+
         # from Correlation_gpu import Correlation
         # cor = Correlation()
         # cor.correlation_fan_rna()
+        # cor.high_correlation()
 
         # fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
         # conn = sqlite3.connect(fpath.replace('.gtf', '.db'))
@@ -328,7 +339,6 @@ if __name__ == '__main__':
         # dirname = os.path.join(con.root, 'database', 'RNA-seq')
         # con.gtf_to_db_all(dirname)
 
-        # con.avg_rna_seq_by_tissues()
         # con.avg_rna_seq_by_celllines()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq', 'bam')
         # flist = os.listdir(dirname)

@@ -11,7 +11,7 @@ class Tss_map_table:
         hostname = socket.gethostname()
         print(hostname)
         if hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
             self.cell_lines = self.get_cell_lines()[300:]
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'

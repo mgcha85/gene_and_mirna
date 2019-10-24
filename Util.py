@@ -11,7 +11,7 @@ class Util:
     def __init__(self):
         self.hostname = socket.gethostname()
         if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
         elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         else:
@@ -41,7 +41,8 @@ class Util:
         out_path = fpath.replace('.db', '_spt.db')
 
         con = sqlite3.connect(fpath)
-        df = pd.read_sql_query("SELECT chromosome, start, end, score, strand FROM '{}'".format(tname), con)
+        sql = "SELECT chromosome, start, end, strand, FPKM, gene_name, transcript_name FROM '{}'".format(tname)
+        df = pd.read_sql_query(sql, con)
 
         out_con = sqlite3.connect(out_path)
         for chr, df_chr in df.groupby('chromosome'):
@@ -57,8 +58,8 @@ if __name__ == '__main__':
     if ut.hostname == 'mingyu-Precision-Tower-7810':
         ut.to_server()
     else:
-        # fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
-        fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        # fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         tlist = Database.load_tableList(sqlite3.connect(fpath))
         for tname in tlist:
             ut.split(fpath, tname)

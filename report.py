@@ -8,7 +8,7 @@ class Report:
     def __init__(self):
         self.hostname = socket.gethostname()
         if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
         elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         else:

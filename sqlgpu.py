@@ -253,7 +253,7 @@ if __name__ == '__main__':
     
     hostname = socket.gethostname()
     if hostname == 'mingyu-Precision-Tower-7810':
-        root = '/home/mingyu/Bioinfomatics'
+        root = '/home/mingyu/Bioinformatics'
     elif hostname == 'DESKTOP-DLOOJR6':
         root = 'D:/Bioinformatics'
     else:

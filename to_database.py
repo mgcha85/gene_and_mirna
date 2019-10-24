@@ -8,7 +8,7 @@ class To_database:
     def __init__(self):
         hostname = socket.gethostname()
         if hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinfomatics'
+            self.root = '/home/mingyu/Bioinformatics'
         elif hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
         elif hostname == 'mingyu-Inspiron-7559':
