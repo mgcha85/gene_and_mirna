@@ -36,7 +36,7 @@ class Download_RNA_seq:
         server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
-        server.job_script(fname, src_root=server_root, time='04:00:00')
+        server.job_script(fname, src_root=server_root, time='20:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
@@ -103,8 +103,8 @@ class Download_RNA_seq:
             page = self.get_script(url)
 
             soup = BeautifulSoup(page, "lxml")
-            for col in ["odd col_28", "even col_28"]:
-                items = soup.findAll("td", {"class": col})
+            for col in ["even col_28"]:
+                items = sorted(soup.findAll("td", {"class": col}))
                 for item in items:
                     contents.append(item.findAll("a")[0].attrs['href'])
                     download_url = item.findAll("a")[0].attrs['href']

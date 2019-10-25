@@ -19,6 +19,9 @@ class Util:
         self.table_names = {}
 
     def to_server(self):
+        from Server import Server
+        import sys
+
         which = 'newton'
         server = Server(self.root, which=which)
         server.connect()

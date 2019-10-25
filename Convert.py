@@ -22,6 +22,9 @@ class Convert:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     def to_server(self):
+        from Server import Server
+        import sys
+
         which = 'newton'
         server = Server(self.root, which=which)
         server.connect()
@@ -74,39 +77,67 @@ class Convert:
         self.command_exe(command)
         print('done with bam to gtf')
 
-    def gtf_to_db(self, gtf_file, con):
-        gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
-        dirname, fname = os.path.split(gtf_file)
+    def get_attr(self, attr):
+        dfs = []
+        for att in attr:
+            at = [a.split(' ') for a in att]
+            df = pd.DataFrame(at).set_index(0)
+            df.iloc[:, -1] = df.iloc[:, -1].str.replace(';', '')
+            df = df.loc[~df.index.duplicated(keep='first')].T
+            dfs.append(df)
+        return pd.concat(dfs).set_index(attr.index)
 
-        df = pd.read_csv(gtf_file, names=gtf_columns, comment='#', sep='\t')
-        df = df[df['feature'] == 'transcript'].reset_index(drop=True)
-        df['chromosome'] = 'chr' + df['chromosome'].astype('str')
-        attribute = df['attribute'].str.split('; ')
+    def gtf_to_db(self, fpath, con):
+        columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
-        pkm = []
-        for idx in attribute.index:
-            attr = attribute[idx]
-            dict = {}
-            for a in attr:
-                key, value = a.split(' ')
-                dict[key] = value.replace('"', '')
+        df_chunk = pd.read_csv(fpath, sep='\t', names=columns, comment='#')
+        attr = df_chunk['attribute'].str.replace('"', '').str.split('; ')
+        df_attr = self.get_attr(attr)
+        df = pd.concat([df_chunk.drop('attribute', axis=1), df_attr], axis=1)
 
-            row = [idx, None, None, None, dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')]
-            if 'ref_gene_name' in dict:
-                row[1] = dict['ref_gene_name']
-                row[2] = dict['transcript_id']
-                row[3] = dict['transcript_name']
-            pkm.append(row)
-
-        df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'transcript_name', 'cov', 'FPKM', 'TPM'])
-        df_res = df_res.set_index('index', drop=True)
-        df = pd.concat([df, df_res], axis=1)
-
-        df = df.drop(['attribute', 'frame'], axis=1)
         for chr, df_chr in df.groupby('chromosome'):
             for str, df_str in df_chr.groupby('strand'):
-                tname = '_'.join([os.path.splitext(fname)[0], chr, str])
-                df_str.sort_values(by=['start', 'end']).to_sql(tname, con, index=None)
+                tname = '_'.join([chr, str])
+                try:
+                    df_str.to_sql(tname, con, if_exists='append', index=None)
+                except:
+                    df_org = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+                    df_str = pd.concat([df_str, df_org])
+                    df_str.to_sql(tname, con, if_exists='replace', index=None)
+
+    # def gtf_to_db(self, gtf_file, con):
+    #     gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
+    #     dirname, fname = os.path.split(gtf_file)
+    #
+    #     df = pd.read_csv(gtf_file, names=gtf_columns, comment='#', sep='\t')
+    #     df = df[df['feature'] == 'transcript'].reset_index(drop=True)
+    #     df['chromosome'] = 'chr' + df['chromosome'].astype('str')
+    #     attribute = df['attribute'].str.split('; ')
+    #
+    #     pkm = []
+    #     for idx in attribute.index:
+    #         attr = attribute[idx]
+    #         dict = {}
+    #         for a in attr:
+    #             key, value = a.split(' ')
+    #             dict[key] = value.replace('"', '')
+    #
+    #         row = [idx, None, None, None, dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')]
+    #         if 'ref_gene_name' in dict:
+    #             row[1] = dict['ref_gene_name']
+    #             row[2] = dict['transcript_id']
+    #             row[3] = dict['transcript_name']
+    #         pkm.append(row)
+    #
+    #     df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'transcript_name', 'cov', 'FPKM', 'TPM'])
+    #     df_res = df_res.set_index('index', drop=True)
+    #     df = pd.concat([df, df_res], axis=1)
+    #
+    #     df = df.drop(['attribute', 'frame'], axis=1)
+    #     for chr, df_chr in df.groupby('chromosome'):
+    #         for str, df_str in df_chr.groupby('strand'):
+    #             tname = '_'.join([os.path.splitext(fname)[0], chr, str])
+    #             df_str.sort_values(by=['start', 'end']).to_sql(tname, con, index=None)
 
     def correlation_replicates(self, df, cols):
         from itertools import combinations

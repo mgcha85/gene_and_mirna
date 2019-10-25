@@ -144,6 +144,9 @@ class Correlation:
         self.table_names = {}
 
     def to_server(self):
+        from Server import Server
+        import sys
+
         which = 'newton'
         server = Server(self.root, which=which)
         server.connect()
@@ -154,12 +157,11 @@ class Correlation:
         server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
 
-        server.job_script(fname, src_root=server_root, time='12:00:00')
+        server.job_script(fname, src_root=server_root, time='04:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
-        stdin, stdout, stderr = server.ssh.exec_command(
-            "cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -290,7 +292,7 @@ class Correlation:
             contents[i] = df['score'].sum()
         return contents
 
-    def correlation_fan_cpu(self, ref='gene'):
+    def correlation_fan_cpu(self, hbw, ref='gene'):
         from joblib import Parallel, delayed
         import multiprocessing
         num_cores = multiprocessing.cpu_count() - 2
@@ -301,7 +303,7 @@ class Correlation:
             ref_con = sqlite3.connect(ref_path)
         else:
             # reference GENCODE
-            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna.db')
+            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
             ref_con = sqlite3.connect(ref_path)
 
         # Fantom5
@@ -311,7 +313,7 @@ class Correlation:
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}.db'.format(ref))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -328,27 +330,23 @@ class Correlation:
                 continue
 
             tss = df_ref[['start', 'end']].astype(int).mean(axis=1).astype(int)
-            df_ref['start'] = tss.astype(int) - 500
-            df_ref['end'] = tss.astype(int) + 500
+            df_ref['start'] = tss.astype(int) - hbw
+            df_ref['end'] = tss.astype(int) + hbw
             df_ref['corr'] = None
-
-            # N_ = df_ref.shape[0]
-            # df_buf = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *cell_lines])
-            # df_buf[['start', 'end']] = df_ref[['start', 'end']]
 
             contents = Parallel(n_jobs=num_cores)(delayed(self.processInput_corr)(df_ref, [chromosome, strand], cline, 100 * (i + 1) / M_)
                                                  for i, cline in enumerate(cell_lines))
             df_buf = pd.DataFrame(data=contents, index=cell_lines).T
             pd.concat([df_ref[['miRNA', 'start', 'end']], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
 
-    def correlation_fan(self, ref='gene'):
+    def correlation_fan(self, hbw, ref='gene'):
         if ref == 'mir':
             # reference GENCODE
             ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
             ref_con = sqlite3.connect(ref_path)
         else:
             # reference GENCODE
-            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna.db')
+            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
             ref_con = sqlite3.connect(ref_path)
 
         # Fantom5
@@ -358,7 +356,7 @@ class Correlation:
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}.db'.format(ref))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -380,8 +378,8 @@ class Correlation:
                 offset = 'end'
 
             tss = deepcopy(df_ref[offset])
-            df_ref['start'] = tss.astype(int) - 500
-            df_ref['end'] = tss.astype(int) + 500
+            df_ref['start'] = tss.astype(int) - hbw
+            df_ref['end'] = tss.astype(int) + hbw
             df_ref['corr'] = None
 
             N_ = df_ref.shape[0]
@@ -404,7 +402,7 @@ class Correlation:
         df_res = df.loc[tns]
         return df_res
 
-    def correlation_fan_rna(self):
+    def correlation_fan_rna(self, hbw=500):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
         df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
@@ -423,10 +421,10 @@ class Correlation:
         con_rna = sqlite3.connect(rna_path)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_{}.db'.format(hbw))
         con_out = sqlite3.connect(out_path)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna.db')
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.db'.format(hbw))
         con_corr_out = sqlite3.connect(out_path)
 
         M_ = len(tissues)
@@ -449,8 +447,8 @@ class Correlation:
                 offset = 'end'
 
             tss = deepcopy(df_ref[offset])
-            df_ref['start'] = tss - 500
-            df_ref['end'] = tss + 500
+            df_ref['start'] = tss - hbw
+            df_ref['end'] = tss + hbw
             df_ref['corr'] = None
 
             N_ = df_ref.shape[0]
@@ -507,13 +505,13 @@ class Correlation:
                 df_ref.loc[idx, 'corr'] = corr[0, 1]
             df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
 
-    def high_correlation(self):
+    def high_correlation(self, hbw=500):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
-        fpath = os.path.join(dirname, 'correlation_fan_rna.db')
+        fpath = os.path.join(dirname, 'correlation_fan_rna_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
-        fpath = os.path.join(dirname, 'high_correlated_fan_rna.db')
+        fpath = os.path.join(self.root, 'gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         con_out = sqlite3.connect(fpath)
         dfs = []
         for tname in tlist:
@@ -531,8 +529,12 @@ if __name__ == '__main__':
     if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
-        # cor.correlation_fan_rna_cpu()
-        cor.correlation_fan_rna()
-        # cor.correlation_fan_cpu(ref='mir')
-        # cor.high_correlation()
-        # cor.run()
+        from Regression import Regression
+
+        rg = Regression()
+        for hbw in [100, 300, 500]:
+            # cor.correlation_fan_rna(hbw)
+            # cor.high_correlation(hbw)
+            # cor.correlation_fan(hbw, ref='gene')
+            cor.correlation_fan_cpu(hbw, ref='mir')
+            # rg.regression(hbw)
