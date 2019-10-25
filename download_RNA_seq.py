@@ -104,8 +104,8 @@ class Download_RNA_seq:
 
             soup = BeautifulSoup(page, "lxml")
             for col in ["even col_28"]:
-                items = sorted(soup.findAll("td", {"class": col}))
-                for item in items:
+                items = soup.findAll("td", {"class": col})
+                for item in items[157:]:
                     contents.append(item.findAll("a")[0].attrs['href'])
                     download_url = item.findAll("a")[0].attrs['href']
                     print('download {}...'.format(download_url))
@@ -217,4 +217,5 @@ if __name__ == '__main__':
     if drs.hostname == 'mingyu-Precision-Tower-7810':
         drs.to_server()
     else:
-        drs.run()
+        drs.to_bed()
+        # drs.run()

@@ -376,14 +376,44 @@ class Regression(DeepLearning):
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
         return pd.concat(dfs)
 
-    def regression(self, hbw):
+    def test(self):
         import pickle as pkl
 
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
+        gene = 2 * np.random.randint(size=(240, 9756), low=0, high=1000) + 1
+        mir = np.random.randint(size=(240, 369), low=0, high=1000)
+
+        clf = linear_model.Lasso(alpha=0.1)
+        clf.fit(gene, mir)
+        Lasso(alpha=0.1, copy_X=True, fit_intercept=True, max_iter=1000,
+              normalize=False, positive=False, precompute=False, random_state=None,
+              selection='cyclic', tol=1e-3, warm_start=False)
+
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir.db'),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db')}
         dfs = {}
         for label, fpath in fpaths.items():
             dfs[label] = self.merge_table(fpath)
+            print('[{}] #:{}'.format(label, dfs[label].shape[0]))
+
+        print(clf.coef_.mean(), clf.intercept_.mean())
+        df_coef = pd.DataFrame(clf.coef_.T, index=dfs['gene']['transcript_id'], columns=dfs['mir']['transcript_id'])
+        df_int = pd.Series(clf.intercept_)
+
+        writer = pd.ExcelWriter('regression_test.xlsx', engine='xlsxwriter')
+        for sname, df in zip(['coefficent', 'intercept'], [df_coef, df_int]):
+            df.to_excel(writer, sheet_name=sname)
+        writer.save()
+        writer.close()
+
+    def regression(self, hbw):
+        import pickle as pkl
+
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir.db'.format(hbw)),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db'.format(hbw))}
+        dfs = {}
+        for label, fpath in fpaths.items():
+            dfs[label] = self.merge_table(fpath)
+            print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
         clf = linear_model.Lasso(alpha=0.1)
         gene = dfs['gene'].iloc[:, 3:].T.values
@@ -398,14 +428,12 @@ class Regression(DeepLearning):
 
 
 if __name__ == '__main__':
-    with open('regression.cha', 'rb') as f:
-        *coef_, intercept_ = pkl.load(f)
-
     rg = Regression()
-    if rg.hostname == 'mingyu-Precision-Tower-7810':
+    if rg.hostname == 'mingyu-Precision-Tower-781':
         rg.to_server()
         # rg.filter_by_lasso()
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        rg.regression()
+        rg.test()
+        # rg.regression(500)

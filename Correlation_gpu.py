@@ -392,7 +392,7 @@ class Correlation:
                 df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
                                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
                 df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
-            pd.concat([df_ref['gene_name'], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
+            pd.concat([df_ref['transcript_name'], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
 
     def get_rna_seq(self, df_ref, tname, con):
         df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
@@ -533,8 +533,8 @@ if __name__ == '__main__':
 
         rg = Regression()
         for hbw in [100, 300, 500]:
-            # cor.correlation_fan_rna(hbw)
-            # cor.high_correlation(hbw)
-            # cor.correlation_fan(hbw, ref='gene')
+            cor.correlation_fan_rna(hbw)
+            cor.high_correlation(hbw)
+            cor.correlation_fan(hbw, ref='gene')
             cor.correlation_fan_cpu(hbw, ref='mir')
-            # rg.regression(hbw)
+            rg.regression(hbw)
