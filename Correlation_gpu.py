@@ -402,7 +402,7 @@ class Correlation:
         df_res = df.loc[tns]
         return df_res
 
-    def sum_fan_rna(self, hbw=500):
+    def correlation_fan_rna(self, hbw=500):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
         df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
@@ -423,6 +423,9 @@ class Correlation:
         # output
         out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_{}.db'.format(hbw))
         con_out = sqlite3.connect(out_path)
+
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.db'.format(hbw))
+        con_corr_out = sqlite3.connect(out_path)
 
         M_ = len(tissues)
 
@@ -470,6 +473,11 @@ class Correlation:
             df_buf = self.filtering(df_buf)
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
+
+            for idx in df_ref.index:
+                corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
+                df_ref.loc[idx, 'corr'] = corr_coeff[0, 1]
+            df_ref.to_sql(tname, con_corr_out, index=None, if_exists='replace')
 
     def filtering(self, dfs):
         ridx = []
@@ -564,7 +572,7 @@ if __name__ == '__main__':
         from Regression import Regression
         rg = Regression()
         for hbw in [100, 300, 500]:
-            cor.sum_fan_rna(hbw)
+            cor.correlation_fan_rna(hbw)
 
             # cor.high_correlation(hbw)
             # cor.correlation_fan(hbw, ref='gene')
