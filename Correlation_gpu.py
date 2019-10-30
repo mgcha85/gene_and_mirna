@@ -402,6 +402,25 @@ class Correlation:
         df_res = df.loc[tns]
         return df_res
 
+    def filtering(self, dfs):
+        ridx = []
+        for idx in dfs['fantom'].index:
+            fan_row = dfs['fantom'].loc[idx, 'appendix':]
+            rna_row = dfs['rna-seq'].loc[idx, 'appendix':]
+            fmidx = fan_row.idxmax()
+            rmidx = rna_row.idxmax()
+
+            if fan_row[fmidx] == 0 or rna_row[rmidx] == 0:
+                ridx.append(idx)
+            elif fan_row.median() == 0 or rna_row.median() == 0:
+                ridx.append(idx)
+            elif fan_row[fmidx] > fan_row.drop(fmidx).sum() or rna_row[fmidx] > rna_row.drop(fmidx).sum():
+                ridx.append(idx)
+
+        for type in ['fantom', 'rna-seq']:
+            dfs[type] = dfs[type].drop(ridx)
+        return dfs
+
     def correlation_fan_rna(self, hbw=500):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
@@ -474,29 +493,10 @@ class Correlation:
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
 
-            for idx in df_ref.index:
+            for idx in df_buf['fantom'].index:
                 corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
                 df_ref.loc[idx, 'corr'] = corr_coeff[0, 1]
-            df_ref.to_sql(tname, con_corr_out, index=None, if_exists='replace')
-
-    def filtering(self, dfs):
-        ridx = []
-        for idx in dfs['fantom'].index:
-            fan_row = dfs['fantom'].loc[idx, 'appendix':]
-            rna_row = dfs['rna-seq'].loc[idx, 'appendix':]
-            fmidx = fan_row.idxmax()
-            rmidx = rna_row.idxmax()
-
-            if fan_row[fmidx] == 0 or rna_row[rmidx] == 0:
-                ridx.append(idx)
-            elif fan_row.median() == 0 or rna_row.median() == 0:
-                ridx.append(idx)
-            elif fan_row[fmidx] > fan_row.drop(fmidx).sum() or rna_row[fmidx] > rna_row.drop(fmidx).sum():
-                ridx.append(idx)
-
-        for type in ['fantom', 'rna-seq']:
-            dfs[type] = dfs[type].drop(ridx)
-        return dfs
+            df_ref.dropna(subset=['corr']).to_sql(tname, con_corr_out, index=None, if_exists='replace')
 
     def correlation(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
