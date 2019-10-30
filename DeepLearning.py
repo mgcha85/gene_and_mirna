@@ -1,10 +1,10 @@
 import numpy as np
 import os
-from keras.models import Sequential, load_model
-from keras.layers import Dense, Dropout
-from keras.optimizers import SGD
-from keras.layers import Conv2D, MaxPooling2D, BatchNormalization
-from keras.layers import Flatten
+# from keras.models import Sequential, load_model
+# from keras.layers import Dense, Dropout
+# from keras.optimizers import SGD
+# from keras.layers import Conv2D, MaxPooling2D, BatchNormalization
+# from keras.layers import Flatten
 
 
 class DeepLearning:

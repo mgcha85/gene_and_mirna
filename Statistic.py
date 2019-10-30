@@ -73,8 +73,24 @@ class Statistic:
         plt.savefig('/home/mingyu/Pictures/{}.png'.format(fname))
         plt.close()
 
+    def tissue_specific_stats(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        fpath = os.path.join(dirname, 'regression_100.db')
+        con = sqlite3.connect(fpath)
+
+        writer = pd.ExcelWriter(fpath.replace('.db', '.xlsx'), engine='xlsxwriter')
+        for tname in ['coefficient']:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+            sum = (df == 0).sum(axis=0)
+            print('mean: {:0.2f}, std: {:0.2f}, max: {:0.2f}, min: {:0.2f}, median: {:0.2f}'.format(sum.mean(), sum.std(), sum.max(), sum.min(), sum.median()))
+            # sum /= df.shape[0]
+            df.append(sum, ignore_index=True).to_excel(writer, sheet_name=tname, index=None)
+        writer.save()
+        writer.close()
+
 
 if __name__ == '__main__':
     stat = Statistic()
-    stat.count_gsea_result()
-    stat.count_lasso_result()
+    stat.tissue_specific_stats()
+    # stat.count_gsea_result()
+    # stat.count_lasso_result()

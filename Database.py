@@ -151,3 +151,8 @@ class Database:
             return True
         dbcur.close()
         return False
+
+    @staticmethod
+    def load_table_columns(con, tname):
+        cursor = con.execute("SELECT * FROM '{}'".format(tname))
+        return list(map(lambda x: x[0], cursor.description))

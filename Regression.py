@@ -377,39 +377,57 @@ class Regression(DeepLearning):
         return pd.concat(dfs)
 
     def test(self):
-        import pickle as pkl
+        m, n, p = 10, 3, 6  # gene, mirna, cell lines
+        np.random.seed(0)
 
-        gene = 2 * np.random.randint(size=(240, 9756), low=0, high=1000) + 1
-        mir = np.random.randint(size=(240, 369), low=0, high=1000)
+        X = np.random.randint(size=(p, m), low=0, high=m)
+        rand_coef = np.random.randint(size=(m, n), low=0, high=m)
+
+        Y = np.matmul(X, rand_coef)
 
         clf = linear_model.Lasso(alpha=0.1)
-        clf.fit(gene, mir)
+        clf.fit(X, Y)
+
         Lasso(alpha=0.1, copy_X=True, fit_intercept=True, max_iter=1000,
               normalize=False, positive=False, precompute=False, random_state=None,
               selection='cyclic', tol=1e-3, warm_start=False)
 
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir.db'),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db')}
-        dfs = {}
-        for label, fpath in fpaths.items():
-            dfs[label] = self.merge_table(fpath)
-            print('[{}] #:{}'.format(label, dfs[label].shape[0]))
+        res = np.matmul(X, clf.coef_.T)
+        res = np.add(res, clf.intercept_)
 
-        print(clf.coef_.mean(), clf.intercept_.mean())
-        df_coef = pd.DataFrame(clf.coef_.T, index=dfs['gene']['transcript_id'], columns=dfs['mir']['transcript_id'])
+        df_coef = pd.DataFrame(clf.coef_.T)
         df_int = pd.Series(clf.intercept_)
+        df_rand = pd.DataFrame(res)
+        df_X = pd.DataFrame(X)
+        df_Y = pd.DataFrame(Y)
+        df_rcoef = pd.DataFrame(rand_coef)
 
         writer = pd.ExcelWriter('regression_test.xlsx', engine='xlsxwriter')
-        for sname, df in zip(['coefficent', 'intercept'], [df_coef, df_int]):
+        for sname, df in zip(['coefficent', 'rand', 'intercept', 'X', 'Y', 'rcoef'], [df_coef, df_rand, df_int, df_X, df_Y, df_rcoef]):
             df.to_excel(writer, sheet_name=sname)
+
         writer.save()
         writer.close()
+
+    def see(self, hbw=100):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw))
+        with open(fpath, 'rb') as f:
+            df_coef, df_inter = pkl.load(f)
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+        con = sqlite3.connect(fpath)
+        df_inter.to_sql('intercept', con, if_exists='replace')
+        df_coef[set(df_coef.columns)].to_sql('ceofficient', con, if_exists='replace')
+
+    def square_error(self, clf, X, Y):
+        predictions = clf.predict(X)
+        return (Y - predictions) ** 2
 
     def regression(self, hbw):
         import pickle as pkl
 
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir.db'.format(hbw)),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene.db'.format(hbw))}
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
             dfs[label] = self.merge_table(fpath)
@@ -423,17 +441,32 @@ class Regression(DeepLearning):
               normalize=False, positive=False, precompute=False, random_state=None,
               selection='cyclic', tol=1e-3, warm_start=False)
 
-        with open('regression_{}.cha'.format(hbw), 'wb') as f:
-            pkl.dump([*clf.coef_, clf.intercept_], f)
+        with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw)), 'wb') as f:
+            pkl.dump(clf, f)
+
+        # with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw)), 'rb') as f:
+        #     clf = pkl.load(f)
+
+        df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_name']).T
+        df_inter = pd.Series(clf.intercept_, index=dfs['mir']['miRNA'])
+        df_pval = pd.DataFrame(self.square_error(clf, gene, mir), index=dfs['mir'].columns[3:], columns=dfs['mir']['miRNA'])
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+        con = sqlite3.connect(fpath)
+        df_coef.to_sql('ceofficient', con, if_exists='replace')
+        df_pval.to_sql('p-value', con, if_exists='replace')
+        df_inter.to_sql('intercept', con, if_exists='replace')
+        print('[{}] {:0.4f}'.format(hbw, clf.score(gene, mir)))
 
 
 if __name__ == '__main__':
     rg = Regression()
     if rg.hostname == 'mingyu-Precision-Tower-781':
+        # rg.see()
         rg.to_server()
         # rg.filter_by_lasso()
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        rg.test()
+        rg.regression(500)
         # rg.regression(500)

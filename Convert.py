@@ -203,9 +203,12 @@ class Convert:
             flist = os.listdir(dirname)
             flist = [f for f in flist if f.endswith('.gz')]
             print(tissue, len(flist))
+
             for fname in flist:
                 fpath = os.path.join(dirname, fname)
                 df_fid = pd.read_csv(fpath, compression='gzip', sep='\t', names=columns)
+                df_fid['score'] = df_fid['score'].astype(float)
+                df_fid['score'] = (df_fid['score'] / df_fid['score'].sum()) * 1e6
                 df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
                 index.append(set(df_fid.index))
                 dfs.append(df_fid)
@@ -214,15 +217,15 @@ class Convert:
             df_res = pd.DataFrame(index=index, columns=df_fid.columns)
             cols = []
             for i, df_fid in enumerate(dfs):
-                df_fid['score'] = df_fid['score'].astype(float)
                 cols.append('score (Rep {})'.format(i + 1))
                 df_res.loc[df_fid.index, cols[-1]] = df_fid['score']
+                print(df_fid['score'].sum(), df_res.loc[df_fid.index, cols[-1]].sum())
                 df_res.loc[df_fid.index, columns] = df_fid[columns]
 
             report = self.correlation_replicates(df_res, cols)
             report.to_excel(writer, sheet_name=tissue)
-            # df_res = df_res.fillna(0)
             df_res['score'] = df_res[cols].mean(axis=1)
+            print(df_res[cols].sum(axis=0))
             df_res.drop(['loc'], axis=1).to_sql(tissue_rna, con_out, if_exists='replace', index=None)
         writer.save()
         writer.close()
@@ -246,11 +249,12 @@ class Convert:
         df_report = pd.DataFrame(index=df_grp.groups, columns=['#data', 'fid'])
         writer = pd.ExcelWriter(os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'repicates_duplicates.xlsx'), engine='xlsxwriter')
         for src, df_src in df_grp:
+            print(src)
+
             fid = ';'.join(df_src['Extract Name'])
             df_report.loc[src, '#data'] = df_src.shape[0]
             df_report.loc[src, 'fid'] = fid
 
-            print(src)
             dfs = []
             index = []
             for idx in df_src.index:
@@ -264,6 +268,7 @@ class Convert:
                 dfs.append(df)
 
             if len(dfs) <= 1:
+                dfs[0]['score'] = (dfs[0]['score'] / dfs[0]['score'].sum()) * 1e6
                 dfs[0].to_sql(src, con_out, if_exists='replace', index=None)
             else:
                 index = sorted(list(set.union(*index)))
@@ -271,9 +276,11 @@ class Convert:
                 cols = []
                 for i, df_fid in enumerate(dfs):
                     df_fid['score'] = df_fid['score'].astype(float)
+                    df_fid['score'] = (df_fid['score'] / df_fid['score'].sum()) * 1e6
                     cols.append('score (Rep {})'.format(i + 1))
                     df_res.loc[df_fid.index, cols[-1]] = df_fid['score']
                     df_res.loc[df_fid.index, columns] = df_fid[columns]
+                    print(df_res.loc[df_fid.index, columns].sum())
 
                 df_res['score'] = df_res[cols].mean(axis=1)
                 df_res.to_sql(src, con_out, if_exists='replace', index=None)
@@ -338,14 +345,14 @@ class Convert:
 
 if __name__ == '__main__':
     con = Convert()
-    if con.hostname == 'mingyu-Precision-Tower-7810':
+    if con.hostname == 'mingyu-Precision-Tower-781':
         con.to_server()
 
     else:
         # con.stats_by_tissue()
         # con.avg_rna_seq_by_tissues()
         # con.avg_fantom_by_tissue()
-        #
+
         # from Util import Util
         # from Database import Database
         #

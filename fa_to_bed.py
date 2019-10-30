@@ -106,12 +106,12 @@ class fa2bed:
     def bam_to_gtf(self, bam_file):
         string_tie_root = os.path.join(self.root, 'software/stringtie-1.3.6')
 
-        print('bam to gff...')
+        print('bam to gtf...')
         dirname, fname__ = os.path.split(bam_file)
-        fname = os.path.splitext(fname__)[0] + '.gff'
+        fname = os.path.splitext(fname__)[0] + '.gtf'
         gtf_file = os.path.join(dirname, fname)
 
-        command = '{str_root}/./stringtie -p 4 -G {str_root}/genes.gtf -o {gtf} -i {bam}' \
+        command = '{str_root}/./stringtie -p 4 -G {str_root}/gencode.v32lift37.annotation.gtf -o {gtf} -i {bam}' \
                   ''.format(str_root=string_tie_root, gtf=gtf_file, bam=bam_file)
         print(command)
         self.command_exe(command)
@@ -122,7 +122,7 @@ class fa2bed:
                 os.remove(fpath)
 
         root_dir = '/'.join(bam_file.split('/')[:-1])
-        shutil.move(bam_file, os.path.join(root_dir, 'bam', fname__))
+        shutil.move(bam_file, os.path.join(root_dir, fname__))
         print('done with bam to gtf')
 
     def bam_to_bed(self, bam_file):
@@ -296,20 +296,21 @@ if __name__ == '__main__':
     # f2b.db_to_bed()
     # f2b.chain_transfer()
     # f2b.split_bed_to_db()
-
-    if f2b.hostname == 'mingyu-Precision-Tower-7810':
-        dirname = os.path.join(f2b.root, 'database/Fantom/v5/CAGE/nobacode')
-        flist = []
-        for r, d, f in os.walk(dirname):
-            for file in f:
-                if file.endswith('.bam'):
-                    f2b.bam_to_bed((os.path.join(r, file)))
-        f2b.bed_to_db(dirname)
-
-    else:
-        dirname = os.path.join(f2b.root, 'database/Fantom/v5/CAGE')
-        flist = []
-        for r, d, f in os.walk(dirname):
-            for file in f:
-                if file.endswith('.bam'):
-                    f2b.bam_to_bed((os.path.join(r, file)))
+    f2b.bam_to_gtf('/home/mingyu/Bioinformatics/database/RNA-seq/bam/ERR315333.bam')
+    
+    # if f2b.hostname == 'mingyu-Precision-Tower-7810':
+    #     dirname = os.path.join(f2b.root, 'database/Fantom/v5/CAGE/nobacode')
+    #     flist = []
+    #     for r, d, f in os.walk(dirname):
+    #         for file in f:
+    #             if file.endswith('.bam'):
+    #                 f2b.bam_to_bed((os.path.join(r, file)))
+    #     f2b.bed_to_db(dirname)
+    # 
+    # else:
+    #     dirname = os.path.join(f2b.root, 'database/Fantom/v5/CAGE')
+    #     flist = []
+    #     for r, d, f in os.walk(dirname):
+    #         for file in f:
+    #             if file.endswith('.bam'):
+    #                 f2b.bam_to_bed((os.path.join(r, file)))

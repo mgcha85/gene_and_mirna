@@ -402,7 +402,7 @@ class Correlation:
         df_res = df.loc[tns]
         return df_res
 
-    def correlation_fan_rna(self, hbw=500):
+    def sum_fan_rna(self, hbw=500):
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
         df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
@@ -423,9 +423,6 @@ class Correlation:
         # output
         out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_{}.db'.format(hbw))
         con_out = sqlite3.connect(out_path)
-
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.db'.format(hbw))
-        con_corr_out = sqlite3.connect(out_path)
 
         M_ = len(tissues)
 
@@ -470,13 +467,28 @@ class Correlation:
                 for src, df_src in zip(['fantom', 'rna-seq'], [df_fan, df_rna]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
 
+            df_buf = self.filtering(df_buf)
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
 
-            for idx in df_ref.index:
-                corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
-                df_ref.loc[idx, 'corr'] = corr_coeff[0, 1]
-            df_ref.to_sql(tname, con_corr_out, index=None, if_exists='replace')
+    def filtering(self, dfs):
+        ridx = []
+        for idx in dfs['fantom'].index:
+            fan_row = dfs['fantom'].loc[idx, 'appendix':]
+            rna_row = dfs['rna-seq'].loc[idx, 'appendix':]
+            fmidx = fan_row.idxmax()
+            rmidx = rna_row.idxmax()
+
+            if fan_row[fmidx] == 0 or rna_row[rmidx] == 0:
+                ridx.append(idx)
+            elif fan_row.median() == 0 or rna_row.median() == 0:
+                ridx.append(idx)
+            elif fan_row[fmidx] > fan_row.drop(fmidx).sum() or rna_row[fmidx] > rna_row.drop(fmidx).sum():
+                ridx.append(idx)
+
+        for type in ['fantom', 'rna-seq']:
+            dfs[type] = dfs[type].drop(ridx)
+        return dfs
 
     def correlation(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
@@ -511,7 +523,7 @@ class Correlation:
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
-        fpath = os.path.join(self.root, 'gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
+        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         con_out = sqlite3.connect(fpath)
         dfs = []
         for tname in tlist:
@@ -523,6 +535,26 @@ class Correlation:
             dfs.append(df)
         pd.concat(dfs).to_excel(fpath.replace('.db', '.xlsx'), index=None)
 
+    def check_high_corr(self, hbw=100):
+        ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
+        ref_con = sqlite3.connect(ref_path)
+        tname = 'chr10_+'
+        df_ref = pd.read_sql("SELECT * FROM '{}' WHERE corr>0.99".format(tname), ref_con)
+        idx = np.random.randint(0, df_ref.shape[0], 3)
+        df_sample = df_ref.iloc[idx, :]
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_{}.db'.format(hbw))
+        con = sqlite3.connect(fpath)
+
+        contents = []
+        for start, end in zip(df_sample['start'], df_sample['end']):
+            for type in ['rna-seq', 'fantom']:
+                row = pd.read_sql("SELECT * FROM '{}_{}' WHERE start={} AND end={}".format(type, tname, start, end), con)
+                row.loc[:, 'type'] = type
+                contents.append(row)
+        df_res = pd.concat(contents)
+        df_res.to_excel(fpath.replace('.db', '.xlsx'), index=None)
+
 
 if __name__ == '__main__':
     cor = Correlation()
@@ -530,11 +562,12 @@ if __name__ == '__main__':
         cor.to_server()
     else:
         from Regression import Regression
-
         rg = Regression()
         for hbw in [100, 300, 500]:
-            cor.correlation_fan_rna(hbw)
-            cor.high_correlation(hbw)
-            cor.correlation_fan(hbw, ref='gene')
-            cor.correlation_fan_cpu(hbw, ref='mir')
-            rg.regression(hbw)
+            cor.sum_fan_rna(hbw)
+
+            # cor.high_correlation(hbw)
+            # cor.correlation_fan(hbw, ref='gene')
+            # cor.correlation_fan_cpu(hbw, ref='mir')
+            # rg.regression(hbw)
+            # cor.check_high_corr()

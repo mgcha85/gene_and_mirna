@@ -92,7 +92,22 @@ class Report:
             writer.save()
             writer.close()
 
+    def to_excel(self):
+        from Database import Database
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        fpath = os.path.join(dirname, 'regression_100.db')
+        con = sqlite3.connect(fpath)
+
+        tlist = Database.load_tableList(con)
+        writer = pd.ExcelWriter(os.path.join(fpath.replace('.db', '.xlsx')), engine='xlsxwriter')
+        for tname in tlist:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+            df.to_excel(writer, sheet_name=tname, index=None)
+        writer.save()
+        writer.close()
+
 
 if __name__ == '__main__':
     rep = Report()
-    rep.scores_by_tissues()
+    rep.to_excel()
+    # rep.scores_by_tissues()
