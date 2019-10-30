@@ -444,9 +444,6 @@ class Regression(DeepLearning):
         with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw)), 'wb') as f:
             pkl.dump(clf, f)
 
-        # with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw)), 'rb') as f:
-        #     clf = pkl.load(f)
-
         df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_name']).T
         df_inter = pd.Series(clf.intercept_, index=dfs['mir']['miRNA'])
         df_pval = pd.DataFrame(self.square_error(clf, gene, mir), index=dfs['mir'].columns[3:], columns=dfs['mir']['miRNA'])

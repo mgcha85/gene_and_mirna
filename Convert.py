@@ -207,8 +207,6 @@ class Convert:
             for fname in flist:
                 fpath = os.path.join(dirname, fname)
                 df_fid = pd.read_csv(fpath, compression='gzip', sep='\t', names=columns)
-                df_fid['score'] = df_fid['score'].astype(float)
-                df_fid['score'] = (df_fid['score'] / df_fid['score'].sum()) * 1e6
                 df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
                 index.append(set(df_fid.index))
                 dfs.append(df_fid)
@@ -218,9 +216,10 @@ class Convert:
             cols = []
             for i, df_fid in enumerate(dfs):
                 cols.append('score (Rep {})'.format(i + 1))
-                df_res.loc[df_fid.index, cols[-1]] = df_fid['score']
-                print(df_fid['score'].sum(), df_res.loc[df_fid.index, cols[-1]].sum())
-                df_res.loc[df_fid.index, columns] = df_fid[columns]
+                df_res.loc[df_fid.index, cols[-1]] = df_fid['score'].astype(float)
+                df_res.loc[df_fid.index, cols[-1]] /= df_res.loc[df_fid.index, cols[-1]].sum() / 1e6
+                if i == 0:
+                    df_res.loc[df_fid.index, columns] = df_fid[columns]
 
             report = self.correlation_replicates(df_res, cols)
             report.to_excel(writer, sheet_name=tissue)
@@ -351,7 +350,7 @@ if __name__ == '__main__':
     else:
         # con.stats_by_tissue()
         # con.avg_rna_seq_by_tissues()
-        # con.avg_fantom_by_tissue()
+        con.avg_fantom_by_tissue()
 
         # from Util import Util
         # from Database import Database

@@ -299,7 +299,7 @@ class Correlation:
 
         if ref == 'mir':
             # reference miRNA
-            ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
+            ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330_spt.db')
             ref_con = sqlite3.connect(ref_path)
         else:
             # reference GENCODE
@@ -329,9 +329,8 @@ class Correlation:
             if df_ref.empty:
                 continue
 
-            tss = df_ref[['start', 'end']].astype(int).mean(axis=1).astype(int)
-            df_ref['start'] = tss.astype(int) - hbw
-            df_ref['end'] = tss.astype(int) + hbw
+            df_ref['start'] = df_ref['tss'] - hbw
+            df_ref['end'] = df_ref['tss'] + hbw
             df_ref['corr'] = None
 
             contents = Parallel(n_jobs=num_cores)(delayed(self.processInput_corr)(df_ref, [chromosome, strand], cline, 100 * (i + 1) / M_)
@@ -342,7 +341,7 @@ class Correlation:
     def correlation_fan(self, hbw, ref='gene'):
         if ref == 'mir':
             # reference GENCODE
-            ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
+            ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330_spt.db')
             ref_con = sqlite3.connect(ref_path)
         else:
             # reference GENCODE
@@ -537,11 +536,15 @@ class Correlation:
         for tname in tlist:
             chromosome, strand = tname.split('_')
             df = pd.read_sql_query("SELECT * FROM '{}' WHERE corr>0.9 AND transcript_type='protein_coding'".format(tname), con)
+            if df.empty:
+                continue
+
             df.to_sql(tname, con_out, if_exists='replace', index=None)
             df.loc[:, 'chromosome'] = chromosome
             df.loc[:, 'strand'] = strand
             dfs.append(df)
-        pd.concat(dfs).to_excel(fpath.replace('.db', '.xlsx'), index=None)
+        if len(dfs) > 0:
+            pd.concat(dfs).to_excel(fpath.replace('.db', '.xlsx'), index=None)
 
     def check_high_corr(self, hbw=100):
         ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
@@ -566,16 +569,15 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-781':
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
         from Regression import Regression
         rg = Regression()
-        for hbw in [100, 300, 500]:
+        for hbw in [300, 500]:
             cor.correlation_fan_rna(hbw)
-
-            # cor.high_correlation(hbw)
-            # cor.correlation_fan(hbw, ref='gene')
-            # cor.correlation_fan_cpu(hbw, ref='mir')
-            # rg.regression(hbw)
+            cor.high_correlation(hbw)
+            cor.correlation_fan(hbw, ref='gene')
+            cor.correlation_fan_cpu(hbw, ref='mir')
+            rg.regression(hbw)
             # cor.check_high_corr()
