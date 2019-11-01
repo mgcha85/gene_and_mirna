@@ -28,7 +28,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
     enum{START, END, SCORE, WIDTH};
     enum{SUM1, SUM2, OUT_WIDTH};
 
-    #define NUM_TISSUE  22
+    #define NUM_CELLLINE  240
 
     __device__ void rankify(float *X, float *Rank_X, const int N) {
         for(int i=0; i<N; i++)
@@ -110,13 +110,13 @@ if hostname != 'mingyu-Precision-Tower-7810':
         return sum;
     }
 
-    __global__ void cuda_corr(float *X1, float *X2, float *out, const int N)
+    __global__ void cuda_corr(float *X1, float *X2, float idx, float *out, const int N, const int M)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
-        if (idx >= N) return;
+        if (idx >= N * M) return;
 
-        int offset = NUM_TISSUE * idx;
-        out[idx] = correlationCoefficient(&X1[offset], &X2[offset], NUM_TISSUE);        
+        int offset = NUM_CELLLINE * idx;
+        out[idx] = correlationCoefficient(&X1[offset], &X2[offset], NUM_CELLLINE);        
     }
 
     __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, float *out_buffer_gpu, int N, int M1, int M2)
@@ -497,32 +497,85 @@ class Correlation:
                 df_ref.loc[idx, 'corr'] = corr_coeff[0, 1]
             df_ref.dropna(subset=['corr']).to_sql(tname, con_corr_out, index=None, if_exists='replace')
 
-    def correlation(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna.db')
-        con = sqlite3.connect(fpath)
+    def correlation(self, hbw):
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
+        con_mir = sqlite3.connect(fpath_mir)
 
-        # reference GENCODE
-        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.annotation_spt.db')
-        ref_con = sqlite3.connect(ref_path)
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
+        con_gene = sqlite3.connect(fpath_gene)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'corr_fan_rna.db')
-        con_out = sqlite3.connect(out_path)
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_corr_{}.db'.format(hbw))
+        con_out = sqlite3.connect(fpath_out)
 
-        tlist = Database.load_tableList(ref_con)
-        for tname in tlist:
-            source, version, chromosome, strand = tname.split('.')
-            df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
+        def merge(con):
+            tlist = Database.load_tableList(con)
+            dfs = []
+            for tname in tlist:
+                dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
+            return pd.concat(dfs).set_index(dfs[-1].columns[0])
 
-            dfs_src = {}
-            df_ref['corr'] = None
-            for source in ['fantom', 'rna-seq']:
-                tname_scr = '_'.join([source, chromosome, strand])
-                dfs_src[source] = pd.read_sql_query("SELECT * FROM '{}'".format(tname_scr), con)
+        df_mir = merge(con_mir)
+        df_gene = merge(con_gene)
 
-            for idx in df_ref.index:
-                corr = np.corrcoef(dfs_src['fantom'].iloc[idx, 2:], dfs_src['rna-seq'].iloc[idx, 2:])
-                df_ref.loc[idx, 'corr'] = corr[0, 1]
-            df_ref.to_sql(tname, con_out, index=None, if_exists='replace')
+        df_res = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
+        for i, tr in enumerate(df_gene.index):
+            if i % 100 == 0 or i + 1 == df_gene.shape[0]:
+                print('{:0.2f}%'.format(100 * (i + 1) / df_gene.shape[0]))
+
+            for mir in df_mir.index:
+                df_res.loc[tr, mir] = np.corrcoef(df_gene.loc[tr, '10964C':], df_mir.loc[mir, '10964C':])[0, 1]
+        df_res.to_sql('corr', con_out)
+
+    def correlation_gpu(self, hbw):
+        from itertools import product
+
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
+        con_mir = sqlite3.connect(fpath_mir)
+
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
+        con_gene = sqlite3.connect(fpath_gene)
+
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_corr_{}.db'.format(hbw))
+        con_out = sqlite3.connect(fpath_out)
+
+        def merge(con):
+            tlist = Database.load_tableList(con)
+            dfs = []
+            for tname in tlist:
+                dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
+            return pd.concat(dfs).set_index(dfs[-1].columns[0])
+
+        df_mir = merge(con_mir)
+        df_gene = merge(con_gene)
+
+        df_res = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
+        comb = np.array(list((product(range(df_gene.shape[0]), range(df_mir.shape[0])))))
+
+        # gpu
+        THREADS_PER_BLOCK = 1 << 10
+        N = df_gene.shape[0]
+        gene = df_gene.values.flatten().astype(np.int32)
+        gene_gpu = cuda.mem_alloc(gene.nbytes)
+        cuda.memcpy_htod(gene_gpu, gene)
+
+        M = df_mir.shape[0]
+        mir = df_mir.values.flatten().astype(np.int32)
+        mir_gpu = cuda.mem_alloc(mir.nbytes)
+        cuda.memcpy_htod(mir_gpu, mir)
+
+        idx = comb.flatten().astype(np.int32)
+        idx_gpu = cuda.mem_alloc(idx.nbytes)
+        cuda.memcpy_htod(idx_gpu, idx)
+
+        out = np.zeros(df_res.shape)
+        out_gpu = cuda.mem_alloc(out.nbytes)
+        cuda.memcpy_htod(out_gpu, out)
+
+        gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+        func = mod.get_function("cuda_corr")
+        func(gene_gpu, mir_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        cuda.memcpy_dtoh(out, out_gpu)
+        df_res.to_sql('corr', con_out)
 
     def high_correlation(self, hbw=500):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
@@ -569,15 +622,16 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-7810':
+    if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
         from Regression import Regression
         rg = Regression()
-        for hbw in [300, 500]:
-            cor.correlation_fan_rna(hbw)
-            cor.high_correlation(hbw)
-            cor.correlation_fan(hbw, ref='gene')
-            cor.correlation_fan_cpu(hbw, ref='mir')
-            rg.regression(hbw)
+        for hbw in [100, 300, 500]:
+            # cor.correlation_fan_rna(hbw)
+            # cor.high_correlation(hbw)
+            # cor.correlation_fan(hbw, ref='gene')
+            # cor.correlation_fan_cpu(hbw, ref='mir')
+            cor.correlation_gpu(hbw)
+            # rg.regression(hbw)
             # cor.check_high_corr()

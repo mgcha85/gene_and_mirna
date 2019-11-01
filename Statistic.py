@@ -75,18 +75,27 @@ class Statistic:
 
     def tissue_specific_stats(self):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
-        fpath = os.path.join(dirname, 'regression_100.db')
-        con = sqlite3.connect(fpath)
+        bands = [100, 300, 500]
+        df_rep = pd.DataFrame(index=['# transcripts', 'mean', 'std', 'max', 'min', 'median'], columns=['{}bp'.format(x) for x in bands])
 
-        writer = pd.ExcelWriter(fpath.replace('.db', '.xlsx'), engine='xlsxwriter')
-        for tname in ['coefficient']:
-            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
-            sum = (df == 0).sum(axis=0)
-            print('mean: {:0.2f}, std: {:0.2f}, max: {:0.2f}, min: {:0.2f}, median: {:0.2f}'.format(sum.mean(), sum.std(), sum.max(), sum.min(), sum.median()))
-            # sum /= df.shape[0]
-            df.append(sum, ignore_index=True).to_excel(writer, sheet_name=tname, index=None)
-        writer.save()
-        writer.close()
+        for band in bands:
+            fpath = os.path.join(dirname, 'regression_{}.db'.format(band))
+            con = sqlite3.connect(fpath)
+
+            writer = pd.ExcelWriter(fpath.replace('.db', '.xlsx'), engine='xlsxwriter')
+            for tname in ['coefficient']:
+                df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+                sum = (df == 0).sum(axis=0)
+                df_rep.loc['# transcripts', '{}bp'.format(band)] = df.shape[0]
+                df_rep.loc['mean', '{}bp'.format(band)] = sum.mean()
+                df_rep.loc['std', '{}bp'.format(band)] = sum.std()
+                df_rep.loc['max', '{}bp'.format(band)] = sum.max()
+                df_rep.loc['min', '{}bp'.format(band)] = sum.min()
+                df_rep.loc['median', '{}bp'.format(band)] = sum.median()
+                df.append(sum, ignore_index=True).to_excel(writer, sheet_name=tname, index=None)
+            writer.save()
+            writer.close()
+        df_rep.to_excel(os.path.join(dirname, 'regression_stats.xlsx'))
 
 
 if __name__ == '__main__':

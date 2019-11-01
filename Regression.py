@@ -417,7 +417,7 @@ class Regression(DeepLearning):
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         df_inter.to_sql('intercept', con, if_exists='replace')
-        df_coef[set(df_coef.columns)].to_sql('ceofficient', con, if_exists='replace')
+        df_coef[set(df_coef.columns)].to_sql('coefficient', con, if_exists='replace')
 
     def square_error(self, clf, X, Y):
         predictions = clf.predict(X)
@@ -450,7 +450,7 @@ class Regression(DeepLearning):
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
-        df_coef.to_sql('ceofficient', con, if_exists='replace')
+        df_coef.to_sql('coefficient', con, if_exists='replace')
         df_pval.to_sql('p-value', con, if_exists='replace')
         df_inter.to_sql('intercept', con, if_exists='replace')
         print('[{}] {:0.4f}'.format(hbw, clf.score(gene, mir)))
