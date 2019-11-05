@@ -12,6 +12,7 @@ from Database import Database
 from copy import deepcopy
 from joblib import Parallel, delayed
 import multiprocessing
+from scipy.stats import spearmanr
 
 
 hostname = socket.gethostname()
@@ -468,6 +469,7 @@ class Correlation:
             df_ref['start'] = tss - hbw
             df_ref['end'] = tss + hbw
             df_ref['corr'] = None
+            df_ref['pvalue'] = None
 
             N_ = df_ref.shape[0]
             print(chromosome, strand)
@@ -493,38 +495,11 @@ class Correlation:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
 
             for idx in df_buf['fantom'].index:
-                corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
-                df_ref.loc[idx, 'corr'] = corr_coeff[0, 1]
+                # corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
+                rho, pvalue = spearmanr(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
+                df_ref.loc[idx, 'corr'] = rho
+                df_ref.loc[idx, 'pvalue'] = pvalue
             df_ref.dropna(subset=['corr']).to_sql(tname, con_corr_out, index=None, if_exists='replace')
-
-    def correlation(self, hbw):
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
-        con_mir = sqlite3.connect(fpath_mir)
-
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
-        con_gene = sqlite3.connect(fpath_gene)
-
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_corr_{}.db'.format(hbw))
-        con_out = sqlite3.connect(fpath_out)
-
-        def merge(con):
-            tlist = Database.load_tableList(con)
-            dfs = []
-            for tname in tlist:
-                dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
-            return pd.concat(dfs).set_index(dfs[-1].columns[0])
-
-        df_mir = merge(con_mir)
-        df_gene = merge(con_gene)
-
-        df_res = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
-        for i, tr in enumerate(df_gene.index):
-            if i % 100 == 0 or i + 1 == df_gene.shape[0]:
-                print('{:0.2f}%'.format(100 * (i + 1) / df_gene.shape[0]))
-
-            for mir in df_mir.index:
-                df_res.loc[tr, mir] = np.corrcoef(df_gene.loc[tr, '10964C':], df_mir.loc[mir, '10964C':])[0, 1]
-        df_res.to_sql('corr', con_out)
 
     def correlation_gpu(self, hbw):
         from itertools import product
@@ -599,6 +574,44 @@ class Correlation:
         if len(dfs) > 0:
             pd.concat(dfs).to_excel(fpath.replace('.db', '.xlsx'), index=None)
 
+    def high_correlation_mir(self, hbw=500):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines')
+        fpath = os.path.join(dirname, 'sum_fan_corr_{}.db'.format(hbw))
+        con = sqlite3.connect(fpath)
+        df = pd.read_sql("SELECT * FROM 'corr'", con, index_col='transcript_name')
+        df = df.dropna(how='all', axis=1)
+        idx = np.where(df.values > 0.9)
+        df = df.iloc[idx[0], idx[1]]
+        df.to_excel(os.path.join(dirname, 'sum_fan_corr_{}.xlsx'.format(hbw)))
+
+    def get_sample_corr(self, hbw):
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
+        con_mir = sqlite3.connect(fpath_mir)
+
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
+        con_gene = sqlite3.connect(fpath_gene)
+
+        def merge(con):
+            tlist = Database.load_tableList(con)
+            dfs = []
+            for tname in tlist:
+                dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
+            return pd.concat(dfs).set_index(dfs[-1].columns[0])
+
+        df_mir = merge(con_mir)
+        df_gene = merge(con_gene)
+
+        contents = []
+        df_high = pd.read_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'high_corr_gene_mir.xlsx'), index_col=0)
+        for tr in df_high.index[:-1]:
+            for mr in df_high.columns:
+                print(tr, mr)
+                if df_high.loc[tr, mr] > 0.9:
+                    gene = df_gene.loc[tr, "10964C":]
+                    mir = df_mir.loc[mr, "10964C":]
+                    contents.append([mr, tr, ','.join(gene.round(4).astype(str)), ','.join(mir.round(4).astype(str))])
+        pd.DataFrame(data=contents, columns=['miRNA', 'Transcript', 'gene', 'mir']).to_excel('corr_sample.xlsx')
+
     def check_high_corr(self, hbw=100):
         ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         ref_con = sqlite3.connect(ref_path)
@@ -628,10 +641,15 @@ if __name__ == '__main__':
         from Regression import Regression
         rg = Regression()
         for hbw in [100, 300, 500]:
-            # cor.correlation_fan_rna(hbw)
-            # cor.high_correlation(hbw)
-            # cor.correlation_fan(hbw, ref='gene')
-            # cor.correlation_fan_cpu(hbw, ref='mir')
-            cor.correlation_gpu(hbw)
+            cor.correlation_fan_rna(hbw)
+            cor.high_correlation(hbw)
+
+            # cell lines
+            cor.correlation_fan(hbw, ref='gene')
+            cor.correlation_fan_cpu(hbw, ref='mir')
+
+            # cor.correlation_gpu(hbw)
+            # cor.high_correlation_mir(hbw)
+            # cor.get_sample_corr(hbw)
             # rg.regression(hbw)
             # cor.check_high_corr()

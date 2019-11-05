@@ -2,10 +2,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --time=04:00:00
+#SBATCH --cpus-per-task=1
 #SBATCH --error=mchajobresults-%J.err
 #SBATCH --output=mchajobresults-%J.out
-#SBATCH --gres=gpu:1
 #SBATCH --job-name=mcha_tss_map
+#SBATCH --gres=gpu:2
 
 
 # Load modules

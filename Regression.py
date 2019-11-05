@@ -9,6 +9,7 @@ import sqlite3
 from Server import Server
 import sys
 from DeepLearning import DeepLearning
+from Database import Database
 
 
 class Regression(DeepLearning):
@@ -434,10 +435,14 @@ class Regression(DeepLearning):
             print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
         clf = linear_model.Lasso(alpha=0.1)
-        gene = dfs['gene'].iloc[:, 3:].T.values
-        mir = dfs['mir'].iloc[:, 3:].T.values
+        gene = dfs['gene'].loc[:, '10964C':].T.values
+        mir = dfs['mir'].loc[:, '10964C':].T.values
+
+        gene = np.subtract(gene, gene.mean(axis=0))
+        mir = np.subtract(mir, mir.mean(axis=0))
+
         clf.fit(gene, mir)
-        Lasso(alpha=0.1, copy_X=True, fit_intercept=True, max_iter=1000,
+        Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
               normalize=False, positive=False, precompute=False, random_state=None,
               selection='cyclic', tol=1e-3, warm_start=False)
 
@@ -455,6 +460,73 @@ class Regression(DeepLearning):
         df_inter.to_sql('intercept', con, if_exists='replace')
         print('[{}] {:0.4f}'.format(hbw, clf.score(gene, mir)))
 
+    def report(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+        con = sqlite3.connect(fpath)
+        df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_name')
+
+        contents = []
+        for col in df.columns:
+            ser = df[col]
+            ser = ser[ser > 0]
+            contents.append([col, ';'.join(ser.index)])
+
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_100.xlsx')
+        pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_excel(out_path, index=None)
+
+    def add_gene_name(self):
+        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        dfs = []
+        for tname in tlist:
+            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
+        df = pd.concat(dfs)
+
+        res_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_100.xlsx')
+        df_res = pd.read_excel(res_path)
+        df_res['gene_name'] = None
+
+        for idx in df_res.index:
+            if idx % 100 == 0 or idx + 1 == df_res.shape[0]:
+                print('{:0.2f}%'.format(100 * (idx + 1) / df_res.shape[0]))
+            tr = df_res.loc[idx, 'Transcripts']
+            if not isinstance(tr, str):
+                continue
+
+            gnames = []
+            for t in tr.split(';'):
+                gnames.append(df.loc[t, 'gene_name'])
+            df_res.loc[idx, 'gene_name'] = ';'.join(gnames)
+        df_res.to_excel(res_path, index=None)
+
+    def filtering(self):
+        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        dfs = []
+        for tname in tlist:
+            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
+        df_ref = pd.concat(dfs)
+        gene_names = set(df_ref['gene_name'])
+
+        fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.db')
+        con = sqlite3.connect(fpath)
+
+        df = pd.read_sql("SELECT * FROM 'important_genes'", con, index_col='miRNA')
+        for idx in df.index:
+            if df.loc[idx, 'genes'] is None:
+                continue
+
+            genes = set(df.loc[idx, 'genes'].split(';'))
+            df.loc[idx, 'genes (org)'] = ';'.join(genes)
+
+            genes = set.intersection(gene_names, genes)
+            df.loc[idx, 'genes'] = ';'.join(genes)
+        df.to_excel(fpath.replace('.db', '.xlsx'))
+
 
 if __name__ == '__main__':
     rg = Regression()
@@ -465,5 +537,6 @@ if __name__ == '__main__':
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        rg.regression(500)
+        # rg.regression(100)
+        rg.filtering()
         # rg.regression(500)

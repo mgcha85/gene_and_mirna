@@ -74,6 +74,43 @@ class Report:
             df_res[['cov', 'FPKM', 'TPM']] /= len(dfs)
             df_res.to_excel(os.path.join(dirname, 'avg_score.xlsx'), index=None)
 
+    def get_sample_corr(self):
+        from Database import Database
+        import numpy as np
+
+        np.random.seed(0)
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_100.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        dfs = []
+        for tname in tlist:
+            chromosome, strand = tname.split('_')
+            df = pd.read_sql("SELECT * FROM '{}' WHERE transcript_type='protein_coding' AND corr>0.9".format(tname), con)
+            if df.empty:
+                continue
+            df.loc[:, 'chromosome'] = chromosome
+            df.loc[:, 'strand'] = strand
+            dfs.append(df)
+        df = pd.concat(dfs).reset_index(drop=True)
+
+        ridx = np.random.randint(0, df.shape[0], 3)
+        df = df.iloc[ridx]
+
+        fpath_score = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_100.db')
+        con_score = sqlite3.connect(fpath_score)
+
+        contents = []
+        for idx in df.index:
+            chromosome = df.loc[idx, 'chromosome']
+            strand = df.loc[idx, 'strand']
+            start = df.loc[idx, 'start']
+            end = df.loc[idx, 'end']
+            df_fan = pd.read_sql("SELECT * FROM 'fantom_{}_{}' WHERE start={} AND end={}".format(chromosome, strand, start, end), con_score)
+            df_rna = pd.read_sql("SELECT * FROM 'rna-seq_{}_{}' WHERE start={} AND end={}".format(chromosome, strand, start, end), con_score)
+            contents.append([chromosome, strand, start, end, ','.join(df_fan.iloc[0, 2:].round(4).astype(str)), ','.join(df_rna.iloc[0, 2:].round(4).astype(str))])
+        pd.DataFrame(data=contents, columns=['chromosome', 'strand', 'start', 'end', 'fantom', 'rna-seq']).to_excel('3_samples.xlsx', index=None)
+
     def scores_by_tissues(self):
         from Database import Database
 
@@ -106,8 +143,24 @@ class Report:
         writer.save()
         writer.close()
 
+    def to_sql(self):
+        fpath = '/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.txt'
+        df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'corr'])
+        genes = df['genes'].str.split(';')
+        for idx in genes.index:
+            print(idx + 1, genes.shape[0])
+            if isinstance(genes[idx], float):
+                continue
+
+            for i, col in enumerate(genes[idx]):
+                genes[idx][i] = col.split(' /// ')[0]
+        df['genes'] = genes.str.join(';')
+        con = sqlite3.connect(fpath.replace('.txt', '.db'))
+        df.to_sql('important_genes', con, index=None)
+
 
 if __name__ == '__main__':
     rep = Report()
-    rep.to_excel()
+    # rep.to_excel()
+    rep.to_sql()
     # rep.scores_by_tissues()
