@@ -377,53 +377,6 @@ class Regression(DeepLearning):
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
         return pd.concat(dfs)
 
-    def test(self):
-        m, n, p = 10, 3, 6  # gene, mirna, cell lines
-        np.random.seed(0)
-
-        X = np.random.randint(size=(p, m), low=0, high=m)
-        rand_coef = np.random.randint(size=(m, n), low=0, high=m)
-
-        Y = np.matmul(X, rand_coef)
-
-        clf = linear_model.Lasso(alpha=0.1)
-        clf.fit(X, Y)
-
-        Lasso(alpha=0.1, copy_X=True, fit_intercept=True, max_iter=1000,
-              normalize=False, positive=False, precompute=False, random_state=None,
-              selection='cyclic', tol=1e-3, warm_start=False)
-
-        res = np.matmul(X, clf.coef_.T)
-        res = np.add(res, clf.intercept_)
-
-        df_coef = pd.DataFrame(clf.coef_.T)
-        df_int = pd.Series(clf.intercept_)
-        df_rand = pd.DataFrame(res)
-        df_X = pd.DataFrame(X)
-        df_Y = pd.DataFrame(Y)
-        df_rcoef = pd.DataFrame(rand_coef)
-
-        writer = pd.ExcelWriter('regression_test.xlsx', engine='xlsxwriter')
-        for sname, df in zip(['coefficent', 'rand', 'intercept', 'X', 'Y', 'rcoef'], [df_coef, df_rand, df_int, df_X, df_Y, df_rcoef]):
-            df.to_excel(writer, sheet_name=sname)
-
-        writer.save()
-        writer.close()
-
-    def see(self, hbw=100):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw))
-        with open(fpath, 'rb') as f:
-            df_coef, df_inter = pkl.load(f)
-
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
-        con = sqlite3.connect(fpath)
-        df_inter.to_sql('intercept', con, if_exists='replace')
-        df_coef[set(df_coef.columns)].to_sql('coefficient', con, if_exists='replace')
-
-    def square_error(self, clf, X, Y):
-        predictions = clf.predict(X)
-        return (Y - predictions) ** 2
-
     def regression(self, hbw):
         import pickle as pkl
 
@@ -449,9 +402,13 @@ class Regression(DeepLearning):
         with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw)), 'wb') as f:
             pkl.dump(clf, f)
 
+        def square_error(clf, X, Y):
+            predictions = clf.predict(X)
+            return (Y - predictions) ** 2
+
         df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_name']).T
         df_inter = pd.Series(clf.intercept_, index=dfs['mir']['miRNA'])
-        df_pval = pd.DataFrame(self.square_error(clf, gene, mir), index=dfs['mir'].columns[3:], columns=dfs['mir']['miRNA'])
+        df_pval = pd.DataFrame(square_error(clf, gene, mir), index=dfs['mir'].columns[3:], columns=dfs['mir']['miRNA'])
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
