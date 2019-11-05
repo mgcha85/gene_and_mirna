@@ -262,9 +262,10 @@ class Correlation:
                           "end>={start}".format(tname_rsc, chromosome, strand, start=start, end=end)
                     df_buf.loc[tissue, 'FANTOM'] = pd.read_sql_query(sql, con_fan)
                     df_buf.loc[tissue, 'RNA-seq'] = pd.read_sql_query(sql, con_rna)
-                corr = np.corrcoef(df_buf['FANTOM'], df_buf['RNA-seq'])
+                # corr = np.corrcoef(df_buf['FANTOM'], df_buf['RNA-seq'])
+                corr, pvalue = spearmanr(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
                 df_res.loc[idx, :] = [chromosome, start, end, strand, gene_name, transcript_name, transcript_type,
-                                      corr[0, 1]]
+                                      corr]
 
                 df_fan_sum.to_sql('_'.join(['fantom', chromosome, strand]), con_sum_out, index=None, if_exists='replace')
                 df_rna_sum.to_sql('_'.join(['rna', chromosome, strand]), con_sum_out, index=None, if_exists='replace')
@@ -524,33 +525,40 @@ class Correlation:
         df_gene = merge(con_gene)
 
         df_res = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
-        comb = np.array(list((product(range(df_gene.shape[0]), range(df_mir.shape[0])))))
-
-        # gpu
-        THREADS_PER_BLOCK = 1 << 10
-        N = df_gene.shape[0]
-        gene = df_gene.values.flatten().astype(np.int32)
-        gene_gpu = cuda.mem_alloc(gene.nbytes)
-        cuda.memcpy_htod(gene_gpu, gene)
-
-        M = df_mir.shape[0]
-        mir = df_mir.values.flatten().astype(np.int32)
-        mir_gpu = cuda.mem_alloc(mir.nbytes)
-        cuda.memcpy_htod(mir_gpu, mir)
-
-        idx = comb.flatten().astype(np.int32)
-        idx_gpu = cuda.mem_alloc(idx.nbytes)
-        cuda.memcpy_htod(idx_gpu, idx)
-
-        out = np.zeros(df_res.shape)
-        out_gpu = cuda.mem_alloc(out.nbytes)
-        cuda.memcpy_htod(out_gpu, out)
-
-        gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        func = mod.get_function("cuda_corr")
-        func(gene_gpu, mir_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
-        cuda.memcpy_dtoh(out, out_gpu)
+        for mir in df_mir.index:
+            mvalue = df_mir.loc[mir, '10964C':]
+            for gene in df_gene.index:
+                gvalue = df_gene.loc[gene, '10964C':]
+                df_res.loc[mir, gene] = pd.concat([mvalue, gvalue], axis=1).corr(method='spearman').loc[mir, gene]
         df_res.to_sql('corr', con_out)
+
+        # comb = np.array(list((product(range(df_gene.shape[0]), range(df_mir.shape[0])))))
+        #
+        # # gpu
+        # THREADS_PER_BLOCK = 1 << 10
+        # N = df_gene.shape[0]
+        # gene = df_gene.values.flatten().astype(np.int32)
+        # gene_gpu = cuda.mem_alloc(gene.nbytes)
+        # cuda.memcpy_htod(gene_gpu, gene)
+        #
+        # M = df_mir.shape[0]
+        # mir = df_mir.values.flatten().astype(np.int32)
+        # mir_gpu = cuda.mem_alloc(mir.nbytes)
+        # cuda.memcpy_htod(mir_gpu, mir)
+        #
+        # idx = comb.flatten().astype(np.int32)
+        # idx_gpu = cuda.mem_alloc(idx.nbytes)
+        # cuda.memcpy_htod(idx_gpu, idx)
+        #
+        # out = np.zeros(df_res.shape)
+        # out_gpu = cuda.mem_alloc(out.nbytes)
+        # cuda.memcpy_htod(out_gpu, out)
+        #
+        # gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+        # func = mod.get_function("cuda_corr")
+        # func(gene_gpu, mir_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        # cuda.memcpy_dtoh(out, out_gpu)
+        # df_res.to_sql('corr', con_out)
 
     def high_correlation(self, hbw=500):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
@@ -648,8 +656,8 @@ if __name__ == '__main__':
             cor.correlation_fan(hbw, ref='gene')
             cor.correlation_fan_cpu(hbw, ref='mir')
 
-            # cor.correlation_gpu(hbw)
-            # cor.high_correlation_mir(hbw)
-            # cor.get_sample_corr(hbw)
-            # rg.regression(hbw)
-            # cor.check_high_corr()
+            cor.correlation_gpu(hbw)
+            cor.high_correlation_mir(hbw)
+            cor.get_sample_corr(hbw)
+            rg.regression(hbw)
+            cor.check_high_corr()
