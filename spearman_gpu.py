@@ -66,13 +66,9 @@ if hostname != 'mingyu-Precision-Tower-7810':
 
     __device__ float spearman_correlation(float *X, float *Y, float *X_rank, float *Y_rank, const int N)
     {
-        float coeff;
-
         rankify(X, X_rank, N);
         rankify(Y, Y_rank, N);
-        coeff = correlationCoefficient(X_rank, Y_rank, N);
-
-        return coeff;
+        return correlationCoefficient(X_rank, Y_rank, N);
     }
     
     __device__ void print_vector(float *X, const int N)
@@ -86,9 +82,10 @@ if hostname != 'mingyu-Precision-Tower-7810':
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         if (idx >= N * M) return;
         
+        if(idx > 320000) printf("%d\\n", idx);
         int nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
         int midx = index[idx * NUM_IDX + MIDX] * WIDTH;
-        printf("%d, %d\\n", nidx, midx);
+        
         out[idx] = spearman_correlation(&X[nidx], &Y[midx], &X_rank[nidx], &Y_rank[midx], WIDTH);
     }""")
 
