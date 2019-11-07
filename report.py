@@ -144,19 +144,41 @@ class Report:
         writer.close()
 
     def to_sql(self):
-        fpath = '/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.txt'
-        df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'corr'])
-        genes = df['genes'].str.split(';')
-        for idx in genes.index:
-            print(idx + 1, genes.shape[0])
-            if isinstance(genes[idx], float):
-                continue
+        fpath = '/home/mingyu/Bioinformatics/database/human_cell_line_hCAGE_100_score_corr2_with_target_indicator_ts.csv'
+        df = pd.read_csv(fpath)
+        df = df.rename(columns={'GENEs': 'genes_org'})
+        ti = df['Target Indicator'].str.split(';')
+        genes = df['genes_org'].str.split(';')
 
-            for i, col in enumerate(genes[idx]):
-                genes[idx][i] = col.split(' /// ')[0]
-        df['genes'] = genes.str.join(';')
-        con = sqlite3.connect(fpath.replace('.txt', '.db'))
-        df.to_sql('important_genes', con, index=None)
+        for idx in ti.index:
+            tr, gr = ti[idx], genes[idx]
+
+            gs = []
+            for t, g in zip(tr, gr):
+                if t == '1':
+                    gs.append(g)
+
+            gs = ';'.join(gs)
+            df.loc[idx, 'genes'] = gs
+
+        df = df[df['genes'] > '']
+        con = sqlite3.connect('/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.db')
+        df.to_sql('ts', con, index=None, if_exists='replace')
+
+    # def to_sql(self):
+    #     fpath = '/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.txt'
+    #     df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'corr'])
+    #     genes = df['genes'].str.split(';')
+    #     for idx in genes.index:
+    #         print(idx + 1, genes.shape[0])
+    #         if isinstance(genes[idx], float):
+    #             continue
+    #
+    #         for i, col in enumerate(genes[idx]):
+    #             genes[idx][i] = col.split(' /// ')[0]
+    #     df['genes'] = genes.str.join(';')
+    #     con = sqlite3.connect(fpath.replace('.txt', '.db'))
+    #     df.to_sql('important_genes', con, index=None)
 
 
 if __name__ == '__main__':

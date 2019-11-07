@@ -417,8 +417,8 @@ class Regression(DeepLearning):
         df_inter.to_sql('intercept', con, if_exists='replace')
         print('[{}] {:0.4f}'.format(hbw, clf.score(gene, mir)))
 
-    def report(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+    def report(self, hbw):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_name')
 
@@ -427,12 +427,10 @@ class Regression(DeepLearning):
             ser = df[col]
             ser = ser[ser > 0]
             contents.append([col, ';'.join(ser.index)])
+        pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_sql('result', con, if_exists='replace', index=None)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_100.xlsx')
-        pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_excel(out_path, index=None)
-
-    def add_gene_name(self):
-        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.db')
+    def add_gene_name(self, hbw):
+        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -441,8 +439,8 @@ class Regression(DeepLearning):
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
         df = pd.concat(dfs)
 
-        res_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_100.xlsx')
-        df_res = pd.read_excel(res_path)
+        res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw)))
+        df_res = pd.read_sql("SELECT * FROM 'result'", res_con)
         df_res['gene_name'] = None
 
         for idx in df_res.index:
@@ -456,10 +454,10 @@ class Regression(DeepLearning):
             for t in tr.split(';'):
                 gnames.append(df.loc[t, 'gene_name'])
             df_res.loc[idx, 'gene_name'] = ';'.join(gnames)
-        df_res.to_excel(res_path, index=None)
+        df_res.to_sql('result', res_con, if_exists='replace')
 
-    def filtering(self):
-        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.db')
+    def filtering(self, hbw):
+        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -468,21 +466,26 @@ class Regression(DeepLearning):
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
         df_ref = pd.concat(dfs)
         gene_names = set(df_ref['gene_name'])
+        print(len(gene_names))
 
         fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.db')
         con = sqlite3.connect(fpath)
 
-        df = pd.read_sql("SELECT * FROM 'important_genes'", con, index_col='miRNA')
-        for idx in df.index:
-            if df.loc[idx, 'genes'] is None:
-                continue
+        tnames = ['important_genes', 'ts', 'mtb']
+        for tname in tnames:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
+            for idx in df.index:
+                if df.loc[idx, 'genes'] is None:
+                    continue
 
-            genes = set(df.loc[idx, 'genes'].split(';'))
-            df.loc[idx, 'genes (org)'] = ';'.join(genes)
+                genes = set(df.loc[idx, 'genes'].split(';'))
+                df.loc[idx, 'genes (org)'] = ';'.join(sorted(list(genes)))
 
-            genes = set.intersection(gene_names, genes)
-            df.loc[idx, 'genes'] = ';'.join(genes)
-        df.to_excel(fpath.replace('.db', '.xlsx'))
+                genes = set.intersection(gene_names, genes)
+                compl = genes - gene_names
+                print(len(compl))
+                df.loc[idx, 'genes'] = ';'.join(sorted(list(genes)))
+            df.to_sql(tname, con, if_exists='replace')
 
 
 if __name__ == '__main__':
@@ -495,5 +498,4 @@ if __name__ == '__main__':
         # rg.evaluation()
     else:
         # rg.regression(100)
-        rg.filtering()
-        # rg.regression(500)
+        rg.filtering(100)

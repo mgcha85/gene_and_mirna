@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import socket
 from scipy.stats import hypergeom
+import numpy as np
 
 
 class mir_gene:
@@ -51,47 +52,94 @@ class mir_gene:
         df_res = pd.DataFrame(contents, columns=['miRNA', 'Target Gene', 'Species_miRNA', 'Experiments'])
         df_res.to_excel('miRTartBase.xlsx', index=None)
 
-    def comparison(self):
+    def test(self):
         fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.xlsx')
         df_ref = pd.read_excel(fpath, index_col=0)
         df_ref = df_ref.dropna(subset=['genes'])
-        genes = ';'.join(df_ref['genes'])
-        genes = set(genes.split(';'))
 
         df_high = pd.read_excel(os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.xlsx'))
+        high_genes = set(df_high['gene_name'])
 
-        m = df_high.shape[0]
-        common_genes = set.intersection(set(df_high['gene_name']) - genes)
-        n = m - len(common_genes)
+        for idx in df_ref.index:
+            genes = set(df_ref.loc[idx, 'genes'].split(';'))
+            compl = genes - high_genes
+            print(len(compl))
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_100.xlsx')
-        df = pd.read_excel(fpath, index_col=0)
+    def comparison(self, hbw):
+        fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.db')
+        con = sqlite3.connect(fpath)
 
-        mirs = set.intersection(set(df_ref.index), set(df.index))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
+        writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
+        for tname in ['important_genes', 'mtb', 'ts']:
+            df_ref = pd.read_sql("SELECT * FROM '{}' WHERE genes>''".format(tname), con, index_col='miRNA')
+            genes = ';'.join(df_ref['genes'])
+            genes = set(genes.split(';'))
+            genes = [x for x in genes if len(x) > 0]
+            m = len(genes)
 
-        contents = []
-        for mir in mirs:
-            if isinstance(df.loc[mir, 'gene_name'], float):
-                continue
-            genes = set(df.loc[mir, 'gene_name'].split(';'))
+            df_high = pd.read_excel(os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.xlsx'.format(hbw)))
+            high_genes = set(df_high['gene_name'])
+            n = len(high_genes) - m
 
-            if isinstance(df_ref.loc[mir, 'genes'], float):
-                continue
-            genes_ref = set(df_ref.loc[mir, 'genes'].split(';'))
-            contents.append([mir, m, n, len(set.intersection(genes, genes_ref)), len(genes)])
-        pd.DataFrame(contents, columns=['mir', 'N', 'M', 'n', 'm']).to_excel(fpath.replace('.xlsx', '_2.xlsx'), index=None)
+            fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}.xlsx'.format(hbw))
+            df = pd.read_excel(fpath, index_col=0)
+            mirs = set.intersection(set(df_ref.index), set(df.index))
 
-    def phyper(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_100_2.xlsx')
-        df = pd.read_excel(fpath, index_col=0)
+            contents = []
+            for mir in mirs:
+                if isinstance(df.loc[mir, 'gene_name'], float):
+                    continue
 
-        for idx in df.index:
-            p = hypergeom.sf(df.loc[idx, 'n'], df.loc[idx, 'N'] + df.loc[idx, 'M'], df.loc[idx, 'N'], df.loc[idx, 'm'])
-            df.loc[idx, 'phyper'] = p
-        df.to_excel(fpath)
+                genes = set(df.loc[mir, 'gene_name'].split(';'))
+                if isinstance(df_ref.loc[mir, 'genes'], float):
+                    continue
+
+                genes_ref = set(df_ref.loc[mir, 'genes'].split(';'))
+                q = len(set.intersection(genes, genes_ref))
+                k = len(genes)
+                contents.append([mir, m, n, q, k])
+            pd.DataFrame(contents, columns=['mir', 'm', 'n', 'q', 'k']).to_excel(writer, sheet_name=tname, index=None)
+        writer.save()
+        writer.close()
+
+    def phypher(self, hbw):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
+
+        writer = pd.ExcelWriter(fpath, engine='xlsxwriter')
+        for tname in ['important_genes', 'mtb', 'ts']:
+            df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
+            for idx in df.index:
+                p = hypergeom.sf(df.loc[idx, 'q'], df.loc[idx, 'n'] + df.loc[idx, 'm'], df.loc[idx, 'm'], df.loc[idx, 'k'])
+                df.loc[idx, 'phypher'] = -np.log(p)
+            df.to_excel(writer, sheet_name=tname)
+        writer.save()
+        writer.close()
+
+    def plot(self, hbw):
+        import matplotlib.pyplot as plt
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
+        tnames = ['important_genes', 'mtb', 'ts']
+        N = len(tnames)
+        for i, tname in enumerate(tnames):
+            df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
+            df['phypher'] = df['phypher'].replace(-np.inf, np.nan)
+            df = df.dropna(subset=['phypher'])
+
+            xaxis = range(df.shape[0])
+            plt.subplot(N, 1, i+1)
+            plt.scatter(xaxis, df['phypher'])
+            plt.ylabel('log(phypher)')
+            plt.xticks(xaxis, df.index, fontsize=6, rotation=30)
+            plt.title('max: {:0.2f}, min: {:0.2f}, mean: {:0.2f}'.format(df['phypher'].max(), df['phypher'].min(), df['phypher'].mean()))
+            # plt.savefig(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'log_phypher.png'))
+        plt.show()
 
 
 if __name__ == '__main__':
     mg = mir_gene()
-    mg.comparison()
-    mg.phyper()
+    # mg.test()
+    mg.comparison(100)
+    mg.phypher(100)
+    mg.plot(100)
