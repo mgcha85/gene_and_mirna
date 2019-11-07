@@ -26,17 +26,14 @@ if hostname != 'mingyu-Precision-Tower-7810':
     #include <stdio.h>
     #include <math.h>
 
-    enum{REF_START, REF_END, REF_WIDTH};
-    enum{START, END, SCORE, WIDTH};
-    enum{SUM1, SUM2, OUT_WIDTH};
-
-    #define NUM_CELLLINE  240
+    enum{NIDX, MIDX, NUM_IDX};
+    #define WIDTH  240
 
     __device__ void rankify(float *X, float *Rank_X, const int N) {
         for(int i=0; i<N; i++)
         {
             int r=1, s=1;
-
+            
             for(int j=0; j<i; j++) {
                 if(X[j] < X[i]) r++;
                 if(X[j] == X[i]) s++;
@@ -75,9 +72,24 @@ if hostname != 'mingyu-Precision-Tower-7810':
         rankify(Y, Y_rank, N);
         coeff = correlationCoefficient(X_rank, Y_rank, N);
 
-        free(X_rank);
-        free(Y_rank);
         return coeff;
+    }
+    
+    __device__ void print_vector(float *X, const int N)
+    {
+        for(int i=0; i<N; i++)
+            printf("%f\\n", X[i]);
+    }
+    
+    __global__ void cuda_spearman(float *X, float *Y, float *X_rank, float *Y_rank, int *index, float *out, const int N, const int M)
+    {
+        int idx = threadIdx.x + blockIdx.x * blockDim.x;
+        if (idx >= N * M) return;
+        
+        int nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
+        int midx = index[idx * NUM_IDX + MIDX] * WIDTH;
+        printf("%d, %d\\n", nidx, midx);
+        out[idx] = spearman_correlation(&X[nidx], &Y[midx], &X_rank[nidx], &Y_rank[midx], WIDTH);
     }""")
 
 
@@ -114,37 +126,41 @@ class Spearman:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
-    def run(self, X, Y, df_out):
+    def run(self, X, Y):
         # X, Y: pandas DataFrame
-
         comb = np.array(list((product(range(X.shape[0]), range(Y.shape[0])))))
 
         # gpu
         THREADS_PER_BLOCK = 1 << 10
-        N = X.shape[0]
-        gene = X.values.flatten().astype(np.int32)
+        N = np.int32(X.shape[0])
+        gene = X.values.flatten().astype(np.float32)
         gene_gpu = cuda.mem_alloc(gene.nbytes)
         cuda.memcpy_htod(gene_gpu, gene)
 
-        M = Y.shape[0]
-        mir = Y.values.flatten().astype(np.int32)
+        gene_rank_gpu = cuda.mem_alloc(gene.nbytes)
+        cuda.memcpy_htod(gene_rank_gpu, gene)
+
+        M = np.int32(Y.shape[0])
+        mir = Y.values.flatten().astype(np.float32)
         mir_gpu = cuda.mem_alloc(mir.nbytes)
         cuda.memcpy_htod(mir_gpu, mir)
+
+        mir_rank_gpu = cuda.mem_alloc(mir.nbytes)
+        cuda.memcpy_htod(mir_rank_gpu, mir)
 
         idx = comb.flatten().astype(np.int32)
         idx_gpu = cuda.mem_alloc(idx.nbytes)
         cuda.memcpy_htod(idx_gpu, idx)
 
-        out = np.zeros(df_out.shape)
+        out = np.zeros(N * M).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 
         gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        func = mod.get_function("cuda_corr")
-        func(gene_gpu, mir_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        func = mod.get_function("cuda_spearman")
+        func(gene_gpu, mir_gpu, gene_rank_gpu, mir_rank_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out, out_gpu)
-        df_out.values = out
-        return df_out
+        return out.reshape((N, M))
 
     def test(self, hbw):
         fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
@@ -165,8 +181,7 @@ class Spearman:
 
         df_mir = merge(con_mir)
         df_gene = merge(con_gene)
-        df_out = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
-        df_out = self.run(df_gene, df_mir, df_out)
+        df_out = pd.DataFrame(data=self.run(df_gene.loc[:, '10964C':], df_mir.loc[:, '10964C':]), index=df_gene.index, columns=df_mir.index)
         df_out.to_sql('corr', con_out, if_exists='replace')
 
 
