@@ -87,57 +87,36 @@ class Convert:
             dfs.append(df)
         return pd.concat(dfs).set_index(attr.index)
 
-    def gtf_to_db(self, fpath, con):
+    def gtf_to_db(self, fpath, con, split=True):
         columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
 
         df_chunk = pd.read_csv(fpath, sep='\t', names=columns, comment='#')
-        attr = df_chunk['attribute'].str.replace('"', '').str.split('; ')
-        df_attr = self.get_attr(attr)
-        df = pd.concat([df_chunk.drop('attribute', axis=1), df_attr], axis=1)
+        df_chunk = df_chunk[df_chunk['feature'] == 'transcript']
+        df_chunk = df_chunk[df_chunk['attribute'].str.contains('reference_id')]
+        attr = df_chunk['attribute'].str.replace('"', '').str.split('; ', expand=True)
+        labels = []
+        for col in attr.columns:
+            cols = attr[col].str.split(' ', expand=True)
+            attr[col] = cols[1]
+            labels.append(cols.iloc[0, 0])
+        attr.columns = labels
+        attr[labels[-1]] = attr[labels[-1]].str.replace(';', '')
 
-        for chr, df_chr in df.groupby('chromosome'):
-            for str, df_str in df_chr.groupby('strand'):
-                tname = '_'.join([chr, str])
-                try:
-                    df_str.to_sql(tname, con, if_exists='append', index=None)
-                except:
-                    df_org = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
-                    df_str = pd.concat([df_str, df_org])
-                    df_str.to_sql(tname, con, if_exists='replace', index=None)
-
-    # def gtf_to_db(self, gtf_file, con):
-    #     gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
-    #     dirname, fname = os.path.split(gtf_file)
-    #
-    #     df = pd.read_csv(gtf_file, names=gtf_columns, comment='#', sep='\t')
-    #     df = df[df['feature'] == 'transcript'].reset_index(drop=True)
-    #     df['chromosome'] = 'chr' + df['chromosome'].astype('str')
-    #     attribute = df['attribute'].str.split('; ')
-    #
-    #     pkm = []
-    #     for idx in attribute.index:
-    #         attr = attribute[idx]
-    #         dict = {}
-    #         for a in attr:
-    #             key, value = a.split(' ')
-    #             dict[key] = value.replace('"', '')
-    #
-    #         row = [idx, None, None, None, dict['cov'], dict['FPKM'], dict['TPM'].replace(';', '')]
-    #         if 'ref_gene_name' in dict:
-    #             row[1] = dict['ref_gene_name']
-    #             row[2] = dict['transcript_id']
-    #             row[3] = dict['transcript_name']
-    #         pkm.append(row)
-    #
-    #     df_res = pd.DataFrame(data=pkm, columns=['index', 'gene_name', 'transcript_id', 'transcript_name', 'cov', 'FPKM', 'TPM'])
-    #     df_res = df_res.set_index('index', drop=True)
-    #     df = pd.concat([df, df_res], axis=1)
-    #
-    #     df = df.drop(['attribute', 'frame'], axis=1)
-    #     for chr, df_chr in df.groupby('chromosome'):
-    #         for str, df_str in df_chr.groupby('strand'):
-    #             tname = '_'.join([os.path.splitext(fname)[0], chr, str])
-    #             df_str.sort_values(by=['start', 'end']).to_sql(tname, con, index=None)
+        df = pd.concat([df_chunk.drop('attribute', axis=1), attr], axis=1)
+        df['chromosome'] = 'chr' + df['chromosome'].astype('str')
+        dirname, fname = os.path.split(fpath)
+        if split is False:
+            df.to_sql(os.path.splitext(fname)[0], con, if_exists='replace', index=None)
+        else:
+            for chr, df_chr in df.groupby('chromosome'):
+                for str, df_str in df_chr.groupby('strand'):
+                    tname = '_'.join([chr, str])
+                    try:
+                        df_str.to_sql(tname, con, if_exists='append', index=None)
+                    except:
+                        df_org = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+                        df_str = pd.concat([df_str, df_org])
+                        df_str.to_sql(tname, con, if_exists='replace', index=None)
 
     def correlation_replicates(self, df, cols):
         from itertools import combinations
@@ -150,7 +129,8 @@ class Convert:
 
     def avg_rna_seq_by_tissues(self):
         df = pd.read_excel('RNA-seq_data_structure.xlsx')
-        columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'gene_name', 'transcript_id', 'transcript_name']
+        columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'ref_gene_id',
+                   'ref_gene_name']
 
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db')
         con = sqlite3.connect(fpath)
@@ -161,8 +141,8 @@ class Convert:
             dfs = []
             index = []
             for fid in df_src['fid']:
-                df_fid = pd.read_sql_query("SELECT * FROM '{}' WHERE FPKM>''".format(fid), con)
-                df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
+                df_fid = pd.read_sql_query("SELECT * FROM '{}'".format(fid), con, index_col='reference_id')
+                # df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
                 index.append(set(df_fid.index))
                 dfs.append(df_fid)
 
@@ -180,7 +160,8 @@ class Convert:
             report.to_excel(writer, sheet_name=src)
 
             df_res['FPKM'] = df_res[cols].mean(axis=1)
-            df_res.to_sql(src, con_out, if_exists='replace', index=None)
+            df_res.index.name = 'reference_id'
+            df_res.drop(['frame', 'gene_id', 'transcript_id', 'cov', 'TPM'], axis=1).to_sql(src, con_out, if_exists='replace')
         writer.save()
         writer.close()
 
@@ -329,7 +310,7 @@ class Convert:
         flist = [x for x in os.listdir(dirname + '/gtf') if x.endswith('.gtf')]
         con = sqlite3.connect(os.path.join(dirname, 'out', 'RNA_seq.db'))
         for fname in flist:
-            self.gtf_to_db(os.path.join(dirname, 'gtf', fname), con)
+            self.gtf_to_db(os.path.join(dirname, 'gtf', fname), con, split=False)
 
     def run(self):
         # dirname = '/media/mingyu/70d1e04c-943d-4a45-bff0-f95f62408599/Bioinformatics/database/RNA-seq/bam/1'
@@ -344,13 +325,16 @@ class Convert:
 
 if __name__ == '__main__':
     con = Convert()
-    if con.hostname == 'mingyu-Precision-Tower-781':
+    if con.hostname == 'mingyu-Precision-Tower-7810':
         con.to_server()
 
     else:
+        # dirname = os.path.join(con.root, 'database', 'RNA-seq')
+        # con.gtf_to_db_all(dirname)
         # con.stats_by_tissue()
-        # con.avg_rna_seq_by_tissues()
-        con.avg_fantom_by_tissue()
+        con.avg_rna_seq_by_tissues()
+
+        # con.avg_fantom_by_tissue()
 
         # from Util import Util
         # from Database import Database
@@ -362,7 +346,7 @@ if __name__ == '__main__':
         # for tname in tlist:
         #     ut.split(fpath, tname)
 
-        con.avg_fantom_by_celllines()
+        # con.avg_fantom_by_celllines()
 
         # from Correlation_gpu import Correlation
         # cor = Correlation()
@@ -372,9 +356,6 @@ if __name__ == '__main__':
         # fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
         # conn = sqlite3.connect(fpath.replace('.gtf', '.db'))
         # con.gtf_to_db(fpath, conn)
-
-        # dirname = os.path.join(con.root, 'database', 'RNA-seq')
-        # con.gtf_to_db_all(dirname)
 
         # con.avg_rna_seq_by_celllines()
         # dirname = os.path.join(con.root, 'database', 'RNA-seq', 'bam')

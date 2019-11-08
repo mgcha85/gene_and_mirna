@@ -15,124 +15,6 @@ import multiprocessing
 from scipy.stats import spearmanr
 
 
-hostname = socket.gethostname()
-if hostname != 'mingyu-Precision-Tower-7810':
-    import pycuda.driver as cuda
-    import pycuda.autoinit
-    from pycuda.compiler import SourceModule
-
-    mod = SourceModule("""
-    #include <stdio.h>
-    #include <math.h>
-
-    enum{REF_START, REF_END, REF_WIDTH};
-    enum{START, END, SCORE, WIDTH};
-    enum{SUM1, SUM2, OUT_WIDTH};
-
-    #define NUM_CELLLINE  240
-
-    __device__ void rankify(float *X, float *Rank_X, const int N) {
-        for(int i=0; i<N; i++)
-        {
-            int r=1, s=1;
-
-            for(int j=0; j<i; j++) {
-                if(X[j] < X[i]) r++;
-                if(X[j] == X[i]) s++;
-            }
-            for(int j=i+1; j<N; j++) {
-                if (X[j] < X[i]) r++;
-                if (X[j] == X[i]) s++;
-            }
-            Rank_X[i] = r + (s-1) * 0.5;
-        }
-    }
-
-    __device__ float correlationCoefficient(float *X, float *Y, const int N)
-    {
-        float sum_X=0, sum_Y=0, sum_XY=0;
-        float squareSum_X=0, squareSum_Y=0;
-
-        for(int i=0; i<N; i++)
-        {
-            sum_X = sum_X + X[i];
-            sum_Y = sum_Y + Y[i];
-            sum_XY = sum_XY + X[i] * Y[i];
-
-            // sum of square of array elements.
-            squareSum_X = squareSum_X + X[i] * X[i];
-            squareSum_Y = squareSum_Y + Y[i] * Y[i];
-        }
-        return (N*sum_XY-sum_X*sum_Y) / sqrt((N*squareSum_X-sum_X*sum_X) * (N*squareSum_Y-sum_Y*sum_Y));
-    }
-
-    __device__ float spearman_correlation(float *X, float *Y, const int N)
-    {
-        float *X_rank = (float*) malloc(sizeof(float) * N);
-        float *Y_rank = (float*) malloc(sizeof(float) * N);
-        float coeff;
-
-        rankify(X, X_rank, N);
-        rankify(Y, Y_rank, N);
-        coeff = correlationCoefficient(X_rank, Y_rank, N);
-
-        free(X_rank);
-        free(Y_rank);
-        return coeff;
-    }
-
-    __device__ int binary_search(float *X, int val, int N)
-    {
-        int start = 0;
-        int end = N - 1;
-
-        while(start < end) {
-            if(start == end) return start;
-
-            int mid = (start + end) / 2;
-            if(X[mid] > val)    start = mid + 1;
-            else    end = mid - 1;
-        }
-        return -1;
-    }
-
-    __device__ float get_sum(int start, int end, float *X_rsc_gpu, const int N)
-    {
-        float sum = 0;
-        int rsc_start, rsc_end;
-        for(int i=0; i<N; i++) {
-            rsc_start = X_rsc_gpu[i * WIDTH + START];
-            rsc_end = X_rsc_gpu[i * WIDTH + END];
-
-            if(rsc_end < start) continue;
-            else if(rsc_start > end) break;
-            else {sum += X_rsc_gpu[i * WIDTH + SCORE];}
-        }
-        return sum;
-    }
-
-    __global__ void cuda_corr(float *X1, float *X2, float index, float *out, const int N, const int M)
-    {
-        int idx = threadIdx.x + blockIdx.x * blockDim.x;
-        if (idx >= N * M) return;
-
-        int offset = NUM_CELLLINE * idx;
-        out[idx] = correlationCoefficient(&X1[offset], &X2[offset], NUM_CELLLINE);        
-    }
-
-    __global__ void cuda_sum(int *X_ref_gpu, float *X_rsc_gpu1, float *X_rsc_gpu2, float *out_buffer_gpu, int N, int M1, int M2)
-    {
-        int idx = threadIdx.x + blockIdx.x * blockDim.x;
-        if (idx >= N) return;
-
-        int ref_start = X_ref_gpu[idx * REF_WIDTH + REF_START];
-        int ref_end = X_ref_gpu[idx * REF_WIDTH + REF_END];
-
-        out_buffer_gpu[idx * OUT_WIDTH + SUM1] = get_sum(ref_start, ref_end, X_rsc_gpu1, M1);
-        out_buffer_gpu[idx * OUT_WIDTH + SUM2] = get_sum(ref_start, ref_end, X_rsc_gpu2, M2);
-    }""")
-
-
 class Correlation:
     def __init__(self):
         self.hostname = socket.gethostname()
@@ -166,7 +48,14 @@ class Correlation:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
-    def correlation_fan_rna(self, hbw=100):
+    def correlation_fan_rna(self, hbw=100, corr='spearman'):
+        if corr == 'spearman':
+            from correlation_gpu import Spearman
+            corr = Spearman(self.root)
+        else:
+            from correlation_gpu import Pearson
+            corr = Pearson(self.root)
+
         # tissue list
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
         df_tis = pd.read_excel(fpath, sheet_name='Sheet1')
@@ -200,8 +89,8 @@ class Correlation:
                 continue
 
             sql = "SELECT start, end, gene_id, gene_name, gene_type, transcript_id, transcript_type, transcript_name " \
-                  "FROM '{}' WHERE feature='transcript'"
-            df_ref = pd.read_sql_query(sql.format(tname), ref_con)
+                  "FROM '{}' WHERE feature='transcript' AND transcript_type='protein_coding'"
+            df_ref = pd.read_sql_query(sql.format(tname), ref_con, index_col='transcript_id')
             if df_ref.empty:
                 continue
 
@@ -226,25 +115,23 @@ class Correlation:
 
             for i, tissue in enumerate(tissues):
                 tname_rsc = '_'.join([tissue, chromosome, strand])
-                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}'"
                                            "".format(tname_rsc, chromosome, strand), con_fan).sort_values(by=['start'])
-                df_rna = pd.read_sql_query("SELECT start, end, FPKM FROM '{}' WHERE chromosome='{}' AND strand='{}'"
-                                           "".format(tname_rsc, chromosome, strand), con_rna).sort_values(by=['start'])
-                df_rna = df_rna[['start', 'end', 'FPKM']].rename(columns={"FPKM": "score"})
+                df_rna = pd.read_sql_query("SELECT start, end, FPKM, reference_id FROM '{}'"
+                                           "".format(tname_rsc, chromosome, strand), con_rna, index_col='reference_id').sort_values(by=['start'])
+                tid = set.intersection(set(df_ref.index), set(df_rna.index))
+                df_buf['rna-seq'].loc[tid, tissue] = df_rna.loc[tid, 'FPKM']
 
-                for src, df_src in zip(['fantom', 'rna-seq'], [df_fan, df_rna]):
+                for src, df_src in zip(['fantom'], [df_fan]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
 
             df_buf = self.filtering(df_buf)
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, index=None, if_exists='replace')
 
-            for idx in df_buf['fantom'].index:
-                # corr_coeff = np.corrcoef(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
-                rho, pvalue = spearmanr(df_buf['fantom'].loc[idx, tissues], df_buf['rna-seq'].loc[idx, tissues])
-                df_ref.loc[idx, 'corr'] = rho
-                df_ref.loc[idx, 'pvalue'] = pvalue
-            df_ref.dropna(subset=['corr']).to_sql(tname, con_corr_out, index=None, if_exists='replace')
+            df_ref = pd.DataFrame(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues]),
+                                  index=df_buf['fantom'].index, columns=df_buf['rna-seq'].index)
+            df_ref.dropna(subset=['corr']).to_sql(tname, con_corr_out, if_exists='replace')
 
     def high_correlation_by_thres(self, hbw=500):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
@@ -534,8 +421,9 @@ class Correlation:
             pd.concat([df_ref[['miRNA', 'start', 'end']], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
 
     def correlation_gpu(self, hbw):
-        from itertools import product
-
+        from spearman_gpu import Spearman
+        spear = Spearman(self.root)
+        
         fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
         con_mir = sqlite3.connect(fpath_mir)
 
@@ -554,43 +442,8 @@ class Correlation:
 
         df_mir = merge(con_mir)
         df_gene = merge(con_gene)
-
-        df_res = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
-        for i, mir in enumerate(df_mir.index):
-            print('{} / {}'.format(i + 1, df_mir.shape[0]))
-            mvalue = df_mir.loc[mir, '10964C':]
-            for gene in df_gene.index:
-                gvalue = df_gene.loc[gene, '10964C':]
-                df_res.loc[gene, mir] = pd.concat([mvalue, gvalue], axis=1).corr(method='spearman').loc[mir, gene]
-        df_res.to_sql('corr', con_out, if_exists='replace')
-
-        # comb = np.array(list((product(range(df_gene.shape[0]), range(df_mir.shape[0])))))
-        #
-        # # gpu
-        # THREADS_PER_BLOCK = 1 << 10
-        # N = df_gene.shape[0]
-        # gene = df_gene.values.flatten().astype(np.int32)
-        # gene_gpu = cuda.mem_alloc(gene.nbytes)
-        # cuda.memcpy_htod(gene_gpu, gene)
-        #
-        # M = df_mir.shape[0]
-        # mir = df_mir.values.flatten().astype(np.int32)
-        # mir_gpu = cuda.mem_alloc(mir.nbytes)
-        # cuda.memcpy_htod(mir_gpu, mir)
-        #
-        # idx = comb.flatten().astype(np.int32)
-        # idx_gpu = cuda.mem_alloc(idx.nbytes)
-        # cuda.memcpy_htod(idx_gpu, idx)
-        #
-        # out = np.zeros(df_res.shape)
-        # out_gpu = cuda.mem_alloc(out.nbytes)
-        # cuda.memcpy_htod(out_gpu, out)
-        #
-        # gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
-        # func = mod.get_function("cuda_corr")
-        # func(gene_gpu, mir_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
-        # cuda.memcpy_dtoh(out, out_gpu)
-        # df_res.to_sql('corr', con_out)
+        df_out = pd.DataFrame(data=spear.run(df_gene.loc[:, '10964C':], df_mir.loc[:, '10964C':]), index=df_gene.index, columns=df_mir.index)
+        df_out.to_sql('corr', con_out, if_exists='replace')
 
     def high_correlation_mir(self, hbw=500):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines')
@@ -680,23 +533,23 @@ if __name__ == '__main__':
         mg = mir_gene()
         # cor.high_correlation_by_thres(100)
 
-        for hbw in [500]:
-            # cor.correlation_fan_rna(hbw)
-            # cor.high_correlation(hbw, 0.8)
+        for hbw in [100, 300, 500]:
+            cor.correlation_fan_rna(hbw)
+            cor.high_correlation(hbw, 0.8)
             # cor.get_sample_corr(hbw)
             # # cor.plot_sample()
             #
             # # cell lines
             # cor.sum_fan(hbw, ref='gene')
             # cor.sum_fan_cpu(hbw, ref='mir')
-
-            cor.correlation_gpu(hbw)
-
-            rg.regression(hbw)
-            rg.report(hbw)
-            rg.add_gene_name(hbw)
-            rg.filtering(hbw)
-
-            mg.comparison(hbw)
-            mg.phypher(hbw)
-            mg.plot(hbw)
+            #
+            # cor.correlation_gpu(hbw)
+            #
+            # rg.regression(hbw)
+            # rg.report(hbw)
+            # rg.add_gene_name(hbw)
+            # rg.filtering(hbw)
+            #
+            # mg.comparison(hbw)
+            # mg.phypher(hbw)
+            # mg.plot(hbw)

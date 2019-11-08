@@ -143,46 +143,74 @@ class Report:
         writer.save()
         writer.close()
 
-    def to_sql(self):
-        fpath = '/home/mingyu/Bioinformatics/database/human_cell_line_hCAGE_100_score_corr2_with_target_indicator_ts.csv'
-        df = pd.read_csv(fpath)
-        df = df.rename(columns={'GENEs': 'genes_org'})
-        ti = df['Target Indicator'].str.split(';')
-        genes = df['genes_org'].str.split(';')
+    def to_sql_each(self):
+        fpath = '/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.txt'
+        df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'coeff'])
+        genes = df['genes'].str.split(';')
+        corrs = df['coeff'].str.split(';')
 
-        for idx in ti.index:
-            tr, gr = ti[idx], genes[idx]
+        con = sqlite3.connect(fpath.replace('.txt', '.db'))
+        for idx in genes.index:
+            print(idx + 1, genes.shape[0])
+            if isinstance(genes[idx], float):
+                continue
 
             gs = []
-            for t, g in zip(tr, gr):
-                if t == '1':
-                    gs.append(g)
+            for i, col in enumerate(genes[idx]):
+                if ' /// ' in col:
+                    gs.append(col.split(' /// ')[0])
+                else:
+                    gs.append(col)
 
-            gs = ';'.join(gs)
-            df.loc[idx, 'genes'] = gs
-
-        df = df[df['genes'] > '']
-        con = sqlite3.connect('/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.db')
-        df.to_sql('ts', con, index=None, if_exists='replace')
+            ser = pd.DataFrame(data=[corrs[idx]], columns=gs, index=['coeff']).T
+            ser.index.name = 'gene'
+            ser.to_sql(df.loc[idx, 'miRNA'], con, if_exists='replace')
 
     # def to_sql(self):
-    #     fpath = '/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.txt'
-    #     df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'corr'])
-    #     genes = df['genes'].str.split(';')
-    #     for idx in genes.index:
-    #         print(idx + 1, genes.shape[0])
-    #         if isinstance(genes[idx], float):
-    #             continue
+    #     fpath = '/home/mingyu/Bioinformatics/database/human_cell_line_hCAGE_100_score_corr2_with_target_indicator_ts.csv'
+    #     df = pd.read_csv(fpath)
+    #     df = df.rename(columns={'GENEs': 'genes_org'})
+    #     ti = df['Target Indicator'].str.split(';')
+    #     genes = df['genes_org'].str.split(';')
     #
-    #         for i, col in enumerate(genes[idx]):
-    #             genes[idx][i] = col.split(' /// ')[0]
-    #     df['genes'] = genes.str.join(';')
-    #     con = sqlite3.connect(fpath.replace('.txt', '.db'))
-    #     df.to_sql('important_genes', con, index=None)
+    #     for idx in ti.index:
+    #         tr, gr = ti[idx], genes[idx]
+    #
+    #         gs = []
+    #         for t, g in zip(tr, gr):
+    #             if t == '1':
+    #                 gs.append(g)
+    #
+    #         gs = ';'.join(gs)
+    #         df.loc[idx, 'genes'] = gs
+    #
+    #     df = df[df['genes'] > '']
+    #     con = sqlite3.connect('/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.db')
+    #     df.to_sql('ts', con, index=None, if_exists='replace')
+
+    def to_sql(self):
+        fpath = '/home/mingyu/Bioinformatics/database/important_genes_from_Amlan.txt'
+        df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'corr'])
+        genes = df['genes'].str.split(';')
+        for idx in genes.index:
+            print(idx + 1, genes.shape[0])
+            if isinstance(genes[idx], float):
+                continue
+
+            gs = []
+            for i, col in enumerate(genes[idx]):
+                if ' /// ' in col:
+                    gs.append(col.split(' /// ')[0])
+                else:
+                    gs.append(col)
+            df.loc[idx, 'genes'] = ';'.join(gs)
+        con = sqlite3.connect(fpath.replace('.txt', '.db'))
+        df = df.sort_values('miRNA')
+        df.to_sql('important_genes', con, index=None, if_exists='replace')
 
 
 if __name__ == '__main__':
     rep = Report()
     # rep.to_excel()
-    rep.to_sql()
+    rep.to_sql_each()
     # rep.scores_by_tissues()

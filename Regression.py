@@ -468,10 +468,10 @@ class Regression(DeepLearning):
         gene_names = set(df_ref['gene_name'])
         print(len(gene_names))
 
-        fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.db')
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
         con = sqlite3.connect(fpath)
 
-        tnames = ['important_genes', 'ts', 'mtb']
+        tnames = ['miRTartBase_hsa']
         for tname in tnames:
             df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
             for idx in df.index:
@@ -480,11 +480,13 @@ class Regression(DeepLearning):
 
                 genes = set(df.loc[idx, 'genes'].split(';'))
                 df.loc[idx, 'genes (org)'] = ';'.join(sorted(list(genes)))
+                df.loc[idx, '#genes (org)'] = len(genes)
 
                 genes = set.intersection(gene_names, genes)
                 compl = genes - gene_names
                 print(len(compl))
                 df.loc[idx, 'genes'] = ';'.join(sorted(list(genes)))
+                df.loc[idx, '#genes'] = len(genes)
             df.to_sql(tname, con, if_exists='replace')
 
 

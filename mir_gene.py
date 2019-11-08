@@ -16,6 +16,28 @@ class mir_gene:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
+    def to_server(self):
+        from Server import Server
+        import sys
+
+        which = 'newton'
+        server = Server(self.root, which=which)
+        server.connect()
+
+        local_path = sys.argv[0]
+        dirname, fname = os.path.split(local_path)
+        curdir = os.getcwd().split('/')[-1]
+        server_root = os.path.join(server.server, 'source', curdir)
+        server_path = local_path.replace(dirname, server_root)
+
+        server.job_script(fname, src_root=server_root, time='08:00:00')
+        server.upload(local_path, server_path)
+        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+
+        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
+        print('job ID: {}'.format(job))
+
     def to_sql(self):
         fpath = "/home/mingyu/Bioinformatics/database/feature_info.txt"
         df = pd.read_csv(fpath, sep='\t', names=['Target Gene', 'miRNA', 'binding energy', 'structural accessibility', 'context score'])
@@ -38,7 +60,7 @@ class mir_gene:
         df_res.to_excel('target_scan.xlsx', index=None)
 
     def mirTarbase(self):
-        fpath = os.path.join(self.root, 'database', 'feature_info.db')
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
         con = sqlite3.connect(fpath)
         df = pd.read_sql("SELECT * FROM 'miRTarBase' WHERE miRNA LIKE '%hsa%'", con)
         df_grp = df.groupby('miRNA')
@@ -48,9 +70,36 @@ class mir_gene:
             tg = df_sub['Target Gene']
             sm = df_sub['Species_miRNA']
             ex = df_sub['Experiments']
-            contents.append([mir, ';'.join(tg), ';'.join(sm), ';'.join(ex)])
+            contents.append([mir.lower(), ';'.join(tg), ';'.join(sm), ';'.join(ex)])
         df_res = pd.DataFrame(contents, columns=['miRNA', 'Target Gene', 'Species_miRNA', 'Experiments'])
-        df_res.to_excel('miRTartBase.xlsx', index=None)
+        df_res = df_res.sort_values(by=['miRNA'])
+        df_res = df_res[df_res['Target Gene'] > '']
+        df_res.to_sql('miRTartBase_hsa', con, index=None, if_exists='replace')
+        # df_res.to_excel('miRTartBase.xlsx', index=None)
+
+    def targetscan(self):
+        fpath = os.path.join(self.root, 'database', 'Predicted_Targets_Info.default_predictions.txt')
+        df = pd.read_csv(fpath, sep='\t')
+
+        mir_fam = df['miR Family'].str.split('/')
+
+        contents = []
+        for idx in mir_fam.index:
+            if idx % 1000 == 0 or idx + 1 == mir_fam.shape[0]:
+                print('{:,d} / {:,d}'.format(idx, mir_fam.shape[0]))
+            for i, val in enumerate(mir_fam.loc[idx]):
+                if i > 0:
+                    if val[0] != 'm':
+                        val = 'mir-' + val
+                contents.append([val.lower(), *df.loc[idx, ['Gene ID', 'Gene Symbol', 'Transcript ID']]])
+
+        df = pd.DataFrame(contents, columns=['miRNA', 'Gene ID', 'Gene Symbol', 'Transcript ID'])
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
+        con = sqlite3.connect(fpath)
+
+        df['miRNA'] = 'hsa-' + df['miRNA']
+        df = df.sort_values(by=['miRNA'])
+        df.to_sql('target_scan', con, index=None, if_exists='replace')
 
     def test(self):
         fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.xlsx')
@@ -66,24 +115,21 @@ class mir_gene:
             print(len(compl))
 
     def comparison(self, hbw):
-        fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.db')
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
         con = sqlite3.connect(fpath)
 
         out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
-        for tname in ['important_genes', 'mtb', 'ts']:
+        for tname in ['miRTartBase_hsa']:
             df_ref = pd.read_sql("SELECT * FROM '{}' WHERE genes>''".format(tname), con, index_col='miRNA')
-            genes = ';'.join(df_ref['genes'])
-            genes = set(genes.split(';'))
-            genes = [x for x in genes if len(x) > 0]
-            m = len(genes)
 
             df_high = pd.read_excel(os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.xlsx'.format(hbw)))
             high_genes = set(df_high['gene_name'])
-            n = len(high_genes) - m
+            N = len(high_genes)
 
             fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}.xlsx'.format(hbw))
             df = pd.read_excel(fpath, index_col=0)
+            df = df.dropna(subset=['Transcripts'])
             mirs = set.intersection(set(df_ref.index), set(df.index))
 
             contents = []
@@ -96,6 +142,9 @@ class mir_gene:
                     continue
 
                 genes_ref = set(df_ref.loc[mir, 'genes'].split(';'))
+                genes_ref = [x for x in genes_ref if len(x) > 0]
+                m = len(genes_ref)
+                n = N - m
                 q = len(set.intersection(genes, genes_ref))
                 k = len(genes)
                 contents.append([mir, m, n, q, k])
@@ -107,7 +156,7 @@ class mir_gene:
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
 
         writer = pd.ExcelWriter(fpath, engine='xlsxwriter')
-        for tname in ['important_genes', 'mtb', 'ts']:
+        for tname in ['miRTartBase_hsa']:
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
             for idx in df.index:
                 p = hypergeom.sf(df.loc[idx, 'q'], df.loc[idx, 'n'] + df.loc[idx, 'm'], df.loc[idx, 'm'], df.loc[idx, 'k'])
@@ -120,7 +169,7 @@ class mir_gene:
         import matplotlib.pyplot as plt
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
-        tnames = ['important_genes', 'mtb', 'ts']
+        tnames = ['miRTartBase_hsa']
         N = len(tnames)
         for i, tname in enumerate(tnames):
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
@@ -140,6 +189,11 @@ class mir_gene:
 if __name__ == '__main__':
     mg = mir_gene()
     # mg.test()
-    mg.comparison(100)
-    mg.phypher(100)
-    mg.plot(100)
+    if mg.hostname == 'mingyu-Precision-Tower-7810':
+        mg.to_server()
+    else:
+        mg.targetscan()
+
+        # mg.comparison(100)
+        # mg.phypher(100)
+        # mg.plot(100)
