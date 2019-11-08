@@ -440,7 +440,7 @@ class Regression(DeepLearning):
         df = pd.concat(dfs)
 
         res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw)))
-        df_res = pd.read_sql("SELECT * FROM 'result'", res_con)
+        df_res = pd.read_sql("SELECT * FROM 'result' WHERE Transcripts>''", res_con)
         df_res['gene_name'] = None
 
         for idx in df_res.index:
@@ -453,8 +453,9 @@ class Regression(DeepLearning):
             gnames = []
             for t in tr.split(';'):
                 gnames.append(df.loc[t, 'gene_name'])
+
             df_res.loc[idx, 'gene_name'] = ';'.join(gnames)
-        df_res.to_sql('result', res_con, if_exists='replace')
+        df_res.to_sql('result', res_con, if_exists='replace', index=None)
 
     def filtering(self, hbw):
         fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))

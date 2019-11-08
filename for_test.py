@@ -68,14 +68,15 @@ import sqlite3
 from Database import Database
 import pandas as pd
 
-# df = pd.read_csv("/home/mingyu/Downloads/Galaxy37.txt", sep='\t')
-# df.to_sql('Galaxy37', sqlite3.connect("/home/mingyu/Downloads/Galaxy37.db"), index=None)
+con = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cluster/result_all_clusters.db')
+con_out = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cluster/result_all_clusters_spt.db')
+df = pd.read_sql("SELECT * FROM 'all_clusters'", con)
+for chr, df_chr in df.groupby('chromosome'):
+    for str, df_str in df_chr.groupby('strand'):
+        df_str.drop(['chromosome', 'strand'], axis=1).to_sql('_'.join([chr, str]), con_out, index=None)
 
-con = sqlite3.connect("/home/mingyu/Downloads/Galaxy37.db")
-df = pd.read_sql("SELECT * FROM 'Galaxy37_org'", con)
-target_id = df['target_id'].str.split('|', expand=True)
-target_id.columns = ['reference_id', 'ref_gene_id', 'dummy_id', 'dummy_gene_id', 'transcript_id', 'gene_id', 'length', 'label', 'dummy']
-target_id = target_id[['reference_id', 'ref_gene_id', 'transcript_id', 'gene_id']]
-
-df_res = pd.concat([target_id, df.drop('target_id', axis=1)], axis=1)
-df_res.to_sql('Galaxy37', con, index=None, if_exists='replace')
+# loc = df['location'].str[1:-1].str.split(',', expand=True)
+# loc.columns = ['start', 'end']
+# df = pd.concat([df.drop('location', axis=1), loc], axis=1)
+# df = df[['chromosome', 'start', 'end', 'strand', 'gene_name', 'transcript_id', 'attribute']]
+# df.to_sql('all_clusters', con, if_exists='replace', index=None)

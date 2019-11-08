@@ -26,7 +26,6 @@ if hostname != 'mingyu-Precision-Tower-7810':
     #include <math.h>
 
     enum{NIDX, MIDX, NUM_IDX};
-    #define WIDTH  240
 
     __device__ void rankify(float *X, float *Rank_X, const int N) {
         for(int i=0; i<N; i++)
@@ -76,25 +75,43 @@ if hostname != 'mingyu-Precision-Tower-7810':
             printf("%f\\n", X[i]);
     }
 
-    __global__ void cuda_spearman(float *X, float *Y, float *X_rank, float *Y_rank, int *index, float *out, const int N, const int M)
+    __global__ void cuda_spearman(float *X, float *Y, float *X_rank, float *Y_rank, int *index, float *out, const int N, const int M, const int WIDTH, const int prod)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
-        if (idx >= N * M) return;
-
-        int nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
-        int midx = index[idx * NUM_IDX + MIDX] * WIDTH;
-
+        int NM, nidx, midx;
+        if(prod == 1)   NM = N * M;
+        else            NM = N;
+        
+        if (idx >= NM) return;
+        
+        if(prod == 1) {
+            nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
+            midx = index[idx * NUM_IDX + MIDX] * WIDTH;
+        }
+        else {
+            nidx = idx * WIDTH;
+            midx = idx * WIDTH;
+        }
         out[idx] = spearman_correlation(&X[nidx], &Y[midx], &X_rank[nidx], &Y_rank[midx], WIDTH);
     }
 
-    __global__ void cuda_pearson(float *X, float *Y, int *index, float *out, const int N, const int M)
+    __global__ void cuda_pearson(float *X, float *Y, int *index, float *out, const int N, const int M, const int WIDTH, const int prod)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
-        if (idx >= N * M) return;
+        int NM, nidx, midx;
+        if(prod == 1)   NM = N * M;
+        else            NM = N;
 
-        int nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
-        int midx = index[idx * NUM_IDX + MIDX] * WIDTH;
+        if (idx >= NM) return;
 
+        if(prod == 1) {
+            nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
+            midx = index[idx * NUM_IDX + MIDX] * WIDTH;
+        }
+        else {
+            nidx = idx * WIDTH;
+            midx = idx * WIDTH;
+        }
         out[idx] = correlationCoefficient(&X[nidx], &Y[midx], WIDTH);
     }""")
 
@@ -126,13 +143,24 @@ class Spearman:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
-    def run(self, X, Y):
+    def run(self, X, Y, prod=True):
         # X, Y: pandas DataFrame
-        comb = np.array(list((product(range(X.shape[0]), range(Y.shape[0])))))
+        if prod:
+            comb = np.array(list((product(range(X.shape[0]), range(Y.shape[0])))))
+        else:
+            comb = np.array(0)
 
         # gpu
         THREADS_PER_BLOCK = 1 << 10
         N = np.int32(X.shape[0])
+        M = np.int32(Y.shape[0])
+        WIDTH = np.int32(X.shape[1])
+        p = np.int32(prod)
+        if prod:
+            NM = N * M
+        else:
+            NM = N
+
         gene = X.values.flatten().astype(np.float32)
         gene_gpu = cuda.mem_alloc(gene.nbytes)
         cuda.memcpy_htod(gene_gpu, gene)
@@ -140,7 +168,6 @@ class Spearman:
         gene_rank_gpu = cuda.mem_alloc(gene.nbytes)
         cuda.memcpy_htod(gene_rank_gpu, gene)
 
-        M = np.int32(Y.shape[0])
         mir = Y.values.flatten().astype(np.float32)
         mir_gpu = cuda.mem_alloc(mir.nbytes)
         cuda.memcpy_htod(mir_gpu, mir)
@@ -152,16 +179,19 @@ class Spearman:
         idx_gpu = cuda.mem_alloc(idx.nbytes)
         cuda.memcpy_htod(idx_gpu, idx)
 
-        out = np.zeros(N * M).astype(np.float32)
+        out = np.zeros(NM).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 
-        gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+        gridN = int((NM + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
         func = mod.get_function("cuda_spearman")
-        func(gene_gpu, mir_gpu, gene_rank_gpu, mir_rank_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1),
+        func(gene_gpu, mir_gpu, gene_rank_gpu, mir_rank_gpu, idx_gpu, out_gpu, N, M, WIDTH, p, block=(THREADS_PER_BLOCK, 1, 1),
              grid=(gridN, 1))
+
         cuda.memcpy_dtoh(out, out_gpu)
-        return out.reshape((N, M))
+        if prod:
+            out = out.reshape((N, M))
+        return out
 
     def test(self, hbw):
         fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))
@@ -214,35 +244,55 @@ class Pearson:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
-    def run(self, X, Y):
+    def run(self, X, Y, prod=True):
         # X, Y: pandas DataFrame
-        comb = np.array(list((product(range(X.shape[0]), range(Y.shape[0])))))
+        if prod:
+            comb = np.array(list((product(range(X.shape[0]), range(Y.shape[0])))))
+        else:
+            comb = np.array(0)
 
         # gpu
         THREADS_PER_BLOCK = 1 << 10
         N = np.int32(X.shape[0])
+        M = np.int32(Y.shape[0])
+        WIDTH = np.int32(X.shape[1])
+        p = np.int32(prod)
+        if prod:
+            NM = N * M
+        else:
+            NM = N
+
         gene = X.values.flatten().astype(np.float32)
         gene_gpu = cuda.mem_alloc(gene.nbytes)
         cuda.memcpy_htod(gene_gpu, gene)
 
-        M = np.int32(Y.shape[0])
+        gene_rank_gpu = cuda.mem_alloc(gene.nbytes)
+        cuda.memcpy_htod(gene_rank_gpu, gene)
+
         mir = Y.values.flatten().astype(np.float32)
         mir_gpu = cuda.mem_alloc(mir.nbytes)
         cuda.memcpy_htod(mir_gpu, mir)
+
+        mir_rank_gpu = cuda.mem_alloc(mir.nbytes)
+        cuda.memcpy_htod(mir_rank_gpu, mir)
 
         idx = comb.flatten().astype(np.int32)
         idx_gpu = cuda.mem_alloc(idx.nbytes)
         cuda.memcpy_htod(idx_gpu, idx)
 
-        out = np.zeros(N * M).astype(np.float32)
+        out = np.zeros(NM).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 
-        gridN = int((N * M + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
+        gridN = int((NM + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
         func = mod.get_function("cuda_pearson")
-        func(gene_gpu, mir_gpu, idx_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
+        func(gene_gpu, mir_gpu, gene_rank_gpu, mir_rank_gpu, idx_gpu, out_gpu, N, M, WIDTH, p, block=(THREADS_PER_BLOCK, 1, 1),
+             grid=(gridN, 1))
+
         cuda.memcpy_dtoh(out, out_gpu)
-        return out.reshape((N, M))
+        if prod:
+            out = out.reshape((N, M))
+        return out
 
     def test(self, hbw):
         fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw))

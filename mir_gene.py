@@ -127,9 +127,9 @@ class mir_gene:
             high_genes = set(df_high['gene_name'])
             N = len(high_genes)
 
-            fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}.xlsx'.format(hbw))
-            df = pd.read_excel(fpath, index_col=0)
-            df = df.dropna(subset=['Transcripts'])
+            fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+            con_regr = sqlite3.connect(fpath)
+            df = pd.read_sql("SELECT * FROM 'result'", con_regr, index_col='miRNA')
             mirs = set.intersection(set(df_ref.index), set(df.index))
 
             contents = []
@@ -182,8 +182,8 @@ class mir_gene:
             plt.ylabel('log(phypher)')
             plt.xticks(xaxis, df.index, fontsize=6, rotation=30)
             plt.title('max: {:0.2f}, min: {:0.2f}, mean: {:0.2f}'.format(df['phypher'].max(), df['phypher'].min(), df['phypher'].mean()))
-            # plt.savefig(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'log_phypher.png'))
-        plt.show()
+        # plt.show()
+        plt.savefig(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'log_phypher.png'))
 
 
 if __name__ == '__main__':
