@@ -50,10 +50,10 @@ class Correlation:
 
     def correlation_fan_rna(self, hbw=100, corr='spearman'):
         if corr == 'spearman':
-            from correlation_gpu import Spearman
+            from corr_gpu import Spearman
             corr = Spearman(self.root)
         else:
-            from correlation_gpu import Pearson
+            from corr_gpu import Pearson
             corr = Pearson(self.root)
 
         # tissue list
