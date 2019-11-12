@@ -63,20 +63,12 @@
 # print('Test loss:', score[0])
 # print('Test accuracy:', score[1])
 
-
 import sqlite3
-from Database import Database
 import pandas as pd
 
-con = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cluster/result_all_clusters.db')
-con_out = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cluster/result_all_clusters_spt.db')
-df = pd.read_sql("SELECT * FROM 'all_clusters'", con)
-for chr, df_chr in df.groupby('chromosome'):
-    for str, df_str in df_chr.groupby('strand'):
-        df_str.drop(['chromosome', 'strand'], axis=1).to_sql('_'.join([chr, str]), con_out, index=None)
-
-# loc = df['location'].str[1:-1].str.split(',', expand=True)
-# loc.columns = ['start', 'end']
-# df = pd.concat([df.drop('location', axis=1), loc], axis=1)
-# df = df[['chromosome', 'start', 'end', 'strand', 'gene_name', 'transcript_id', 'attribute']]
-# df.to_sql('all_clusters', con, if_exists='replace', index=None)
+chunksize = 1 << 16
+con = sqlite3.connect("/lustre/fs0/home/mcha/Bioinformatics/database/Fantom/v5/tissues/thyroid/thyroid%2c%20adult%2c%20pool1.CNhs10634.10028-101E1.hg19.nobarcode.db")
+for df_chunk in pd.read_csv("/lustre/fs0/home/mcha/Bioinformatics/database/Fantom/v5/tissues/thyroid/thyroid%2c%20adult%2c%20pool1.CNhs10634.10028-101E1.hg19.nobarcode.bed", sep='\t', names=['chromosome', 'start', 'end', 'attribute', 'score', 'strand'], chunksize=chunksize):
+    for chr, df_chr in df_chunk.groupby('chromosome'):
+        for str, df_str in df_chr.groupby('strand'):
+            df_str.drop(['chromosome', 'strand'], axis=1).to_sql('{}_{}'.format(chr, str), con, if_exists='append', index=None)

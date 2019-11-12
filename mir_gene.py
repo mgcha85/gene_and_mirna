@@ -80,7 +80,6 @@ class mir_gene:
     def targetscan(self):
         fpath = os.path.join(self.root, 'database', 'Predicted_Targets_Info.default_predictions.txt')
         df = pd.read_csv(fpath, sep='\t')
-
         mir_fam = df['miR Family'].str.split('/')
 
         contents = []
@@ -101,6 +100,21 @@ class mir_gene:
         df = df.sort_values(by=['miRNA'])
         df.to_sql('target_scan', con, index=None, if_exists='replace')
 
+    def targetscan_grp(self):
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
+        con = sqlite3.connect(fpath)
+        # df = pd.read_sql("SELECT * FROM 'target_scan'", con)
+        # df_grp = df.groupby('miRNA')
+
+        mir = pd.read_sql("SELECT DISTINCT miRNA FROM 'target_scan'", con)
+        df_res = pd.DataFrame(index=mir['miRNA'], columns=['genes', 'transcript_id'])
+        for i in mir.index:
+            m = mir.loc[i, 'miRNA']
+            df = pd.read_sql("SELECT * FROM 'target_scan' WHERE miRNA='{}'".format(m), con)
+            df_res.loc[m, 'genes'] = ';'.join(df['Gene Symbol'])
+            df_res.loc[m, 'transcript_id'] = ';'.join(df['Transcript ID'])
+        df_res.to_sql('target_scan_grp', con, if_exists='replace')
+
     def test(self):
         fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.xlsx')
         df_ref = pd.read_excel(fpath, index_col=0)
@@ -120,7 +134,7 @@ class mir_gene:
 
         out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
-        for tname in ['miRTartBase_hsa']:
+        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
             df_ref = pd.read_sql("SELECT * FROM '{}' WHERE genes>''".format(tname), con, index_col='miRNA')
 
             df_high = pd.read_excel(os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.xlsx'.format(hbw)))
@@ -156,11 +170,12 @@ class mir_gene:
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
 
         writer = pd.ExcelWriter(fpath, engine='xlsxwriter')
-        for tname in ['miRTartBase_hsa']:
+        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
             for idx in df.index:
-                p = hypergeom.sf(df.loc[idx, 'q'], df.loc[idx, 'n'] + df.loc[idx, 'm'], df.loc[idx, 'm'], df.loc[idx, 'k'])
-                df.loc[idx, 'phypher'] = -np.log(p)
+                p = hypergeom.sf(df.loc[idx, 'q']-1, df.loc[idx, 'n'] + df.loc[idx, 'm'], df.loc[idx, 'm'], df.loc[idx, 'k'])
+                df.loc[idx, 'phypher'] = p
+                df.loc[idx, 'pvalue'] = np.log(1-p)
             df.to_excel(writer, sheet_name=tname)
         writer.save()
         writer.close()
@@ -169,30 +184,33 @@ class mir_gene:
         import matplotlib.pyplot as plt
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
-        tnames = ['miRTartBase_hsa']
+        tnames = ['miRTartBase_hsa', 'target_scan_grp']
         N = len(tnames)
         for i, tname in enumerate(tnames):
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
-            df['phypher'] = df['phypher'].replace(-np.inf, np.nan)
-            df = df.dropna(subset=['phypher'])
+            df['pvalue'] = df['pvalue'].replace(-np.inf, np.nan).replace(np.inf, np.nan)
+            df = df.dropna(subset=['pvalue'])
 
             xaxis = range(df.shape[0])
             plt.subplot(N, 1, i+1)
-            plt.scatter(xaxis, df['phypher'])
-            plt.ylabel('log(phypher)')
+            plt.scatter(xaxis, df['pvalue'])
+            plt.ylabel('log(1-phypher)')
             plt.xticks(xaxis, df.index, fontsize=6, rotation=30)
-            plt.title('max: {:0.2f}, min: {:0.2f}, mean: {:0.2f}'.format(df['phypher'].max(), df['phypher'].min(), df['phypher'].mean()))
-        # plt.show()
-        plt.savefig(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'log_phypher.png'))
+            plt.title('max: {:0.2f}, min: {:0.2f}, mean: {:0.2f}'.format(df['pvalue'].max(), df['pvalue'].min(), df['pvalue'].mean()))
+        plt.show()
+        # plt.savefig(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'log_phypher.png'))
 
 
 if __name__ == '__main__':
     mg = mir_gene()
     # mg.test()
     if mg.hostname == 'mingyu-Precision-Tower-7810':
-        mg.to_server()
+        mg.mirTarbase()
+        mg.targetscan_grp()
+        # mg.to_server()
     else:
         mg.targetscan()
+        mg.targetscan_grp()
 
         # mg.comparison(100)
         # mg.phypher(100)

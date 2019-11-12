@@ -380,7 +380,7 @@ class Regression(DeepLearning):
     def regression(self, hbw):
         import pickle as pkl
 
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_100.db'),
                   'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
@@ -406,7 +406,8 @@ class Regression(DeepLearning):
             predictions = clf.predict(X)
             return (Y - predictions) ** 2
 
-        df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_name']).T
+        # df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_name']).T
+        df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_id']).T
         df_inter = pd.Series(clf.intercept_, index=dfs['mir']['miRNA'])
         df_pval = pd.DataFrame(square_error(clf, gene, mir), index=dfs['mir'].columns[3:], columns=dfs['mir']['miRNA'])
 
@@ -420,7 +421,8 @@ class Regression(DeepLearning):
     def report(self, hbw):
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
-        df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_name')
+        # df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_name')
+        df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_id')
 
         contents = []
         for col in df.columns:
@@ -436,7 +438,8 @@ class Regression(DeepLearning):
 
         dfs = []
         for tname in tlist:
-            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
+            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_id'))
+            # dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
         df = pd.concat(dfs)
 
         res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw)))
@@ -464,7 +467,8 @@ class Regression(DeepLearning):
 
         dfs = []
         for tname in tlist:
-            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
+            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_id'))
+            # dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
         df_ref = pd.concat(dfs)
         gene_names = set(df_ref['gene_name'])
         print(len(gene_names))
@@ -472,7 +476,7 @@ class Regression(DeepLearning):
         fpath = os.path.join(self.root, 'database', 'target_genes.db')
         con = sqlite3.connect(fpath)
 
-        tnames = ['miRTartBase_hsa']
+        tnames = ['miRTartBase_hsa', 'target_scan_grp']
         for tname in tnames:
             df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
             for idx in df.index:
@@ -501,4 +505,4 @@ if __name__ == '__main__':
         # rg.evaluation()
     else:
         # rg.regression(100)
-        rg.filtering(100)
+        rg.filtering(0)
