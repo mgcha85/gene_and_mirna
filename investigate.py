@@ -15,6 +15,29 @@ class investigate:
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
 
+    def split_info(self):
+        fpath = os.path.join(self.root, "database/Fantom/v5/cluster", "result_all_clusters.db")
+        con = sqlite3.connect(fpath)
+
+        df = pd.read_sql("SELECT * FROM 'all_clusters' WHERE attribute>''", con)
+        attr = df['attribute'].str.split(';')
+        contents = []
+        for idx in attr.index:
+            if idx % 1000 == 0 or idx + 1 == df.shape[0]:
+                print('{:,d} / {:,d}'.format(idx + 1, df.shape[0]))
+            for att in attr[idx]:
+                loc, other = att.split('<')
+                start, end = loc[1:-1].split(', ')
+                width, intensity, distance, type, fid = other[:-1].split(',')
+                contents.append([start, end, width, intensity, distance, type, fid])
+            df_att = pd.DataFrame(contents, columns=['clust_start', 'cluster_end', 'width', 'intensity', 'distance', 'type', 'fid'])
+            df_att['distance'] = df_att['distance'].str.replace('+', '')
+            for col in df_att.columns:
+                df.loc[idx, col] = ';'.join(df_att[col])
+
+        fpath = os.path.join(self.root, "database/Fantom/v5/cluster", "result_all_clusters_out.db")
+        df.drop('attribute', axis=1).to_sql('all_cluters', sqlite3.connect(fpath), index=None)
+
     def scan_files(self):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
         file_list = OrderedDict()
@@ -75,4 +98,4 @@ class investigate:
 
 if __name__ == '__main__':
     inv = investigate()
-    inv.conversion()
+    inv.split_info()
