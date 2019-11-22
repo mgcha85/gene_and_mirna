@@ -529,7 +529,7 @@ class Correlation:
         fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
         con_gene = sqlite3.connect(fpath_gene)
 
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_corr_{}.db'.format(hbw))
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
         con_out = sqlite3.connect(fpath_out)
 
         def merge(con):
@@ -589,10 +589,41 @@ class Correlation:
             plt.grid()
         plt.show()
 
+    def add_corr(self, hbw):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+        con = sqlite3.connect(fpath)
+        df = pd.read_sql("SELECT * FROM 'result'", con, index_col='miRNA')
+        transcripts = df['Transcripts'].str.split(';')
+
+        for i, mir in enumerate(df.index):
+            print('{:,d} / {:,d}'.format(i+1, df.shape[0]))
+            tname = transcripts[mir]
+
+            sql = ["transcript_id='{}'".format(x) for x in tname]
+            sql = ' OR '.join(sql)
+            sql = "SELECT * FROM 'corr' WHERE " + sql
+            corr_coef = pd.read_sql(sql, con, index_col='transcript_id')
+            if corr_coef.empty:
+                continue
+            df.loc[mir, 'corr'] = ';'.join(corr_coef[mir].round(4).astype(str).values)
+            df.loc[mir, 'corr_stats'] = '{:0.4f};{:0.4f}'.format(corr_coef[mir].abs().mean(), corr_coef[mir].abs().std())
+            df.loc[mir, 'n'] = corr_coef[mir].shape[0]
+        df.to_sql('result', con, if_exists='replace')
+
+    def pvalue(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+        con = sqlite3.connect(fpath)
+
+        fpath_go = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', 'gene_list_out.db')
+        con_go = sqlite3.connect(fpath_go)
+
+        df = pd.read_sql("SELECT * FROM 'result'", con)
+        df_go = pd.read_sql("SELECT * FROM 'go_result'", con_go)
+
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-781':
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
         from Regression import Regression
@@ -602,7 +633,7 @@ if __name__ == '__main__':
         mg = mir_gene()
         # cor.high_correlation_by_thres(100)
 
-        for hbw in [0]:
+        for hbw in [100]:
             # cor.correlation_fan_rna(hbw)
             # cor.high_clusters(hbw)
             # cor.high_correlation(hbw, 0.8)
@@ -613,14 +644,15 @@ if __name__ == '__main__':
             # # cell lines
             # cor.sum_fan(hbw, ref='gene')
             # cor.sum_fan(100, ref='mir')
-            #
-            # cor.correlation_gpu(hbw)
 
             # rg.regression(hbw)
             # rg.report(hbw)
             # rg.add_gene_name(hbw)
             # rg.filtering(hbw)
 
+            cor.correlation_gpu(hbw)
+            # cor.add_corr(hbw)
+
             # mg.comparison(hbw)
             # mg.phypher(hbw)
-            mg.plot(hbw)
+            # mg.plot(hbw)

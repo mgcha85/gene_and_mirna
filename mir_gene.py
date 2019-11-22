@@ -134,7 +134,7 @@ class mir_gene:
 
         out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
-        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
+        for tname in ['miRTartBase_hsa', 'target_scan_grp', 'go_result']:
             df_ref = pd.read_sql("SELECT * FROM '{}' WHERE genes>''".format(tname), con, index_col='miRNA')
 
             df_high = pd.read_excel(os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.xlsx'.format(hbw)))
@@ -170,7 +170,7 @@ class mir_gene:
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
 
         writer = pd.ExcelWriter(fpath, engine='xlsxwriter')
-        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
+        for tname in ['miRTartBase_hsa', 'target_scan_grp', 'go_result']:
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
             for idx in df.index:
                 p = hypergeom.sf(df.loc[idx, 'q']-1, df.loc[idx, 'n'] + df.loc[idx, 'm'], df.loc[idx, 'm'], df.loc[idx, 'k'])
@@ -184,7 +184,7 @@ class mir_gene:
         import matplotlib.pyplot as plt
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
-        tnames = ['miRTartBase_hsa', 'target_scan_grp']
+        tnames = ['miRTartBase_hsa', 'target_scan_grp', 'go_result']
         N = len(tnames)
         for i, tname in enumerate(tnames):
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)

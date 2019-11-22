@@ -1,154 +1,157 @@
 import pandas as pd
+import socket
 
-import pycuda.driver as cuda
-import pycuda.autoinit
-from pycuda.compiler import SourceModule
-import numpy as np
+hostname = socket.gethostname()
+if hostname != 'mingyu-Precision-Tower-7810':
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    from pycuda.compiler import SourceModule
+    import numpy as np
 
 
-mod = SourceModule("""
-#include <stdio.h>
-
-enum{START, END, WIDTH};
-
-__device__ int binary_search(const int *X, const int val, const int N, const int col, const int idx)
-{
-    // X: array, val: exact value, N: length of X, col: columns number
-    // if X has no val, return -1 
-
-    if(N <= 1) return -1;
-    if(val <= X[col]) return 0;
-    if(val >= X[WIDTH * (N - 1) + col]) return N;
-
-    int start = 0;
-    int end = N - 1;
+    mod = SourceModule("""
+    #include <stdio.h>
     
-    while(start <= end) 
+    enum{START, END, WIDTH};
+    
+    __device__ int binary_search(const int *X, const int val, const int N, const int col, const int idx)
     {
-        int mid = (start + end) / 2;
-        int res_val = X[mid * WIDTH + col];
-        
-        if(res_val == val)      return mid;
-        else if(res_val < val)  start = mid + 1;
-        else                    end = mid - 1;
-    }
-    return -1;
-}
-
-__device__ int binary_search_loc(const int *X, const int val, const int col, const int N)
-{
-    // X: array, val: nth value, N: length of X, col: columns number
-    // if X has no val, return -1 
-    if(N <= 1) return -1;
-    if(val <= X[col]) return 0;
-    if(val >= X[WIDTH * (N - 1) + col]) return N;
-
-    int start = 0;
-    int end = N - 1;
+        // X: array, val: exact value, N: length of X, col: columns number
+        // if X has no val, return -1 
     
-    while(start < end) 
+        if(N <= 1) return -1;
+        if(val <= X[col]) return 0;
+        if(val >= X[WIDTH * (N - 1) + col]) return N;
+    
+        int start = 0;
+        int end = N - 1;
+        
+        while(start <= end) 
+        {
+            int mid = (start + end) / 2;
+            int res_val = X[mid * WIDTH + col];
+            
+            if(res_val == val)      return mid;
+            else if(res_val < val)  start = mid + 1;
+            else                    end = mid - 1;
+        }
+        return -1;
+    }
+    
+    __device__ int binary_search_loc(const int *X, const int val, const int col, const int N)
     {
-        int mid = (start + end) / 2;
-        int res_val = X[mid * WIDTH + col];
+        // X: array, val: nth value, N: length of X, col: columns number
+        // if X has no val, return -1 
+        if(N <= 1) return -1;
+        if(val <= X[col]) return 0;
+        if(val >= X[WIDTH * (N - 1) + col]) return N;
+    
+        int start = 0;
+        int end = N - 1;
         
-        if(res_val == val) {
-             return mid;
+        while(start < end) 
+        {
+            int mid = (start + end) / 2;
+            int res_val = X[mid * WIDTH + col];
+            
+            if(res_val == val) {
+                 return mid;
+            }
+            else if(res_val < val)  start = mid + 1;
+            else                    end = mid - 1;
+            
+            if(start>=end) {
+                if(val < res_val) mid++;
+                return mid;
+            }
         }
-        else if(res_val < val)  start = mid + 1;
-        else                    end = mid - 1;
-        
-        if(start>=end) {
-            if(val < res_val) mid++;
-            return mid;
-        }
+        return -1;
     }
-    return -1;
-}
-
-__device__ void get_overlap(const int *X, const int ref_start, const int ref_end, int *addr, const int N, const int idx)
-{
-    int offset = -1;
-    int num_ele = 0;
     
-    if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return;
-    
-    for(int i=0; i<N; i++) {
-        int res_start = X[WIDTH * i + START];
-        int res_end = X[WIDTH * i + END];
+    __device__ void get_overlap(const int *X, const int ref_start, const int ref_end, int *addr, const int N, const int idx)
+    {
+        int offset = -1;
+        int num_ele = 0;
         
-        if(!(res_start > ref_end) && !(res_end < ref_start)) {
-            if(offset < 0) offset = i;
-            num_ele++;
+        if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return;
+        
+        for(int i=0; i<N; i++) {
+            int res_start = X[WIDTH * i + START];
+            int res_end = X[WIDTH * i + END];
+            
+            if(!(res_start > ref_end) && !(res_end < ref_start)) {
+                if(offset < 0) offset = i;
+                num_ele++;
+            }
+            if(ref_end < res_start) break;
         }
-        if(ref_end < res_start) break;
-    }
-    if(offset < 0) return;
-    
-    addr[WIDTH * idx + START] = offset;
-    addr[WIDTH * idx + END] = offset + num_ele - 1;    
-}
-
-__device__ float get_sum(const int *X, const int ref_start, const int ref_end, const float *score, const int offset, const int N, const int idx)
-{
-    float sum = 0.0;
-    if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return -1;
-    
-    for(int i=offset; i<N; i++) {
-        int res_start = X[WIDTH * i + START];
-        int res_end = X[WIDTH * i + END];
+        if(offset < 0) return;
         
-        if(!(res_start > ref_end) && !(res_end < ref_start)) {
-            sum += score[i];
-        }
-        if(ref_end < res_start) break;
+        addr[WIDTH * idx + START] = offset;
+        addr[WIDTH * idx + END] = offset + num_ele - 1;    
     }
-    return sum;
-}
-
-__device__ void cuda_sum(const float *score, const int *addr, float *out, const int N, const int idx)
-{
-    for(int i=0; i<N; i++) {
-        int out_start = addr[WIDTH * i + START];   
-        int out_end = addr[WIDTH * i + END];   
-        if(out_start < 0) continue;
-        
+    
+    __device__ float get_sum(const int *X, const int ref_start, const int ref_end, const float *score, const int offset, const int N, const int idx)
+    {
         float sum = 0.0;
-        for(int j=out_start; j<=out_end; j++) {
-            sum += score[j];
+        if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return -1;
+        
+        for(int i=offset; i<N; i++) {
+            int res_start = X[WIDTH * i + START];
+            int res_end = X[WIDTH * i + END];
+            
+            if(!(res_start > ref_end) && !(res_end < ref_start)) {
+                sum += score[i];
+            }
+            if(ref_end < res_start) break;
         }
-        if(sum > 0) out[i] = sum;
+        return sum;
     }
-}
-
-__global__ void cuda_sql(const int *ref, const int *res, float *score, float *out, const int N, const int M)
-{
-    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx >= N) return;
     
-    int ref_start = ref[idx * WIDTH + START];
-    int ref_end = ref[idx * WIDTH + END];
+    __device__ void cuda_sum(const float *score, const int *addr, float *out, const int N, const int idx)
+    {
+        for(int i=0; i<N; i++) {
+            int out_start = addr[WIDTH * i + START];   
+            int out_end = addr[WIDTH * i + END];   
+            if(out_start < 0) continue;
+            
+            float sum = 0.0;
+            for(int j=out_start; j<=out_end; j++) {
+                sum += score[j];
+            }
+            if(sum > 0) out[i] = sum;
+        }
+    }
     
-    out[idx] = get_sum(res, ref_start, ref_end, score, 0, M, idx);
-}
-
-__global__ void cuda_sql2(const int *ref, const int *res, float *score, float *out, const int N, const int M)
-{
-    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx >= N) return;
-
-    int offset1, offset2, offset;    
-    int ref_start = ref[idx * WIDTH + START];
-    int ref_end = ref[idx * WIDTH + END];
+    __global__ void cuda_sql(const int *ref, const int *res, float *score, float *out, const int N, const int M)
+    {
+        const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+        if (idx >= N) return;
+        
+        int ref_start = ref[idx * WIDTH + START];
+        int ref_end = ref[idx * WIDTH + END];
+        
+        out[idx] = get_sum(res, ref_start, ref_end, score, 0, M, idx);
+    }
     
-    offset1 = binary_search_loc(res, ref_start, END, M)-1;
-    offset2 = binary_search_loc(res, ref_end, START, M)-1;
-    if(offset1 < offset2)   offset = offset1;
-    else                    offset = offset2;
+    __global__ void cuda_sql2(const int *ref, const int *res, float *score, float *out, const int N, const int M)
+    {
+        const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+        if (idx >= N) return;
     
-    out[idx] = get_sum(res, ref_start, ref_end, score, offset, M, idx);
-}
-
-""")
+        int offset1, offset2, offset;    
+        int ref_start = ref[idx * WIDTH + START];
+        int ref_end = ref[idx * WIDTH + END];
+        
+        offset1 = binary_search_loc(res, ref_start, END, M)-1;
+        offset2 = binary_search_loc(res, ref_end, START, M)-1;
+        if(offset1 < offset2)   offset = offset1;
+        else                    offset = offset2;
+        
+        out[idx] = get_sum(res, ref_start, ref_end, score, offset, M, idx);
+    }
+    
+    """)
 
 
 class Sqlgpu:
@@ -201,6 +204,16 @@ class Sqlgpu:
         func(ref_gpu, res_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out, out_gpu)
         return out
+
+    def test(self, ref_path, res_path, tname, index_col):
+        df_ref = pd.read_sql("SELECT * FROM '{}'".format(tname), sqlite3.connect(ref_path), index_col=index_col).round(4)
+        df_res = pd.read_sql("SELECT * FROM '{}'".format(tname), sqlite3.connect(res_path), index_col=index_col).round(4)
+
+        for idx in df_ref.index:
+            for col in df_ref.columns:
+                if df_ref.loc[idx, col] != df_res.loc[idx, col]:
+                    return False
+        return True
 
     def run(self, df_ref, df_res):
         # df_ref, df_res should be DataFrame

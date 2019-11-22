@@ -75,7 +75,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
             printf("%f\\n", X[i]);
     }
 
-    __global__ void cuda_spearman(float *X, float *Y, float *X_rank, float *Y_rank, int *index, float *out, const int N, const int M, const int WIDTH, const int prod)
+    __global__ void cuda_spearman(float *X, float *Y, float *X_rank, float *Y_rank, float *out, const int N, const int M, const int WIDTH, const int prod)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         int NM, nidx, midx;
@@ -85,8 +85,8 @@ if hostname != 'mingyu-Precision-Tower-7810':
         if (idx >= NM) return;
         
         if(prod == 1) {
-            nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
-            midx = index[idx * NUM_IDX + MIDX] * WIDTH;
+            nidx = (int)(idx / M) * WIDTH;
+            midx = (idx % M) * WIDTH;
         }
         else {
             nidx = idx * WIDTH;
@@ -95,7 +95,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
         out[idx] = spearman_correlation(&X[nidx], &Y[midx], &X_rank[nidx], &Y_rank[midx], WIDTH);
     }
 
-    __global__ void cuda_pearson(float *X, float *Y, int *index, float *out, const int N, const int M, const int WIDTH, const int prod)
+    __global__ void cuda_pearson(float *X, float *Y, float *out, const int N, const int M, const int WIDTH, const int prod)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         int NM, nidx, midx;
@@ -105,8 +105,8 @@ if hostname != 'mingyu-Precision-Tower-7810':
         if (idx >= NM) return;
 
         if(prod == 1) {
-            nidx = index[idx * NUM_IDX + NIDX] * WIDTH;
-            midx = index[idx * NUM_IDX + MIDX] * WIDTH;
+            nidx = (int)(idx / M) * WIDTH;
+            midx = (idx % M) * WIDTH;
         }
         else {
             nidx = idx * WIDTH;
@@ -145,11 +145,6 @@ class Spearman:
 
     def run(self, X, Y, prod=True):
         # X, Y: pandas DataFrame
-        if prod:
-            comb = np.array(list((product(range(X.shape[0]), range(Y.shape[0])))))
-        else:
-            comb = np.array(0)
-
         # gpu
         THREADS_PER_BLOCK = 1 << 10
         N = np.int32(X.shape[0])
@@ -175,17 +170,13 @@ class Spearman:
         mir_rank_gpu = cuda.mem_alloc(mir.nbytes)
         cuda.memcpy_htod(mir_rank_gpu, mir)
 
-        idx = comb.flatten().astype(np.int32)
-        idx_gpu = cuda.mem_alloc(idx.nbytes)
-        cuda.memcpy_htod(idx_gpu, idx)
-
         out = np.zeros(NM).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 
         gridN = int((NM + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
         func = mod.get_function("cuda_spearman")
-        func(gene_gpu, mir_gpu, gene_rank_gpu, mir_rank_gpu, idx_gpu, out_gpu, N, M, WIDTH, p, block=(THREADS_PER_BLOCK, 1, 1),
+        func(gene_gpu, mir_gpu, gene_rank_gpu, mir_rank_gpu, out_gpu, N, M, WIDTH, p, block=(THREADS_PER_BLOCK, 1, 1),
              grid=(gridN, 1))
 
         cuda.memcpy_dtoh(out, out_gpu)
