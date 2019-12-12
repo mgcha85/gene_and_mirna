@@ -4,6 +4,8 @@ import os
 import socket
 from scipy.stats import hypergeom
 import numpy as np
+import math
+from Database import Database
 
 
 class mir_gene:
@@ -70,16 +72,158 @@ class mir_gene:
             tg = df_sub['Target Gene']
             sm = df_sub['Species_miRNA']
             ex = df_sub['Experiments']
-            contents.append([mir.lower(), ';'.join(tg), ';'.join(sm), ';'.join(ex)])
-        df_res = pd.DataFrame(contents, columns=['miRNA', 'Target Gene', 'Species_miRNA', 'Experiments'])
+            contents.append([mir.lower(), ';'.join(tg), ';'.join(ex)])
+        df_res = pd.DataFrame(contents, columns=['miRNA', 'genes', 'Experiments'])
         df_res = df_res.sort_values(by=['miRNA'])
-        df_res = df_res[df_res['Target Gene'] > '']
+        df_res = df_res[df_res['genes'] > '']
         df_res.to_sql('miRTartBase_hsa', con, index=None, if_exists='replace')
         # df_res.to_excel('miRTartBase.xlsx', index=None)
+
+    def target_genes(self):
+        dirname = os.path.join(self.root, 'database', 'target_genes')
+
+        out_con = sqlite3.connect(os.path.join(dirname, 'predictions_processed.db'))
+        con = sqlite3.connect(os.path.join(dirname, 'predictions_processed_result.db'))
+
+        for fname in ['miranda', 'rna22', 'ts']:
+            fpath = os.path.join(dirname, 'predictions_processed_{}.txt'.format(fname))
+            df = pd.read_csv(fpath, sep='\t', names=['miRNA', 'genes', 'start', 'end', 'd1', 'd2', 'd3', 'd4', 'd5', 'd6'])
+            df = df[['miRNA', 'genes', 'start', 'end']]
+            df.to_sql(fname, out_con, index=None, if_exists='replace')
+
+            df_grp = df.groupby('miRNA')
+            df_res = pd.DataFrame(index=df_grp.groups, columns=['genes'])
+            df_res.index.name = 'miRNA'
+            for mir, df_grp in df_grp:
+                df_res.loc[mir, 'genes'] = ';'.join(df_grp['genes'])
+            df_res.to_sql(fname, con, if_exists='replace')
+
+    def get_intersection_all(self):
+        dirname = os.path.join(self.root, 'database', 'target_genes')
+        con = sqlite3.connect(os.path.join(dirname, 'predictions_processed_result.db'))
+
+        dfs = {}
+        mirs = []
+        tlist = [x for x in Database.load_tableList(con) if '_pre' in x]
+        for tname in tlist:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='pre-miRNA')['genes']
+            dfs[tname] = df
+            mirs.append(set(df.index))
+
+        mirs = set.intersection(*mirs)
+        df_res = pd.DataFrame(index=mirs, columns=['genes'])
+        for mir in mirs:
+            genes = []
+            for k, df in dfs.items():
+                genes.append(set(df.loc[mir].split(';')))
+            df_res.loc[mir, 'genes'] = ';'.join(sorted(list(set.intersection(*genes))))
+        df_res.index.name = 'pre-miRNA'
+        df_res.to_sql('common_all_pre', con, if_exists='replace')
+
+    def get_intersection(self):
+        dirname = os.path.join(self.root, 'database', 'target_genes')
+        con = sqlite3.connect(os.path.join(dirname, 'predictions_processed_result.db'))
+
+        dfs = {}
+        mir = {}
+        tlist = [x for x in Database.load_tableList(con) if '_pre' in x]
+        for tname in tlist:
+            dfs[tname] = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='pre-miRNA')
+            mir[tname] = set(dfs[tname].index)
+
+        source = {}
+        mir_union = sorted(list(set.union(*mir.values())))
+        for mi in mir_union:
+            for tname, mlist in mir.items():
+                if mi in mlist:
+                    if mi not in source:
+                        source[mi] = [tname]
+                    else:
+                        source[mi].append(tname)
+
+        df_src = pd.DataFrame(index=source.keys(), columns=['source'])
+        for k, v in source.items():
+            df_src.loc[k, 'source'] = ','.join(v)
+
+        df_res = pd.DataFrame(index=mir_union, columns=['genes'])
+        df_res.loc[df_src.index, 'source'] = df_src['source']
+        for mi in mir_union:
+            genes = {}
+            for tname, df in dfs.items():
+                if mi not in df.index:
+                    continue
+                genes[tname] = list(set(df.loc[mi, 'genes'].split(';')))
+
+            inter_genes = {}
+            for tname, gene_list in genes.items():
+                for gene in gene_list:
+                    inter_genes[gene] = inter_genes.get(gene, 0) + 1
+
+            genes = []
+            for k, v in inter_genes.items():
+                if v > 1:
+                    genes.append(k)
+
+            if len(genes) > 0:
+                df_res.loc[mi, 'genes'] = ';'.join(genes)
+        df_res = df_res.dropna(subset=['genes'])
+        df_res.index.name = 'pre-miRNA'
+        df_res.to_sql('common_pre', con, if_exists='replace')
+
+    def get_union(self):
+        dirname = os.path.join(self.root, 'database', 'target_genes')
+        con = sqlite3.connect(os.path.join(dirname, 'predictions_processed_result.db'))
+
+        dfs = {}
+        mir = {}
+        tlist = [x for x in Database.load_tableList(con) if '_pre' in x]
+        for tname in tlist:
+            dfs[tname] = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='pre-miRNA')
+            mir[tname] = set(dfs[tname].index)
+
+        source = {}
+        mir_union = sorted(list(set.union(*mir.values())))
+        for mi in mir_union:
+            for tname, mlist in mir.items():
+                if mi in mlist:
+                    if mi not in source:
+                        source[mi] = [tname]
+                    else:
+                        source[mi].append(tname)
+
+        df_src = pd.DataFrame(index=source.keys(), columns=['source'])
+        for k, v in source.items():
+            df_src.loc[k, 'source'] = ','.join(v)
+
+        df_res = pd.DataFrame(index=mir_union, columns=['genes'])
+        df_res.loc[df_src.index, 'source'] = df_src['source']
+        for mi in mir_union:
+            genes = {}
+            for tname, df in dfs.items():
+                if mi not in df.index:
+                    continue
+                genes[tname] = list(set(df.loc[mi, 'genes'].split(';')))
+
+            inter_genes = {}
+            for tname, gene_list in genes.items():
+                for gene in gene_list:
+                    inter_genes[gene] = inter_genes.get(gene, 0) + 1
+
+            genes = []
+            for k, v in inter_genes.items():
+                if v > 0:
+                    genes.append(k)
+
+            if len(genes) > 0:
+                df_res.loc[mi, 'genes'] = ';'.join(genes)
+        df_res = df_res.dropna(subset=['genes'])
+        df_res.index.name = 'pre-miRNA'
+        df_res.to_sql('union_pre', con, if_exists='replace')
 
     def targetscan(self):
         fpath = os.path.join(self.root, 'database', 'Predicted_Targets_Info.default_predictions.txt')
         df = pd.read_csv(fpath, sep='\t')
+        df = df[df['Species ID'] == 9606].reset_index(drop=True)
         mir_fam = df['miR Family'].str.split('/')
 
         contents = []
@@ -115,6 +259,59 @@ class mir_gene:
             df_res.loc[m, 'transcript_id'] = ';'.join(df['Transcript ID'])
         df_res.to_sql('target_scan_grp', con, if_exists='replace')
 
+    def targetscan_corr(self):
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
+        con = sqlite3.connect(fpath)
+
+        fpath_tid = os.path.join(self.root, 'database/gencode', 'gene_tid.csv')
+        df_tid = pd.read_csv(fpath_tid, sep='\t', index_col=1)
+
+        fpath_corr = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+        con_corr = sqlite3.connect(fpath_corr)
+        df_corr = pd.read_sql("SELECT * FROM 'corr'", con_corr, index_col='transcript_id')
+
+        df = pd.read_sql("SELECT * FROM 'target_scan_grp'", con, index_col='miRNA')
+        genes = df['genes'].str.split(';')
+        mirlist = set.intersection(set(df.index), set(df_corr.columns))
+
+        for mir in mirlist:
+            corrs = []
+            for gene in genes[mir]:
+                if len(gene) == 0:
+                    continue
+                tids = df_tid.loc[gene, 'transcript_id']
+                corr = df_corr.loc[set.intersection(set(df_corr.index), set(tids)), mir].max()
+                if not math.isnan(corr):
+                    corrs.append(corr)
+            if not corrs:
+                continue
+            corrs = np.array(corrs)
+            df.loc[mir, 'corr'] = ';'.join(corrs.round(4).astype(str))
+            corrs_stats = np.array([corrs.mean(), corrs.std(), corrs.min(), corrs.max(), np.median(corrs)])
+            df.loc[mir, 'corr_stats'] = ';'.join(corrs_stats.round(4).astype(str))
+
+        df.to_sql('target_scan_grp', con, if_exists='replace')
+
+    def get_amlan(self):
+        fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan_each.db')
+        con = sqlite3.connect(fpath)
+        tlist = Database.load_tableList(con)
+
+        out_con = sqlite3.connect(os.path.join(self.root, 'database/target_genes', 'predictions_processed_result.db'))
+        contents = []
+        for tname in tlist:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='miRNA').astype(float)
+            coeff_abs = df['coeff'].abs()
+            coeff_abs = coeff_abs.sort_values(ascending=False)[:100]
+            df = df.loc[coeff_abs.index]
+            # coeff_mean = coeff_abs.mean()
+            # coeff_std = coeff_abs.std()
+            # df = df[coeff_abs > (coeff_mean + coeff_std)]
+            genes = sorted(list(set(df.index)))
+            contents.append([tname, ';'.join(genes), None, None])
+        df = pd.DataFrame(contents, columns=['pre-miRNA', 'genes', 'coeff_mean', 'coeff_std'])
+        df[['pre-miRNA', 'genes']].to_sql('amlan_pre', out_con, if_exists='replace', index=None)
+
     def test(self):
         fpath = os.path.join(self.root, 'database', 'important_genes_from_Amlan.xlsx')
         df_ref = pd.read_excel(fpath, index_col=0)
@@ -134,7 +331,7 @@ class mir_gene:
 
         out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
         writer = pd.ExcelWriter(out_path, engine='xlsxwriter')
-        for tname in ['miRTartBase_hsa', 'target_scan_grp', 'go_result']:
+        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
             df_ref = pd.read_sql("SELECT * FROM '{}' WHERE genes>''".format(tname), con, index_col='miRNA')
 
             df_high = pd.read_excel(os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.xlsx'.format(hbw)))
@@ -170,7 +367,7 @@ class mir_gene:
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
 
         writer = pd.ExcelWriter(fpath, engine='xlsxwriter')
-        for tname in ['miRTartBase_hsa', 'target_scan_grp', 'go_result']:
+        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
             for idx in df.index:
                 p = hypergeom.sf(df.loc[idx, 'q']-1, df.loc[idx, 'n'] + df.loc[idx, 'm'], df.loc[idx, 'm'], df.loc[idx, 'k'])
@@ -184,7 +381,7 @@ class mir_gene:
         import matplotlib.pyplot as plt
 
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'result_{}_2.xlsx'.format(hbw))
-        tnames = ['miRTartBase_hsa', 'target_scan_grp', 'go_result']
+        tnames = ['miRTartBase_hsa', 'target_scan_grp']
         N = len(tnames)
         for i, tname in enumerate(tnames):
             df = pd.read_excel(fpath, index_col=0, sheet_name=tname)
@@ -200,17 +397,33 @@ class mir_gene:
         plt.show()
         # plt.savefig(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'log_phypher.png'))
 
+    def matrue_to_pre(self):
+        fpath = os.path.join(self.root, 'database/target_genes', 'mirna_primirna_mapping.txt')
+        df = pd.read_csv(fpath, sep='\t')
+
+        con = sqlite3.connect(fpath.replace('.txt', '.db'))
+        df.to_sql('mirna_primirna_mapping', con, if_exists='replace', index=None)
+
 
 if __name__ == '__main__':
     mg = mir_gene()
     # mg.test()
-    if mg.hostname == 'mingyu-Precision-Tower-7810':
-        mg.mirTarbase()
-        mg.targetscan_grp()
-        # mg.to_server()
+    if mg.hostname == 'mingyu-Precision-Tower-781':
+        # mg.targetscan()
+        # mg.mirTarbase()
+        # mg.targetscan_grp()
+        # mg.targetscan_corr()
+        mg.to_server()
     else:
-        mg.targetscan()
-        mg.targetscan_grp()
+        # mg.matrue_to_pre()
+        # mg.get_intersection_all()
+        # mg.get_intersection()
+        mg.get_union()
+        # mg.target_genes()
+        # mg.get_amlan()
+        # mg.mirTarbase()
+        # mg.targetscan()
+        # mg.targetscan_grp()
 
         # mg.comparison(100)
         # mg.phypher(100)

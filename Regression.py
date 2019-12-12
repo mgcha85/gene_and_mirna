@@ -222,47 +222,47 @@ class Regression(DeepLearning):
         out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', fname + '_filter.xlsx')
         df_res.to_excel(out_path, index=None)
 
-    def get_distance(self):
-        fpath = self.__class__.__name__ + '.xlsx'
-        df = pd.read_excel(self.__class__.__name__ + '.xlsx')
-
-        mir_path = os.path.join(self.root, 'database', 'fantom5.db')
-        con_mir = sqlite3.connect(mir_path)
-
-        gene_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation.db')
-        con_gene = sqlite3.connect(gene_path)
-
-        appendex = []
-        for idx in df.index:
-            if idx % 1000 == 0 or idx + 1 == df.shape[0]:
-                print('{:0.2f}%'.format(100 * (idx + 1) / df.shape[0]))
-
-            mirna = df.loc[idx, 'miRNA']
-            gene = df.loc[idx, 'gene']
-
-            df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mirna), con_mir, index_col='premiRNA')
-            df_gene = pd.read_sql_query("SELECT * FROM 'human_genes_wo_duplicates' WHERE gene_name='{}'".format(gene), con_gene, index_col='gene_name')
-            if df_mir.empty or df_gene.empty:
-                appendex.append([None, None])
-                continue
-
-            mir_chr = df_mir.loc[mirna, 'chromosome']
-            mir_strand = df_mir.loc[mirna, 'strand']
-            gene_chr = df_gene.loc[gene, 'chromosome']
-            gene_strand = df_gene.loc[gene, 'strand']
-
-            if mir_chr == gene_chr and mir_strand == gene_strand:
-                if mir_strand == '+':
-                    offset = 'start'
-                else:
-                    offset = 'end'
-                distance = abs(df_gene.loc[gene, offset] - df_mir.loc[mirna, offset])
-                appendex.append([mir_chr, distance])
-            else:
-                appendex.append([mir_chr, None])
-        df_app = pd.DataFrame(appendex)
-        df = pd.concat([df, df_app], axis=1)
-        df.to_excel(fpath, index=None)
+    # def get_distance(self):
+    #     fpath = self.__class__.__name__ + '.xlsx'
+    #     df = pd.read_excel(self.__class__.__name__ + '.xlsx')
+    #
+    #     mir_path = os.path.join(self.root, 'database', 'fantom5.db')
+    #     con_mir = sqlite3.connect(mir_path)
+    #
+    #     gene_path = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation.db')
+    #     con_gene = sqlite3.connect(gene_path)
+    #
+    #     appendex = []
+    #     for idx in df.index:
+    #         if idx % 1000 == 0 or idx + 1 == df.shape[0]:
+    #             print('{:0.2f}%'.format(100 * (idx + 1) / df.shape[0]))
+    #
+    #         mirna = df.loc[idx, 'miRNA']
+    #         gene = df.loc[idx, 'gene']
+    #
+    #         df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mirna), con_mir, index_col='premiRNA')
+    #         df_gene = pd.read_sql_query("SELECT * FROM 'human_genes_wo_duplicates' WHERE gene_name='{}'".format(gene), con_gene, index_col='gene_name')
+    #         if df_mir.empty or df_gene.empty:
+    #             appendex.append([None, None])
+    #             continue
+    #
+    #         mir_chr = df_mir.loc[mirna, 'chromosome']
+    #         mir_strand = df_mir.loc[mirna, 'strand']
+    #         gene_chr = df_gene.loc[gene, 'chromosome']
+    #         gene_strand = df_gene.loc[gene, 'strand']
+    #
+    #         if mir_chr == gene_chr and mir_strand == gene_strand:
+    #             if mir_strand == '+':
+    #                 offset = 'start'
+    #             else:
+    #                 offset = 'end'
+    #             distance = abs(df_gene.loc[gene, offset] - df_mir.loc[mirna, offset])
+    #             appendex.append([mir_chr, distance])
+    #         else:
+    #             appendex.append([mir_chr, None])
+    #     df_app = pd.DataFrame(appendex)
+    #     df = pd.concat([df, df_app], axis=1)
+    #     df.to_excel(fpath, index=None)
 
     def add_truth(self):
         fpath_ref = os.path.join(self.root, 'database', 'miRTarBase.db')
@@ -375,12 +375,13 @@ class Regression(DeepLearning):
         dfs = []
         for tname in tlist:
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con))
-        return pd.concat(dfs)
+        df = pd.concat(dfs)
+        df = df.set_index(df.columns[0])
+        df.index.name = df.columns[0]
+        return df
 
     def regression(self, hbw):
-        import pickle as pkl
-
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_100.db'),
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
                   'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
@@ -399,9 +400,6 @@ class Regression(DeepLearning):
               normalize=False, positive=False, precompute=False, random_state=None,
               selection='cyclic', tol=1e-3, warm_start=False)
 
-        with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.cha'.format(hbw)), 'wb') as f:
-            pkl.dump(clf, f)
-
         def square_error(clf, X, Y):
             predictions = clf.predict(X)
             return (Y - predictions) ** 2
@@ -417,6 +415,86 @@ class Regression(DeepLearning):
         df_pval.to_sql('p-value', con, if_exists='replace')
         df_inter.to_sql('intercept', con, if_exists='replace')
         print('[{}] {:0.4f}'.format(hbw, clf.score(gene, mir)))
+
+    def cross_regression(self, hbw, N=10):
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
+        dfs = {}
+        for label, fpath in fpaths.items():
+            dfs[label] = self.merge_table(fpath)
+            print('[{}] #:{}'.format(label, dfs[label].shape[0]))
+
+        clf = linear_model.Lasso(alpha=0.1)
+        df_gene = dfs['gene'].loc[:, '10964C':].T
+        df_mir = dfs['mir'].loc[:, '10964C':].T
+
+        def square_error(clf, X, Y):
+            predictions = clf.predict(X)
+            return (Y - predictions) ** 2
+
+        def get_batch(df, i, axis=0):
+            if axis == 0:
+                n = df.shape[0]
+            elif axis == 1:
+                n = df.shape[1]
+            else:
+                raise Exception("wrong axis")
+
+            m = (n + N - 1) // N
+            idx = np.arange(m * i, m * (i + 1))
+            dixd = list(df.index[idx])
+            if axis == 0:
+                trn, test = df.drop(dixd), df.loc[dixd, :]
+            elif axis == 1:
+                trn, test = df.drop(dixd, axis=1), df.loc[:, dixd]
+            return trn, test
+
+        for i in range(N):
+            gene_trn, gene_test = get_batch(df_gene, i)
+            mir_trn, mir_test = get_batch(df_mir, i)
+
+            for gt, mt, label in zip([gene_trn, gene_test], [mir_trn, mir_test], ['train', 'test']):
+                # normalization
+                gt -= gt.mean(axis=0)
+                mt -= mt.mean(axis=0)
+                clf.fit(gt, mt)
+                Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
+                      normalize=False, positive=False, precompute=False, random_state=None,
+                      selection='cyclic', tol=1e-3, warm_start=False)
+
+                df_coef = pd.DataFrame(clf.coef_, index=mt.columns, columns=gt.columns).T
+                df_inter = pd.Series(clf.intercept_, index=mt.columns)
+
+                fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', 'regression_{}_{}_{}.db'.format(hbw, i, label))
+                con = sqlite3.connect(fpath)
+
+                gt.index.name = 'tid'
+                gt.to_sql('X', con, if_exists='replace')
+                mt.index.name = 'miRNA'
+                mt.to_sql('Y', con, if_exists='replace')
+                df_coef.index.name = 'tid'
+                df_coef.to_sql('coefficient', con, if_exists='replace')
+                df_inter.index.name = 'miRNA'
+                df_inter.to_sql('intercept', con, if_exists='replace')
+                print('[{}] {:0.4f}'.format(hbw, clf.score(gt, mt)))
+
+    def get_distance(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation')
+
+        contents = []
+        index = []
+        for fname in sorted([x for x in os.listdir(dirname) if x.endswith('.db')]):
+            name, tpm, num, type = os.path.splitext(fname)[0].split('_')
+            fpath = os.path.join(dirname, fname)
+            con = sqlite3.connect(fpath)
+            y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA')
+            x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
+            coeff = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid')
+            yh = np.dot(x, coeff)
+            distance = (y - yh).abs().values.sum() / (y.size)
+            contents.append(distance)
+            index.append('_'.join([type, num]))
+        pd.Series(contents, index=index).to_excel(os.path.join(dirname, 'distances.xlsx'))
 
     def report(self, hbw):
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
@@ -439,11 +517,10 @@ class Regression(DeepLearning):
         dfs = []
         for tname in tlist:
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_id'))
-            # dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_name'))
         df = pd.concat(dfs)
 
         res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw)))
-        df_res = pd.read_sql("SELECT * FROM 'result' WHERE Transcripts>''", res_con)
+        df_res = pd.read_sql("SELECT * FROM 'result'", res_con)
         df_res['gene_name'] = None
 
         for idx in df_res.index:
@@ -484,6 +561,7 @@ class Regression(DeepLearning):
                     continue
 
                 genes = set(df.loc[idx, 'genes'].split(';'))
+
                 df.loc[idx, 'genes (org)'] = ';'.join(sorted(list(genes)))
                 df.loc[idx, '#genes (org)'] = len(genes)
 
@@ -497,7 +575,7 @@ class Regression(DeepLearning):
 
 if __name__ == '__main__':
     rg = Regression()
-    if rg.hostname == 'mingyu-Precision-Tower-781':
+    if rg.hostname == 'mingyu-Precision-Tower-7810':
         # rg.see()
         rg.to_server()
         # rg.filter_by_lasso()
@@ -505,4 +583,6 @@ if __name__ == '__main__':
         # rg.evaluation()
     else:
         # rg.regression(100)
-        rg.filtering(0)
+        # rg.cross_regression(100)
+        rg.get_distance()
+        # rg.filtering(0)

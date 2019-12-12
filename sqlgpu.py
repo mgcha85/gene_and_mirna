@@ -100,7 +100,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
             int res_start = X[WIDTH * i + START];
             int res_end = X[WIDTH * i + END];
             
-            if(!(res_start > ref_end) && !(res_end < ref_start)) {
+            if((res_start < ref_end) && (res_end > ref_start)) {
                 sum += score[i];
             }
             if(ref_end < res_start) break;
@@ -200,7 +200,7 @@ class Sqlgpu:
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
-        func = mod.get_function("cuda_sql2")
+        func = mod.get_function("cuda_sql")
         func(ref_gpu, res_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         cuda.memcpy_dtoh(out, out_gpu)
         return out
@@ -251,7 +251,7 @@ class Sqlgpu:
 
         gridN = int((N + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK)
 
-        func = mod.get_function("cuda_sql2")
+        func = mod.get_function("cuda_sql")
         func(ref_gpu, res_gpu, score_gpu, out_gpu, N, M, block=(THREADS_PER_BLOCK, 1, 1), grid=(gridN, 1))
         # cuda.memcpy_dtoh(addr, addr_gpu)
         cuda.memcpy_dtoh(out, out_gpu)
