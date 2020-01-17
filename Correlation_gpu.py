@@ -536,35 +536,50 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-7810':
+    if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
         from Regression import Regression
         from mir_gene import mir_gene
+        from set_go import set_go
 
         rg = Regression()
         mg = mir_gene()
+        sg = set_go()
+
         # cor.high_correlation_by_thres(100)
         # cor.get_sample_corr(hbw)
         # cor.plot_sample()
 
         for hbw in [100]:
-            cor.correlation_fan_rna(hbw)
-            # cor.high_clusters(hbw)
-            cor.high_correlation(hbw, 0.8)
+            for opt in ['neg', 'nz']:
+                # cor.correlation_fan_rna(hbw)
+                # cor.high_clusters(hbw)
+                # cor.high_correlation(hbw, 0.8)
 
-            # cell lines
-            cor.sum_fan(hbw, ref='gene')
-            cor.sum_fan(hbw, ref='mir')
+                # cell lines
+                # cor.sum_fan(hbw, ref='gene')
+                # cor.sum_fan(hbw, ref='mir')
 
-            rg.regression(hbw)
-            rg.report(hbw)
-            rg.add_gene_name(hbw)
-            # rg.filtering(hbw)
+                # rg.regression(hbw, opt)
+                # rg.report(hbw, opt)
+                # rg.add_gene_name(hbw, opt)
+                # rg.filtering(hbw)
 
-            # cor.correlation_gpu(hbw)
-            # cor.add_corr(hbw)
+                # cor.correlation_gpu(hbw)
+                # cor.add_corr(hbw)
 
-            # mg.comparison(hbw)
-            # mg.phypher(hbw)
-            # mg.plot(hbw)
+                # mg.comparison(hbw)
+                # mg.phypher(hbw)
+                # mg.plot(hbw)
+
+                # sg.set_input(hbw, opt)
+                # sg.submit_data(hbw, opt, bg=True)
+                # sg.extract_genes(hbw, opt)
+
+                # sg.result(hbw, opt)
+                # sg.to_tg(hbw, opt)
+
+                # sg.move(hbw, opt)
+                sg.hyper_test(hbw, opt)
+                sg.plot_hyper_test(hbw, opt)

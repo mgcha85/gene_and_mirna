@@ -10,6 +10,7 @@ from Server import Server
 import sys
 from DeepLearning import DeepLearning
 from Database import Database
+import matplotlib.pyplot as plt
 
 
 class Regression(DeepLearning):
@@ -20,10 +21,10 @@ class Regression(DeepLearning):
             self.root = '/home/mingyu/Bioinformatics'
         elif self.hostname == 'DESKTOP-DLOOJR6':
             self.root = 'D:/Bioinformatics'
-        elif self.hostname == 'mingyu-Inspiron-7559':
-            self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+        self.table_names = {}
+
         self.scope = 500
         self.dl = 'cnn'
 
@@ -196,8 +197,6 @@ class Regression(DeepLearning):
         df.to_excel(out_path, index=None)
 
     def histogram(self):
-        import matplotlib.pyplot as plt
-
         df = pd.read_excel(self.__class__.__name__ + '.xlsx')
         hist, bin = np.histogram(df['coeff'].values, bins=100)
         plt.bar(bin[:-1], hist)
@@ -380,7 +379,7 @@ class Regression(DeepLearning):
         df.index.name = df.columns[0]
         return df
 
-    def regression(self, hbw):
+    def regression(self, hbw, opt):
         fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
                   'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
@@ -389,34 +388,175 @@ class Regression(DeepLearning):
             print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
         clf = linear_model.Lasso(alpha=0.1)
-        gene = dfs['gene'].loc[:, '10964C':].T.values
-        mir = dfs['mir'].loc[:, '10964C':].T.values
+        gene = dfs['gene'].loc[:, '10964C':].T
+        mir = dfs['mir'].loc[:, '10964C':].T
 
-        gene = np.subtract(gene, gene.mean(axis=0))
-        mir = np.subtract(mir, mir.mean(axis=0))
+        # miRNAs in RNA-seq
+        # with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'miRNA_rna_seq.txt'), 'rt') as f:
+        #     mname = f.read().split('\n')
+        # mir = mir[mname]
+
+        gene = gene - gene.mean(axis=0)
+        mir = mir - mir.mean(axis=0)
+
+        # gene = (gene - gene.mean(axis=0)) / gene.std(axis=0)
+        # gene = gene.dropna(how='any', axis=1)
+        # mir = (mir - mir.mean(axis=0)) / mir.std(axis=0)
+        # mir = mir.dropna(how='any', axis=1)
 
         clf.fit(gene, mir)
         Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
               normalize=False, positive=False, precompute=False, random_state=None,
               selection='cyclic', tol=1e-3, warm_start=False)
 
-        def square_error(clf, X, Y):
-            predictions = clf.predict(X)
-            return (Y - predictions) ** 2
+        df_coef = pd.DataFrame(clf.coef_, index=mir.columns, columns=gene.columns).T
+        df_inter = pd.Series(clf.intercept_, index=mir.columns)
 
-        # df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_name']).T
-        df_coef = pd.DataFrame(clf.coef_, index=dfs['mir']['miRNA'], columns=dfs['gene']['transcript_id']).T
-        df_inter = pd.Series(clf.intercept_, index=dfs['mir']['miRNA'])
-        df_pval = pd.DataFrame(square_error(clf, gene, mir), index=dfs['mir'].columns[3:], columns=dfs['mir']['miRNA'])
-
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
+
+        gene.T.to_sql('X', con, if_exists='replace')
+        mir.T.to_sql('Y', con, if_exists='replace')
+        df_coef.index.name = 'transcript_id'
         df_coef.to_sql('coefficient', con, if_exists='replace')
-        df_pval.to_sql('p-value', con, if_exists='replace')
         df_inter.to_sql('intercept', con, if_exists='replace')
         print('[{}] {:0.4f}'.format(hbw, clf.score(gene, mir)))
 
-    def cross_regression(self, hbw, N=10):
+    def regression_rna(self):
+        fpaths = {'mir': os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_mir.db'),
+                  'gene': os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_gene.db')}
+        dfs = {}
+        for label, fpath in fpaths.items():
+            df = pd.read_sql("SELECT * FROM '{}_expression'".format(label), sqlite3.connect(fpath))
+            dfs[label] = df.set_index(df.columns[0], drop=True)
+            print('[{}] #:{}'.format(label, dfs[label].shape[0]))
+
+        clf = linear_model.Lasso(alpha=0.1)
+        gene = dfs['gene'].T
+        mir = dfs['mir'].T
+
+        gene = gene - gene.mean(axis=0)
+        mir = mir - mir.mean(axis=0)
+
+        # gene = (gene - gene.mean(axis=0)) / gene.std(axis=0)
+        # gene = gene.dropna(how='any', axis=1)
+        # mir = (mir - mir.mean(axis=0)) / mir.std(axis=0)
+        # mir = mir.dropna(how='any', axis=1)
+
+        clf.fit(gene, mir)
+        Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
+              normalize=False, positive=False, precompute=False, random_state=None,
+              selection='cyclic', tol=1e-3, warm_start=False)
+
+        df_coef = pd.DataFrame(clf.coef_, index=mir.columns, columns=gene.columns).T
+        df_inter = pd.Series(clf.intercept_, index=mir.columns)
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_rna.db')
+        con = sqlite3.connect(fpath)
+
+        gene.T.to_sql('X', con, if_exists='replace')
+        mir.T.to_sql('Y', con, if_exists='replace')
+        df_coef.to_sql('coefficient', con, if_exists='replace')
+        df_inter.to_sql('intercept', con, if_exists='replace')
+
+    def compare(self):
+        from scipy.stats import hypergeom
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+        con_fan = sqlite3.connect(fpath_fan)
+
+        fpath_rna = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_rna.db')
+        con_rna = sqlite3.connect(fpath_rna)
+
+        df_fan = pd.read_sql("SELECT * FROM 'result'", con_fan, index_col='miRNA')
+        df_rna = pd.read_sql("SELECT * FROM 'result'", con_rna, index_col='miRNA')
+
+        mirList = set.intersection(set(df_fan.index), set(df_rna.index))
+        contents = []
+        for mir in mirList:
+            gene_fan = set(df_fan.loc[mir, 'gene_name'].split(';'))
+            gene_rna = set(df_rna.loc[mir, 'gene_name'].split(';'))
+            intersection = set.intersection(gene_fan, gene_rna)
+
+            U = set.union(gene_fan, gene_rna)
+            m = len(U - gene_fan)
+            n = len(gene_fan)
+
+            k = len(gene_rna)
+            q = len(intersection)
+            p = hypergeom.sf(q-1, n+m, m, k)
+
+            contents.append([mir, ';'.join(sorted(list(gene_fan))), ';'.join(sorted(list(gene_rna))), m, n, q, p])
+        df_res = pd.DataFrame(contents, columns=['miRNA', 'genes (fantom)', 'genes (RNA-seq)', 'm', 'n', 'i', 'p-value'])
+        df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_compare.xlsx'), index=None)
+
+    def cross_stats(self, opt):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+        flist = os.listdir(dirname)
+        flist = sorted([x for x in flist if x.endswith('.db') and '_test' in x])
+        columns__ = ['miRNA', 'median', 'mean', 'std', 'quantile']
+
+        writer = pd.ExcelWriter(os.path.join(dirname, 'cross_stats.xlsx'), engine='xlsxwriter')
+        summary = []
+
+        for fname in flist:
+            report_trn, report_test = [], []
+            # test
+            fpath_test = os.path.join(dirname, fname)
+            con_test = sqlite3.connect(fpath_test)
+            # train
+            fpath_trn = os.path.join(dirname, fname.replace('_test', '_train'))
+            con_trn = sqlite3.connect(fpath_trn)
+
+            # load test data
+            B_test = pd.read_sql("SELECT * FROM 'coefficient'", con_test, index_col='tid')
+            # X_test = pd.read_sql("SELECT * FROM 'X'", con_test, index_col='tid')
+            # Y_test = pd.read_sql("SELECT * FROM 'Y'", con_test, index_col='miRNA')
+
+            # load train data
+            B_trn = pd.read_sql("SELECT * FROM 'coefficient'", con_trn, index_col='tid')
+            X_trn = pd.read_sql("SELECT * FROM 'X'", con_trn, index_col='tid')
+            Y_trn = pd.read_sql("SELECT * FROM 'Y'", con_trn, index_col='miRNA')
+
+            # matrix multiplication
+            Yh_trn = np.dot(X_trn, B_trn)
+            E_trn = (Y_trn - Yh_trn).abs()
+
+            # matrix multiplication with plugin
+            Yh_test = np.dot(X_trn, B_test)
+            E_test = (Y_trn - Yh_test).abs()
+
+            # get statistics
+            df_rep = []
+            for E, report, label in zip([E_test, E_trn], [report_test, report_trn], [' (test)', ' (train)']):
+                plt.hist(E.values.flatten(), bins='auto')
+                quant = E.quantile(0.8)
+                for col in E.columns:
+                    report.append([col, E[col].median(), E[col].mean(), E[col].std(), quant[col]])
+
+                plt.xlabel('Error')
+                plt.ylabel('Frequency')
+                plt.title(os.path.splitext(fname)[0])
+                plt.savefig(os.path.join(dirname, os.path.splitext(fname)[0] + '.png'))
+                plt.close()
+
+                columns = []
+                for i in range(len(columns__)):
+                    columns.append(columns__[i] + label)
+                df_rep.append(pd.DataFrame(report, columns=columns))
+
+            df_rep = pd.concat(df_rep, axis=1)
+            _, hbw, num, type = os.path.splitext(fname)[0].split('_')
+            df_rep.to_excel(writer, sheet_name=num, index=None)
+            summary.append(df_rep.mean())
+
+        # write report
+        df_summary = pd.concat(summary, axis=1).T
+        df_summary.index = flist
+        df_summary.to_excel(os.path.join(dirname, 'cross_stats_summary.xlsx'))
+        writer.save()
+        writer.close()
+
+    def cross_regression(self, hbw, opt, N=10):
         fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
                   'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
@@ -424,13 +564,12 @@ class Regression(DeepLearning):
             dfs[label] = self.merge_table(fpath)
             print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
+        con_rna = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt)))
+        df_rna = pd.read_sql("SELECT miRNA FROM 'result'", con_rna)
+
         clf = linear_model.Lasso(alpha=0.1)
         df_gene = dfs['gene'].loc[:, '10964C':].T
-        df_mir = dfs['mir'].loc[:, '10964C':].T
-
-        def square_error(clf, X, Y):
-            predictions = clf.predict(X)
-            return (Y - predictions) ** 2
+        df_mir = dfs['mir'].loc[df_rna['miRNA'], '10964C':].T
 
         def get_batch(df, i, axis=0):
             if axis == 0:
@@ -457,6 +596,9 @@ class Regression(DeepLearning):
                 # normalization
                 gt -= gt.mean(axis=0)
                 mt -= mt.mean(axis=0)
+                # gt = (gt - gt.std(axis=0)) / gt.mean(axis=0)
+                # mt = (mt - mt.std(axis=0)) / mt.mean(axis=0)
+
                 clf.fit(gt, mt)
                 Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
                       normalize=False, positive=False, precompute=False, random_state=None,
@@ -465,7 +607,10 @@ class Regression(DeepLearning):
                 df_coef = pd.DataFrame(clf.coef_, index=mt.columns, columns=gt.columns).T
                 df_inter = pd.Series(clf.intercept_, index=mt.columns)
 
-                fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', 'regression_{}_{}_{}.db'.format(hbw, i, label))
+                dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
+                fpath = os.path.join(dirname, 'regression_{}_{}_{}.db'.format(hbw, i, label))
                 con = sqlite3.connect(fpath)
 
                 gt.index.name = 'tid'
@@ -478,10 +623,41 @@ class Regression(DeepLearning):
                 df_inter.to_sql('intercept', con, if_exists='replace')
                 print('[{}] {:0.4f}'.format(hbw, clf.score(gt, mt)))
 
-    def get_distance(self):
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation')
+    def get_plugin_distance(self, opt):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
 
-        contents = []
+        contents = {'test': [], 'train': []}
+        index = []
+        for fname in sorted([x for x in os.listdir(dirname) if x.endswith('.db')]):
+            if 'train' in fname:
+                contents['train'].append(fname)
+            elif 'test' in fname:
+                contents['test'].append(fname)
+            else:
+                continue
+
+        report = []
+        for fname in sorted(contents['train']):
+            name, tpm, num, type = os.path.splitext(fname)[0].split('_')
+            index.append(num)
+            con_trn = sqlite3.connect(os.path.join(dirname, fname))
+            fname = '_'.join([name, tpm, num, 'test']) + '.db'
+            con_tst = sqlite3.connect(os.path.join(dirname, fname))
+
+            B = pd.read_sql("SELECT * FROM 'coefficient'", con_trn, index_col='tid')
+            X = pd.read_sql("SELECT * FROM 'X'", con_tst, index_col='tid')
+            Y = pd.read_sql("SELECT * FROM 'Y'", con_tst, index_col='miRNA')
+
+            Yh = np.dot(X, B)
+            distance = (Y - Yh).abs().values.sum() / Y.size
+            report.append(distance)
+        print(report)
+        pd.DataFrame(report, index=index).to_excel(os.path.join(dirname, 'plugin_distance.xlsx'))
+
+    def get_distance(self, opt):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+
+        contents = {'test': [], 'train': []}
         index = []
         for fname in sorted([x for x in os.listdir(dirname) if x.endswith('.db')]):
             name, tpm, num, type = os.path.splitext(fname)[0].split('_')
@@ -491,13 +667,16 @@ class Regression(DeepLearning):
             x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
             coeff = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid')
             yh = np.dot(x, coeff)
-            distance = (y - yh).abs().values.sum() / (y.size)
-            contents.append(distance)
-            index.append('_'.join([type, num]))
-        pd.Series(contents, index=index).to_excel(os.path.join(dirname, 'distances.xlsx'))
+            distance = (y - yh).abs().values.sum() / y.size
+            print('y.size: {}, distance: {}, type: {}'.format(y.size, distance, type))
+            contents[type].append(distance)
+            if type == 'test':
+                index.append('_'.join([type, num]))
+        print(contents)
+        pd.DataFrame(contents, index=index).to_excel(os.path.join(dirname, 'distances.xlsx'))
 
-    def report(self, hbw):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+    def report(self, hbw, opt='nz'):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
         # df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_name')
         df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_id')
@@ -505,11 +684,16 @@ class Regression(DeepLearning):
         contents = []
         for col in df.columns:
             ser = df[col]
-            ser = ser[ser > 0]
+            if opt == 'nz':
+                ser = ser[ser != 0]
+            elif opt == 'neg':
+                ser = ser[ser < 0]
+            elif opt == 'pos':
+                ser = ser[ser > 0]
             contents.append([col, ';'.join(ser.index)])
         pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_sql('result', con, if_exists='replace', index=None)
 
-    def add_gene_name(self, hbw):
+    def add_gene_name(self, hbw, opt):
         fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
@@ -519,8 +703,8 @@ class Regression(DeepLearning):
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_id'))
         df = pd.concat(dfs)
 
-        res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw)))
-        df_res = pd.read_sql("SELECT * FROM 'result'", res_con)
+        res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt)))
+        df_res = pd.read_sql("SELECT * FROM 'result' WHERE Transcripts>''", res_con)
         df_res['gene_name'] = None
 
         for idx in df_res.index:
@@ -530,12 +714,25 @@ class Regression(DeepLearning):
             if not isinstance(tr, str):
                 continue
 
+            tid = []
             gnames = []
             for t in tr.split(';'):
-                gnames.append(df.loc[t, 'gene_name'])
+                if t in df.index:
+                    gnames.append(df.loc[t, 'gene_name'])
+                    tid.append(t)
 
+            df_res.loc[idx, 'Transcripts'] = ';'.join(tid)
             df_res.loc[idx, 'gene_name'] = ';'.join(gnames)
         df_res.to_sql('result', res_con, if_exists='replace', index=None)
+
+    def move(self):
+        out_con = sqlite3.connect(os.path.join(self.root, 'database/target_genes', 'predictions_processed_result.db'))
+        res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_rna.db'))
+        df = pd.read_sql("SELECT * FROM 'result'", res_con, index_col='miRNA')
+        df.index.name = 'pre-miRNA'
+        df = df.rename(columns={'gene_name': 'genes'})
+        df = df.drop('Transcripts', axis=1)
+        df.to_sql('rnaseq_pre', out_con, if_exists='replace')
 
     def filtering(self, hbw):
         fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
@@ -572,10 +769,85 @@ class Regression(DeepLearning):
                 df.loc[idx, '#genes'] = len(genes)
             df.to_sql(tname, con, if_exists='replace')
 
+    def eval(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_rna.db')
+        con = sqlite3.connect(fpath)
+
+        Y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='tissue')
+        X = pd.read_sql("SELECT * FROM 'X'", con, index_col='tissue')
+        coeff = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_id')
+
+        Yh = np.dot(X, coeff)
+        distance = (Y - Yh).abs().values.sum() / Y.size
+        print(distance)
+
+    def compare_cline_tissue(self):
+        # import matplotlib.pyplot as plt
+        # from mpl_toolkits.mplot3d import Axes3D
+        # fig = plt.figure()
+        # ax1 = fig.add_subplot(211, projection='3d')
+        # ax2 = fig.add_subplot(212, projection='3d')
+
+        fpath_cline = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+        con_cline = sqlite3.connect(fpath_cline)
+        df_cline = pd.read_sql("SELECT * FROM 'coefficient'", con_cline, index_col='transcript_id')
+
+        fpath_rna = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_rna.db')
+        con_rna = sqlite3.connect(fpath_rna)
+        df_rna = pd.read_sql("SELECT * FROM 'coefficient'", con_rna, index_col='transcript_id')
+
+        rinter = set.intersection(set(df_cline.index), set(df_rna.index))
+        cinter = set.intersection(set(df_cline.columns), set(df_rna.columns))
+
+        df_cline = df_cline.loc[rinter, cinter]
+        df_rna = df_rna.loc[rinter, cinter]
+
+        writer = pd.ExcelWriter(os.path.join(self.root, '/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out', 'regression_comp.xlsx'), engine='xlsxwriter')
+        df_cline.to_excel(writer, sheet_name='cell_lines')
+        df_rna.to_excel(writer, sheet_name='tissue')
+        writer.save()
+        writer.close()
+
+        distance = ((df_cline - df_rna).abs()).values.sum() / df_rna.size
+        print(distance)
+
+        # y = np.arange(df_cline.shape[0])
+        # x = np.arange(df_cline.shape[1])
+        # X, Y = np.meshgrid(x, y)
+        # ax1.plot_surface(X, Y, df_cline)
+        # ax2.plot_surface(X, Y, df_rna)
+        # plt.show()
+
+    def distance(self):
+        import matplotlib.pyplot as plt
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
+        con = sqlite3.connect(fpath)
+        df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_id')
+
+        fpath_rna = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_rna.db')
+        con_rna = sqlite3.connect(fpath_rna)
+        df_rna = pd.read_sql("SELECT * FROM 'coefficient'", con_rna, index_col='transcript_id')
+
+        mir = sorted(list(set.intersection(set(df.columns), set(df_rna.columns))))
+        gene = sorted(list(set.intersection(set(df.index), set(df_rna.index))))
+
+        df = df.loc[gene, mir]
+        df_rna = df_rna.loc[gene, mir]
+        diff = (df - df_rna).abs()
+        distance = diff.values.sum() / df.size
+        print(distance)
+
+        xaxis = np.arange(df.size)
+        plt.scatter(xaxis, df.values.flatten(), color='r', label='fantom')
+        plt.scatter(xaxis, df_rna.values.flatten(), color='b', label='rna-seq')
+        plt.legend()
+        plt.show()
+
 
 if __name__ == '__main__':
     rg = Regression()
-    if rg.hostname == 'mingyu-Precision-Tower-7810':
+    if rg.hostname == 'mingyu-Precision-Tower-781':
         # rg.see()
         rg.to_server()
         # rg.filter_by_lasso()
@@ -583,6 +855,18 @@ if __name__ == '__main__':
         # rg.evaluation()
     else:
         # rg.regression(100)
-        # rg.cross_regression(100)
-        rg.get_distance()
+        # rg.regression_rna()
+        # rg.compare()
+        # rg.eval()
+        # rg.compare_cline_tissue()
+        # rg.report('rna')
+        # rg.add_gene_name('rna')
+        # rg.move()
+        # rg.get_plugin_distance('nz')
+        rg.cross_stats('nz')
+
+        # rg.cross_regression(100, 'neg')
+        # rg.cross_regression(100, 'nz')
+
+        # rg.get_distance('nz')
         # rg.filtering(0)
