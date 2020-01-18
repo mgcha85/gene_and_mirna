@@ -44,8 +44,8 @@ class Util:
         out_path = fpath.replace('.db', '_spt.db')
 
         con = sqlite3.connect(fpath)
-        sql = "SELECT chromosome, start, end, strand, FPKM, reference_id, ref_gene_id, ref_gene_name FROM '{}'".format(tname)
-        # sql = "SELECT chromosome, start, end, strand, score FROM '{}'".format(tname)
+        # sql = "SELECT chromosome, start, end, strand, FPKM, reference_id, ref_gene_id, ref_gene_name FROM '{}'".format(tname)
+        sql = "SELECT chromosome, start, end, strand, score FROM '{}'".format(tname)
         df = pd.read_sql_query(sql, con)
 
         out_con = sqlite3.connect(out_path)
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         ut.to_server()
     else:
         # fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
-        fpath = os.path.join(ut.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        fpath = os.path.join(ut.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         tlist = Database.load_tableList(sqlite3.connect(fpath))
         for tname in tlist:
             ut.split(fpath, tname)

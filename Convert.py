@@ -332,7 +332,7 @@ if __name__ == '__main__':
         # dirname = os.path.join(con.root, 'database', 'RNA-seq')
         # con.gtf_to_db_all(dirname)
         # con.stats_by_tissue()
-        con.bam_to_gtf('/home/mingyu/Bioinformatics/database/Fantom/v5/tissues/thyroid/thyroid%2c%20adult%2c%20pool1.CNhs10634.10028-101E1.hg19.nobarcode.bam')
+        # con.bam_to_gtf('/home/mingyu/Bioinformatics/database/Fantom/v5/tissues/thyroid/thyroid%2c%20adult%2c%20pool1.CNhs10634.10028-101E1.hg19.nobarcode.bam')
 
         # con.avg_rna_seq_by_tissues()
         # con.avg_fantom_by_tissue()
@@ -349,10 +349,10 @@ if __name__ == '__main__':
 
         # con.avg_fantom_by_celllines()
 
-        # from Correlation_gpu import Correlation
-        # cor = Correlation()
-        # cor.correlation_fan_rna()
-        # cor.high_correlation()
+        from Correlation_gpu import Correlation
+        cor = Correlation()
+        cor.correlation_fan_rna()
+        cor.high_correlation()
 
         # fpath = os.path.join(con.root, 'database/gencode', 'gencode.v32lift37.annotation.gtf')
         # conn = sqlite3.connect(fpath.replace('.gtf', '.db'))

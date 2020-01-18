@@ -66,32 +66,29 @@ class validation:
             report = []
             for i in range(df.shape[1]):
                 mir1 = df_diff.columns[i]
-                for j in range(i + 1, df.shape[1]):
-                    mir2 = df_diff.columns[j]
-                    if not (df_diff.iloc[:, i] - df_diff.iloc[:, j]).sum() == 0:
-                        x = df_diff.iloc[:, i]
-                        y = df_diff.iloc[:, j]
-                        diff = (df_diff.iloc[:, i] - df_diff.iloc[:, j]).sum()
-                        if diff > 0:
-                            T, p_value = wilcoxon(x, y, alternative='greater')
-                            if p_value < 0.01:
-                                report.append([mir1, mir2, T, p_value, diff])
-                                report.append([mir2, mir1, T, p_value, -diff])
-                            else:
-                                report.append([mir1, mir2, None, None, float('inf')])
-                                report.append([mir2, mir1, None, None, float('-inf')])
+                for j in range(df.shape[1]):
+                    if i == j:
+                        continue
 
+                    mir2 = df_diff.columns[j]
+                    x = df_diff.iloc[:, i]
+                    y = df_diff.iloc[:, j]
+                    diff = (x - y).sum()
+
+                    if diff != 0:
+                        T, p_value = wilcoxon(x, y, alternative='greater')
+                        if diff > 0 and p_value < 0.01:
+                            report.append([mir1, mir2, T, p_value, diff])
                         elif diff < 0:
                             T, p_value = wilcoxon(x, y, alternative='less')
                             if p_value < 0.01:
                                 report.append([mir1, mir2, T, p_value, diff])
-                                report.append([mir2, mir1, T, p_value, -diff])
                             else:
-                                report.append([mir1, mir2, None, None, float('-inf')])
-                                report.append([mir2, mir1, None, None, float('inf')])
+                                report.append([mir1, mir2, None, None, 0])
+                        else:
+                            report.append([mir1, mir2, None, None, 0])
                     else:
                         report.append([mir1, mir2, None, None, 0])
-                        report.append([mir2, mir1, None, None, 0])
             df_rep = pd.DataFrame(report, columns=['miRNA1', 'miRNA2', 'sum', 'p-value', 'diff'])
             df_rep.sort_values(by=['diff']).to_sql(os.path.splitext(fname)[0], con_out, index=None, if_exists='replace')
         Parallel(n_jobs=num_cores)(delayed(processInput)(fname) for fname in flist)
@@ -168,27 +165,28 @@ class validation:
         con = sqlite3.connect(os.path.join(dirname, 'regression_100_cv.db'))
         con_out = sqlite3.connect(os.path.join(dirname, 'regression_100_cv_sorted.db'))
 
-        mir = 'hsa-mir-3155a'
+        # mir = 'hsa-mir-3155a'
         summary = []
         for tname in Database.load_tableList(con):
-            # df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
-            df = pd.read_sql("SELECT * FROM '{}' WHERE miRNA1='{}' ORDER BY diff DESC".format(tname, mir), con)
-            # df = self.quick_sort(df)
-            # df.to_sql(tname, con_out, if_exists='replace', index=None)
-            summary.append([*df[df['diff'] > 0]['miRNA2'], df['miRNA1'].iloc[0],  *df[df['diff'] == 0]['miRNA2'], *df[df['diff'] < 0]['miRNA2']])
-
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+            # df = pd.read_sql("SELECT * FROM '{}' WHERE miRNA1='{}' ORDER BY diff DESC".format(tname, mir), con)
+            df = self.quick_sort(df)
+            df.to_sql(tname, con_out, if_exists='replace', index=None)
+            # summary.append([*df[df['diff'] > 0]['miRNA2'], df['miRNA1'].iloc[0],  *df[df['diff'] == 0]['miRNA2'], *df[df['diff'] < 0]['miRNA2']])
+            pivot = df.iloc[0]['miRNA1']
+            summary.append([*df[df['diff'] > 0]['miRNA2'], pivot, *df[df['diff'] == 0]['miRNA2'], *df[df['diff'] < 0]['miRNA2']])
         df_sum = pd.DataFrame(data=summary)
         df_sum.T.to_excel('summary.xlsx', index=None)
 
 
 if __name__ == '__main__':
     val = validation()
-    if val.hostname == 'mingyu-Precision-Tower-781':
+    if val.hostname == 'mingyu-Precision-Tower-7810':
         val.to_server()
         # for opt in ['nz', 'neg']:
         #     val.is_similar(opt)
     else:
         for opt in ['nz']:
-            # val.wilcox(opt)
+            val.wilcox(opt)
             val.sort_diff(opt)
         # val.find_identical_distribution()

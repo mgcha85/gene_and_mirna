@@ -379,7 +379,7 @@ class Regression(DeepLearning):
         df.index.name = df.columns[0]
         return df
 
-    def regression(self, hbw, opt):
+    def get_trn_data(self, hbw):
         fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
                   'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
@@ -387,10 +387,14 @@ class Regression(DeepLearning):
             dfs[label] = self.merge_table(fpath)
             print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
-        clf = linear_model.Lasso(alpha=0.1)
-        gene = dfs['gene'].loc[:, '10964C':].T
-        mir = dfs['mir'].loc[:, '10964C':].T
+        # gene = dfs['gene'].loc[:, '10964C':].T
+        # mir = dfs['mir'].loc[:, '10964C':].T
+        gene = dfs['gene'].loc[:, 'achilles tendon':].T
+        mir = dfs['mir'].loc[:, 'achilles tendon':].T
+        return gene, mir
 
+    def regression(self, hbw, opt):
+        gene, mir = self.get_trn_data(hbw)
         # miRNAs in RNA-seq
         # with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'miRNA_rna_seq.txt'), 'rt') as f:
         #     mname = f.read().split('\n')
@@ -404,6 +408,7 @@ class Regression(DeepLearning):
         # mir = (mir - mir.mean(axis=0)) / mir.std(axis=0)
         # mir = mir.dropna(how='any', axis=1)
 
+        clf = linear_model.Lasso(alpha=0.1)
         clf.fit(gene, mir)
         Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
               normalize=False, positive=False, precompute=False, random_state=None,
@@ -412,7 +417,8 @@ class Regression(DeepLearning):
         df_coef = pd.DataFrame(clf.coef_, index=mir.columns, columns=gene.columns).T
         df_inter = pd.Series(clf.intercept_, index=mir.columns)
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'regression_{}_{}.db'.format(hbw, opt))
+        # fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
 
         gene.T.to_sql('X', con, if_exists='replace')
@@ -489,11 +495,11 @@ class Regression(DeepLearning):
         df_res = pd.DataFrame(contents, columns=['miRNA', 'genes (fantom)', 'genes (RNA-seq)', 'm', 'n', 'i', 'p-value'])
         df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_compare.xlsx'), index=None)
 
-    def cross_stats(self, opt):
+    def cross_stats(self, hbw, opt):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
         flist = os.listdir(dirname)
         flist = sorted([x for x in flist if x.endswith('.db') and '_test' in x])
-        columns__ = ['miRNA', 'median', 'mean', 'std', 'quantile']
+        columns__ = ['miRNA', 'median_diff', 'mean_diff', 'std_diff', 'median_expr', 'std_expr', 'med_diff_expr_ratio']
 
         writer = pd.ExcelWriter(os.path.join(dirname, 'cross_stats.xlsx'), engine='xlsxwriter')
         summary = []
@@ -508,36 +514,42 @@ class Regression(DeepLearning):
             con_trn = sqlite3.connect(fpath_trn)
 
             # load test data
-            B_test = pd.read_sql("SELECT * FROM 'coefficient'", con_test, index_col='tid')
-            # X_test = pd.read_sql("SELECT * FROM 'X'", con_test, index_col='tid')
-            # Y_test = pd.read_sql("SELECT * FROM 'Y'", con_test, index_col='miRNA')
+            # B_test = pd.read_sql("SELECT * FROM 'coefficient'", con_test, index_col='tid')
+            X_test = pd.read_sql("SELECT * FROM 'X'", con_test, index_col='tid').T
+            Y_test = pd.read_sql("SELECT * FROM 'Y'", con_test, index_col='miRNA').T
 
             # load train data
-            B_trn = pd.read_sql("SELECT * FROM 'coefficient'", con_trn, index_col='tid')
-            X_trn = pd.read_sql("SELECT * FROM 'X'", con_trn, index_col='tid')
-            Y_trn = pd.read_sql("SELECT * FROM 'Y'", con_trn, index_col='miRNA')
+            B_trn = pd.read_sql("SELECT * FROM 'coefficient'", con_trn, index_col='tid').T
+            X_trn = pd.read_sql("SELECT * FROM 'X'", con_trn, index_col='tid').T
+            Y_trn = pd.read_sql("SELECT * FROM 'Y'", con_trn, index_col='miRNA').T
 
             # matrix multiplication
-            Yh_trn = np.dot(X_trn, B_trn)
+            Yh_trn = np.dot(B_trn, X_trn)
             E_trn = (Y_trn - Yh_trn).abs()
 
             # matrix multiplication with plugin
-            Yh_test = np.dot(X_trn, B_test)
-            E_test = (Y_trn - Yh_test).abs()
+            Yh_test = np.dot(B_trn, X_test)
+            E_test = (Y_test - Yh_test).abs()
 
             # get statistics
             df_rep = []
-            for E, report, label in zip([E_test, E_trn], [report_test, report_trn], [' (test)', ' (train)']):
-                plt.hist(E.values.flatten(), bins='auto')
-                quant = E.quantile(0.8)
-                for col in E.columns:
-                    report.append([col, E[col].median(), E[col].mean(), E[col].std(), quant[col]])
+            for E, report, Y, label in zip([E_test, E_trn], [report_test, report_trn], [Y_test, Y_trn], [' (test)', ' (train)']):
+                for idx in E.index:
+                    med_diff = E.loc[idx].median()
+                    mean_diff = E.loc[idx].mean()
+                    std_diff = E.loc[idx].std()
 
-                plt.xlabel('Error')
-                plt.ylabel('Frequency')
-                plt.title(os.path.splitext(fname)[0])
-                plt.savefig(os.path.join(dirname, os.path.splitext(fname)[0] + '.png'))
-                plt.close()
+                    med_expr = Y.loc[idx].median()
+                    std_expr = Y.loc[idx].std()
+                    med_diff_expr_ratio = med_diff / med_expr
+                    report.append([idx, med_diff, mean_diff, std_diff, med_expr, std_expr, med_diff_expr_ratio])
+
+                # plt.hist(E.values.flatten(), bins='auto')
+                # plt.xlabel('Error')
+                # plt.ylabel('Frequency')
+                # plt.title(os.path.splitext(fname)[0])
+                # plt.savefig(os.path.join(dirname, os.path.splitext(fname)[0] + '.png'))
+                # plt.close()
 
                 columns = []
                 for i in range(len(columns__)):
@@ -545,8 +557,11 @@ class Regression(DeepLearning):
                 df_rep.append(pd.DataFrame(report, columns=columns))
 
             df_rep = pd.concat(df_rep, axis=1)
+            df_rep['med_der_ratio'] = df_rep['med_diff_expr_ratio (test)'] / df_rep['med_diff_expr_ratio (train)']
+            print(len(df_rep[df_rep['med_der_ratio'] < 10]))
+
             _, hbw, num, type = os.path.splitext(fname)[0].split('_')
-            df_rep.to_excel(writer, sheet_name=num, index=None)
+            df_rep.sort_values(by='med_der_ratio').to_excel(writer, sheet_name=num, index=None)
             summary.append(df_rep.mean())
 
         # write report
@@ -854,7 +869,7 @@ if __name__ == '__main__':
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        # rg.regression(100)
+        # rg.regression(100, 'nz')
         # rg.regression_rna()
         # rg.compare()
         # rg.eval()
@@ -863,7 +878,7 @@ if __name__ == '__main__':
         # rg.add_gene_name('rna')
         # rg.move()
         # rg.get_plugin_distance('nz')
-        rg.cross_stats('nz')
+        rg.cross_stats(100, 'nz')
 
         # rg.cross_regression(100, 'neg')
         # rg.cross_regression(100, 'nz')

@@ -73,25 +73,22 @@ class Download_RNA_seq:
     def download_tissue_fantom(self):
         import urllib.request
 
-        df = pd.read_csv('fantom_tissue_list.txt')
-        df_grp = df.groupby('index')
+        url__ = 'http://fantom.gsc.riken.jp/5/datafiles/latest/basic/human.tissue.hCAGE/{}'
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        fpath = os.path.join(dirname, '00_human.tissue.hCAGE.hg19.assay_sdrf.csv')
+        df = pd.read_csv(fpath, sep='\t')
+        df['Comment [sample_name]'] = df['Comment [sample_name]'].str.split(', ').str[0]
+        df['Comment [sample_name]'] = df['Comment [sample_name]'].str.split(' - ').str[0]
 
-        lens = {}
-        for tissue, df_sub in df_grp:
-            lens[tissue] = df_sub.shape[0]
-
-        for tissue, num in lens.items():
-            print(tissue)
-            df_sub = df_grp.get_group(tissue)
-            for i in df_sub.index:
-                print(i)
-                link = df_sub.loc[i, 'link']
-                url, fname = os.path.split(link)
-                dirname = os.path.join(self.root, 'database/Fantom/v5/tissues', tissue)
-                if not os.path.exists(dirname):
-                    os.mkdir(dirname)
-                fpath = os.path.join(dirname, fname)
-                urllib.request.urlretrieve(link, fpath)
+        for grp, df_grp in df.groupby('Comment [sample_name]'):
+            subdir = os.path.join(dirname, grp)
+            if not os.path.exists(subdir):
+                os.mkdir(subdir)
+            for idx in df_grp.index:
+                fname = df_grp.loc[idx, 'File Name.1'].replace('.nobarcode.bam', '.ctss.bed.gz').replace('%', '%25')
+                print(grp, fname)
+                url = url__.format(fname)
+                urllib.request.urlretrieve(url, os.path.join(subdir, fname))
 
     def download_cell_line_fantom(self):
         import urllib.request
@@ -243,6 +240,55 @@ class Download_RNA_seq:
             return data[sidx: eidx]
 
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines')
+        fpath = os.path.join(dirname, 'list/00_human.cell_line.hCAGE.hg19.assay_sdrf2.xlsx')
+        df_list = pd.read_excel(fpath)
+        df_grp = df_list.groupby('cell line')
+        columns = ['chromosome', 'start', 'end', 'location', 'score', 'strand']
+
+        con = sqlite3.connect(os.path.join(dirname, 'human_cell_line_hCAGE.db'))
+        fpaths = []
+        fails = []
+        multi = []
+        for cline, df_sub in df_grp:
+            if df_sub.shape[0] > 1:
+                print(cline, df_sub.shape[0])
+                multi.append([cline, df_sub.shape[0]])
+            idx = df_sub.index[0]
+            fname = df_sub.loc[idx, 'File Name.1']
+            ename = df_sub.loc[idx, 'Extract Name']
+            fname = fname.replace('.nobarcode.bam', '.ctss.bed.gz')
+
+            fpath = os.path.join(dirname, fname)
+            if not os.path.exists(fpath):
+                fails.append(fname)
+                continue
+            fpaths.append([fpath, cline, ename])
+
+        with open('fails.txt', 'wt') as f:
+            f.write('\n'.join(fails))
+        df_multi = pd.DataFrame(multi, columns=['cell line', 'N'])
+        df_multi.to_csv('multiple_cell_lines.csv', index=None)
+
+        N = int((len(fpaths) + num_cores) // num_cores)
+        for i in range(N):
+            dfs = Parallel(n_jobs=num_cores)(delayed(self.processInput)(row, columns) for row in as_batch(fpaths, i, num_cores))
+            for row in dfs:
+                df, cline, ename = row
+                df[['chromosome', 'start', 'end', 'strand', 'score']].to_sql(cline, con, if_exists='replace', index=None)
+
+    def merge_tissue_db(self):
+        from joblib import Parallel, delayed
+        num_cores = 6
+
+        def as_batch(data, i, batch_size=100):
+            N = len(data)
+            sidx = i * batch_size
+            eidx = sidx + batch_size
+            if eidx > N:
+                eidx = N
+            return data[sidx: eidx]
+
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
         fpath = os.path.join(dirname, 'list/00_human.cell_line.hCAGE.hg19.assay_sdrf2.xlsx')
         df_list = pd.read_excel(fpath)
         df_grp = df_list.groupby('cell line')

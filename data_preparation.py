@@ -117,13 +117,96 @@ class data_preparation:
                 df, cline, ename = row
                 df[['chromosome', 'start', 'end', 'strand', 'score']].to_sql(cline, con, if_exists='replace', index=None)
 
+    def download_tissue_fantom(self):
+        import urllib.request
+
+        url__ = 'http://fantom.gsc.riken.jp/5/datafiles/latest/basic/human.tissue.hCAGE/{}'
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        fpath = os.path.join(dirname, '00_human.tissue.hCAGE.hg19.assay_sdrf.csv')
+        df = pd.read_csv(fpath, sep='\t')
+        df['Comment [sample_name]'] = df['Comment [sample_name]'].str.split(', ').str[0]
+        df['Comment [sample_name]'] = df['Comment [sample_name]'].str.split(' - ').str[0]
+
+        for grp, df_grp in df.groupby('Comment [sample_name]'):
+            subdir = os.path.join(dirname, grp)
+            if not os.path.exists(subdir):
+                os.mkdir(subdir)
+            for idx in df_grp.index:
+                fname = df_grp.loc[idx, 'File Name.1'].replace('.nobarcode.bam', '.ctss.bed.gz').replace('%', '%25')
+                print(grp, fname)
+                url = url__.format(fname)
+                urllib.request.urlretrieve(url, os.path.join(subdir, fname))
+
+    def correlation_replicates(self, df, cols):
+        from itertools import combinations
+
+        report = pd.Series()
+        for comb in combinations(cols, 2):
+            coeff = np.corrcoef(df[comb[0]].fillna(0), df[comb[1]].fillna(0))
+            report['&'.join(comb)] = coeff[0, 1]
+        return report
+
+    def avg_fantom_by_tissue(self):
+        columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
+        dirname_ = os.path.join(self.root, 'database/Fantom/v5/tissues')
+
+        fpath = os.path.join(dirname_, 'FANTOM_tissue.db')
+        con_out = sqlite3.connect(fpath)
+
+        # writer = pd.ExcelWriter(os.path.join(self.root, 'database/Fantom/v5/tissues', 'duplicates.xlsx'), engine='xlsxwriter')
+        flist = [os.path.join(dirname_, x) for x in os.listdir(dirname_)]
+        dirlist = sorted([x for x in flist if os.path.isdir(x)])
+
+        for dirname in dirlist[72:]:
+            tissue = dirname.split('/')[-1]
+            dfs = []
+            index = []
+
+            flist = os.listdir(dirname)
+            flist = [f for f in flist if f.endswith('.gz')]
+            print(tissue, len(flist))
+
+            for fname in flist:
+                fpath = os.path.join(dirname, fname)
+                df_fid = pd.read_csv(fpath, compression='gzip', sep='\t', names=columns)
+                df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
+                index.append(set(df_fid.index))
+                dfs.append(df_fid)
+
+            index = sorted(list(set.union(*index)))
+            df_res = pd.DataFrame(index=index, columns=df_fid.columns)
+            cols = []
+            for i, df_fid in enumerate(dfs):
+                cols.append('score (Rep {})'.format(i + 1))
+                df_res.loc[df_fid.index, cols[-1]] = df_fid['score'].astype(float)
+                df_res.loc[df_fid.index, cols[-1]] /= df_res.loc[df_fid.index, cols[-1]].sum() / 1e6
+                if i == 0:
+                    df_res.loc[df_fid.index, columns] = df_fid[columns]
+
+            # report = self.correlation_replicates(df_res, cols)
+            # report.to_excel(writer, sheet_name=tissue)
+            df_res['score'] = df_res[cols].mean(axis=1)
+            print(df_res[cols].sum(axis=0))
+            df_res.drop(['loc'], axis=1).to_sql(tissue, con_out, if_exists='replace', index=None)
+        # writer.save()
+        # writer.close()
+
 
 if __name__ == '__main__':
     dp = data_preparation()
     if dp.hostname == 'mingyu-Precision-Tower-7810':
         # dp.db_to_bed()
-        dp.download_cell_line_fantom()
+        dp.to_server()
         # dp.bed_to_db()
     else:
-        dp.bed_to_db()
+        # dp.avg_fantom_by_tissue()
 
+        from Correlation_gpu import Correlation
+        from Regression import Regression
+
+        cor = Correlation()
+        rg = Regression()
+
+        cor.sum_fan(100, ref='gene')
+        cor.sum_fan(100, ref='mir')
+        rg.regression(100, 'nz')

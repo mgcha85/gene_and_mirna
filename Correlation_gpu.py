@@ -293,13 +293,15 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         con_fan = sqlite3.connect(fan_path)
 
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -558,10 +560,10 @@ if __name__ == '__main__':
                 # cor.high_correlation(hbw, 0.8)
 
                 # cell lines
-                # cor.sum_fan(hbw, ref='gene')
-                # cor.sum_fan(hbw, ref='mir')
+                cor.sum_fan(hbw, ref='gene')
+                cor.sum_fan(hbw, ref='mir')
 
-                # rg.regression(hbw, opt)
+                rg.regression(hbw, opt)
                 # rg.report(hbw, opt)
                 # rg.add_gene_name(hbw, opt)
                 # rg.filtering(hbw)
@@ -581,5 +583,5 @@ if __name__ == '__main__':
                 # sg.to_tg(hbw, opt)
 
                 # sg.move(hbw, opt)
-                sg.hyper_test(hbw, opt)
-                sg.plot_hyper_test(hbw, opt)
+                # sg.hyper_test(hbw, opt)
+                # sg.plot_hyper_test(hbw, opt)

@@ -16,31 +16,11 @@ import sqlite3
 import pandas as pd
 import numpy as np
 
-con = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_train.db')
-df_y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA')
+con = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_test.db')
+df_x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid').T
+df_y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA').T
+df_b = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid').T
 
-with open('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_Y.txt', 'wt') as f:
-    f.write(', '.join(df_y.T.iloc[:, 0].astype(str)))
-
-df_x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
-with open('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_X.txt', 'wt') as f:
-    f.write(', '.join(df_x.T.iloc[:, 0].astype(str)))
-
-df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid')
-df.T.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_coeff.txt', index=None, header=False)
-
-yp = np.dot(df.T, df_x.T)
-E = (df_y.T - yp).abs()
-with open('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_E.txt', 'wt') as f:
-    f.write(', '.join(E.iloc[:, 0].astype(str)))
-
-
-# con = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_cv.db')
-# df = pd.read_sql("SELECT * FROM 'regression_100_0_test'", con)
-#
-# contents = []
-# for mir, df_grp in df.groupby('miRNA1'):
-#     contents.append((mir, df_grp.shape[0]))
-# df_res = pd.DataFrame(contents, columns=['mir', '#'])
-# df_res = df_res.sort_values('#', ascending=False)
-# print(df_res)
+df_x.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/X.csv', header=False, index=None, sep='\t')
+df_y.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/Y.csv', header=False, index=None, sep='\t')
+df_b.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/B.csv', header=False, index=None, sep='\t')
