@@ -322,14 +322,15 @@ class Correlation:
                 df_ref['end'] = df_ref['tss'] + hbw
 
             N_ = df_ref.shape[0]
-            print(chromosome, strand)
-
             df_buf = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *cell_lines])
             df_buf[['start', 'end']] = df_ref[['start', 'end']]
 
             for i, cline in enumerate(cell_lines):
                 df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
                                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
+                print(df_ref.shape[0], df_fan.shape[0])
+                if df_fan.shape[0] == 0:
+                    continue
                 df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
             pd.concat([df_ref[label], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
 

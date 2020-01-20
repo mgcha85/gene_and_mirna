@@ -157,14 +157,14 @@ class data_preparation:
         flist = [os.path.join(dirname_, x) for x in os.listdir(dirname_)]
         dirlist = sorted([x for x in flist if os.path.isdir(x)])
 
-        for dirname in dirlist[72:]:
+        for i, dirname in enumerate(dirlist[45:]):
             tissue = dirname.split('/')[-1]
             dfs = []
             index = []
 
             flist = os.listdir(dirname)
             flist = [f for f in flist if f.endswith('.gz')]
-            print(tissue, len(flist))
+            print(i, dirname)
 
             for fname in flist:
                 fpath = os.path.join(dirname, fname)
@@ -199,14 +199,14 @@ if __name__ == '__main__':
         dp.to_server()
         # dp.bed_to_db()
     else:
-        # dp.avg_fantom_by_tissue()
+        dp.avg_fantom_by_tissue()
 
-        from Correlation_gpu import Correlation
-        from Regression import Regression
-
-        cor = Correlation()
-        rg = Regression()
-
-        cor.sum_fan(100, ref='gene')
-        cor.sum_fan(100, ref='mir')
-        rg.regression(100, 'nz')
+        # from Correlation_gpu import Correlation
+        # from Regression import Regression
+        #
+        # cor = Correlation()
+        # rg = Regression()
+        #
+        # cor.sum_fan(100, ref='gene')
+        # cor.sum_fan(100, ref='mir')
+        # rg.regression(100, 'nz')

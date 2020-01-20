@@ -499,10 +499,12 @@ class Regression(DeepLearning):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
         flist = os.listdir(dirname)
         flist = sorted([x for x in flist if x.endswith('.db') and '_test' in x])
-        columns__ = ['miRNA', 'median_diff', 'mean_diff', 'std_diff', 'median_expr', 'std_expr', 'med_diff_expr_ratio']
+        columns__ = ['miRNA', 'median_diff', 'mean_diff', 'std_diff', 'median_expr', 'mean_expr', 'std_expr', 'med_diff_expr_ratio']
 
         writer = pd.ExcelWriter(os.path.join(dirname, 'cross_stats.xlsx'), engine='xlsxwriter')
         summary = []
+        sig_mir = []
+        num_sig = []
 
         for fname in flist:
             report_trn, report_test = [], []
@@ -540,9 +542,13 @@ class Regression(DeepLearning):
                     std_diff = E.loc[idx].std()
 
                     med_expr = Y.loc[idx].median()
+                    mean_expr = Y.loc[idx].mean()
                     std_expr = Y.loc[idx].std()
-                    med_diff_expr_ratio = med_diff / med_expr
-                    report.append([idx, med_diff, mean_diff, std_diff, med_expr, std_expr, med_diff_expr_ratio])
+                    if med_expr == 0:
+                        med_diff_expr_ratio = float('inf')
+                    else:
+                        med_diff_expr_ratio = med_diff / med_expr
+                    report.append([idx, med_diff, mean_diff, std_diff, med_expr, mean_expr, std_expr, med_diff_expr_ratio])
 
                 # plt.hist(E.values.flatten(), bins='auto')
                 # plt.xlabel('Error')
@@ -558,11 +564,21 @@ class Regression(DeepLearning):
 
             df_rep = pd.concat(df_rep, axis=1)
             df_rep['med_der_ratio'] = df_rep['med_diff_expr_ratio (test)'] / df_rep['med_diff_expr_ratio (train)']
-            print(len(df_rep[df_rep['med_der_ratio'] < 10]))
+            df_rep['median_diff_ratio'] = (df_rep['median_diff (test)'].abs() - df_rep['median_diff (train)']).abs()
+            # print(len(df_rep[df_rep['med_der_ratio'] < 10]))
+            num_sig.append(len(df_rep[df_rep['median_diff_ratio'] < 1.1]))
 
             _, hbw, num, type = os.path.splitext(fname)[0].split('_')
-            df_rep.sort_values(by='med_der_ratio').to_excel(writer, sheet_name=num, index=None)
+            sig_mir.append(set(df_rep[df_rep['median_diff_ratio'] < 1.1]['miRNA (test)']))
+            df_rep.sort_values(by='median_diff_ratio').to_excel(writer, sheet_name=num, index=None)
             summary.append(df_rep.mean())
+
+        sig_mir = set.intersection(*sig_mir)
+        with open('singificant_miRNA.txt', 'wt') as f:
+            f.write('\n'.join(sorted(list(sig_mir))))
+
+        with open('num_sig.txt', 'wt') as f:
+            f.write('\n'.join(map(str, num_sig)))
 
         # write report
         df_summary = pd.concat(summary, axis=1).T
@@ -570,6 +586,25 @@ class Regression(DeepLearning):
         df_summary.to_excel(os.path.join(dirname, 'cross_stats_summary.xlsx'))
         writer.save()
         writer.close()
+
+    def check_overlap(self, opt):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+        fpath = os.path.join(dirname, 'cross_stats.xlsx')
+        reader = pd.ExcelFile(fpath)
+        snames = reader.sheet_names
+
+        df_res = pd.DataFrame(index=snames, columns=snames)
+        for i in snames:
+            df1 = reader.parse(i)
+            for j in snames:
+                if i == j:
+                    continue
+                df2 = reader.parse(j)
+                mir1 = set(df1[df1['median_diff_ratio'] < 1.1]['miRNA (test)'])
+                mir2 = set(df2[df2['median_diff_ratio'] < 1.1]['miRNA (test)'])
+                mir = set.intersection(mir1, mir2)
+                df_res.loc[i, j] = len(mir) / df1.shape[0]
+        df_res.to_excel(os.path.join(dirname, 'cross_summary.xlsx'))
 
     def cross_regression(self, hbw, opt, N=10):
         fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
@@ -878,7 +913,8 @@ if __name__ == '__main__':
         # rg.add_gene_name('rna')
         # rg.move()
         # rg.get_plugin_distance('nz')
-        rg.cross_stats(100, 'nz')
+        # rg.cross_stats(100, 'nz')
+        rg.check_overlap('nz')
 
         # rg.cross_regression(100, 'neg')
         # rg.cross_regression(100, 'nz')
