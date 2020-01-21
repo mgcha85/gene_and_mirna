@@ -379,24 +379,26 @@ class Regression(DeepLearning):
         df.index.name = df.columns[0]
         return df
 
-    def get_trn_data(self, hbw):
-        # fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
-        #           'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_mir_{}.db'.format(hbw)),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_gene_{}.db'.format(hbw))}
+    def get_trn_data(self, hbw, type):
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_{}.db'.format(hbw)),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
             dfs[label] = self.merge_table(fpath)
             print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
-        # gene = dfs['gene'].loc[:, '10964C':].T
-        # mir = dfs['mir'].loc[:, '10964C':].T
-        gene = dfs['gene'].loc[:, 'achilles tendon':].T
-        mir = dfs['mir'].loc[:, 'achilles tendon':].T
+        if type == 'cell_lines':
+            gene = dfs['gene'].loc[:, '10964C':].T
+            mir = dfs['mir'].loc[:, '10964C':].T
+        elif type == 'tisseus':
+            gene = dfs['gene'].loc[:, 'achilles tendon':].T
+            mir = dfs['mir'].loc[:, 'achilles tendon':].T
+        else:
+            return
         return gene, mir
 
-    def regression(self, hbw, opt):
-        gene, mir = self.get_trn_data(hbw)
+    def regression(self, hbw, opt, type='cell_lines'):
+        gene, mir = self.get_trn_data(hbw, type)
         # miRNAs in RNA-seq
         # with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'miRNA_rna_seq.txt'), 'rt') as f:
         #     mname = f.read().split('\n')
@@ -419,8 +421,7 @@ class Regression(DeepLearning):
         df_coef = pd.DataFrame(clf.coef_, index=mir.columns, columns=gene.columns).T
         df_inter = pd.Series(clf.intercept_, index=mir.columns)
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues/out', 'regression_{}_{}.db'.format(hbw, opt))
-        # fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
 
         gene = gene.T
@@ -637,11 +638,9 @@ class Regression(DeepLearning):
                 df_res.loc[i, j] = len(mir) / df1.shape[0]
         df_res.to_excel(os.path.join(dirname, 'cross_summary.xlsx'))
 
-    def cross_regression(self, hbw, opt, N=10):
-        # fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_mir_{}.db'.format(hbw)),
-        #           'gene': os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_gene_{}.db'.format(hbw))}
-        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_{}.db'.format(hbw)),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))}
+    def cross_regression(self, hbw, opt, N=10, type='cell_lines'):
+        fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_{}.db'.format(hbw)),
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
             dfs[label] = self.merge_table(fpath)
@@ -651,10 +650,14 @@ class Regression(DeepLearning):
         # df_rna = pd.read_sql("SELECT miRNA FROM 'result'", con_rna)
 
         clf = linear_model.Lasso(alpha=0.1)
-        df_gene = dfs['gene'].loc[:, '10964C':].T
-        df_mir = dfs['mir'].loc[:, '10964C':].T
-        # df_gene = dfs['gene'].loc[:, 'achilles tendon':].T
-        # df_mir = dfs['mir'].loc[:, 'achilles tendon':].T
+        if type == 'cell_lines':
+            df_gene = dfs['gene'].loc[:, '10964C':].T
+            df_mir = dfs['mir'].loc[:, '10964C':].T
+        elif type == 'tissues':
+            df_gene = dfs['gene'].loc[:, 'achilles tendon':].T
+            df_mir = dfs['mir'].loc[:, 'achilles tendon':].T
+        else:
+            return
 
         def get_batch(df, i, axis=0):
             if axis == 0:
@@ -692,8 +695,7 @@ class Regression(DeepLearning):
                 df_coef = pd.DataFrame(clf.coef_, index=mt.columns, columns=gt.columns).T
                 df_inter = pd.Series(clf.intercept_, index=mt.columns)
 
-                # dirname = os.path.join(self.root, 'database/Fantom/v5/tissues/out/cross_validation', opt)
-                dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+                dirname = os.path.join(self.root, 'database/Fantom/v5/{}/out/cross_validation'.format(type), opt)
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
                 fpath = os.path.join(dirname, 'regression_{}_{}_{}.db'.format(hbw, i, label))
@@ -943,7 +945,9 @@ if __name__ == '__main__':
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        # rg.regression(100, 'nz')
+        rg.regression(100, 'nz', 'tissues')
+        rg.regression(100, 'nz', 'cell_lines')
+
         # rg.regression_rna()
         # rg.compare()
         # rg.eval()
@@ -958,7 +962,8 @@ if __name__ == '__main__':
         # rg.compare_tissue_cross('nz')
 
         # rg.cross_regression(100, 'neg')
-        rg.cross_regression(100, 'nz')
+        rg.cross_regression(100, 'nz', N=10, type='tissues')
+        rg.cross_regression(100, 'nz', N=10, type='cell_lines')
 
         # rg.get_distance('nz')
         # rg.filtering(0)
