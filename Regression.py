@@ -390,7 +390,7 @@ class Regression(DeepLearning):
         if type == 'cell_lines':
             gene = dfs['gene'].loc[:, '10964C':].T
             mir = dfs['mir'].loc[:, '10964C':].T
-        elif type == 'tisseus':
+        elif type == 'tissues':
             gene = dfs['gene'].loc[:, 'achilles tendon':].T
             mir = dfs['mir'].loc[:, 'achilles tendon':].T
         else:
@@ -503,9 +503,8 @@ class Regression(DeepLearning):
         df_res = pd.DataFrame(contents, columns=['miRNA', 'genes (fantom)', 'genes (RNA-seq)', 'm', 'n', 'i', 'p-value'])
         df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_compare.xlsx'), index=None)
 
-    def cross_stats(self, hbw, opt):
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
-        # dirname = os.path.join(self.root, 'database/Fantom/v5/tissues/out/cross_validation', opt)
+    def cross_stats(self, hbw, opt, type='cell_lines'):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/{}/out/cross_validation'.format(type), opt)
         flist = os.listdir(dirname)
         flist = sorted([x for x in flist if x.endswith('.db') and '_test' in x])
         columns__ = ['miRNA', 'median_diff', 'mean_diff', 'std_diff', 'median_expr', 'mean_expr', 'std_expr', 'med_diff_expr_ratio']
@@ -619,8 +618,8 @@ class Regression(DeepLearning):
                 df_res.loc[s1, s2] = len(mir) / len(set.union(mir1, mir2))
         df_res.to_excel(os.path.join(dirname, 'cross_summary.xlsx'))
 
-    def check_overlap(self, opt):
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+    def check_overlap(self, opt, type):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/{}/out/cross_validation'.format(type), opt)
         fpath = os.path.join(dirname, 'cross_stats.xlsx')
         reader = pd.ExcelFile(fpath)
         snames = reader.sheet_names
@@ -938,32 +937,32 @@ class Regression(DeepLearning):
 
 if __name__ == '__main__':
     rg = Regression()
-    if rg.hostname == 'mingyu-Precision-Tower-781':
+    if rg.hostname == 'mingyu-Precision-Tower-7810':
         # rg.see()
         rg.to_server()
         # rg.filter_by_lasso()
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        rg.regression(100, 'nz', 'tissues')
-        rg.regression(100, 'nz', 'cell_lines')
+        for type in ['tissues', 'cell_lines']:
+            # rg.regression(100, 'nz', type)
+            # rg.regression_rna()
+            # rg.compare()
+            # rg.eval()
+            # rg.compare_cline_tissue()
+            # rg.report('rna')
+            # rg.add_gene_name('rna')
+            # rg.move()
+            # rg.get_plugin_distance('nz')
 
-        # rg.regression_rna()
-        # rg.compare()
-        # rg.eval()
-        # rg.compare_cline_tissue()
-        # rg.report('rna')
-        # rg.add_gene_name('rna')
-        # rg.move()
-        # rg.get_plugin_distance('nz')
+            rg.cross_stats(100, 'nz', type=type)
+            rg.check_overlap('nz', type=type)
 
-        # rg.cross_stats(100, 'nz')
-        # rg.check_overlap('nz')
-        # rg.compare_tissue_cross('nz')
+            # rg.cross_regression(100, 'neg')
+            # rg.cross_regression(100, 'nz', N=10, type='tissues')
+            # rg.cross_regression(100, 'nz', N=10, type='cell_lines')
 
-        # rg.cross_regression(100, 'neg')
-        rg.cross_regression(100, 'nz', N=10, type='tissues')
-        rg.cross_regression(100, 'nz', N=10, type='cell_lines')
+            # rg.get_distance('nz')
+            # rg.filtering(0)
 
-        # rg.get_distance('nz')
-        # rg.filtering(0)
+        rg.compare_tissue_cross('nz')

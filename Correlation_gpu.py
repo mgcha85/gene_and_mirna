@@ -293,15 +293,15 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
-        # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         con_fan = sqlite3.connect(fan_path)
 
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
-        # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -538,7 +538,7 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-781':
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
         from Regression import Regression
@@ -554,14 +554,14 @@ if __name__ == '__main__':
         # cor.plot_sample()
 
         for hbw in [100]:
-            for opt in ['neg', 'nz']:
+            for opt in ['nz']:
                 # cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
                 # cor.high_correlation(hbw, 0.8)
 
                 # cell lines
-                cor.sum_fan(hbw, ref='gene')
-                cor.sum_fan(hbw, ref='mir')
+                # cor.sum_fan(hbw, ref='gene')
+                # cor.sum_fan(hbw, ref='mir')
 
                 rg.regression(hbw, opt)
                 # rg.report(hbw, opt)

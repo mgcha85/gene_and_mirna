@@ -157,7 +157,7 @@ class data_preparation:
         flist = [os.path.join(dirname_, x) for x in os.listdir(dirname_)]
         dirlist = sorted([x for x in flist if os.path.isdir(x)])
 
-        for i, dirname in enumerate(dirlist[45:]):
+        for i, dirname in enumerate(dirlist):
             tissue = dirname.split('/')[-1]
             dfs = []
             index = []
@@ -180,8 +180,7 @@ class data_preparation:
                 cols.append('score (Rep {})'.format(i + 1))
                 df_res.loc[df_fid.index, cols[-1]] = df_fid['score'].astype(float)
                 df_res.loc[df_fid.index, cols[-1]] /= df_res.loc[df_fid.index, cols[-1]].sum() / 1e6
-                if i == 0:
-                    df_res.loc[df_fid.index, columns] = df_fid[columns]
+                df_res.loc[df_fid.index, columns] = df_fid[columns]
 
             # report = self.correlation_replicates(df_res, cols)
             # report.to_excel(writer, sheet_name=tissue)

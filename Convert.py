@@ -325,7 +325,7 @@ class Convert:
 
 if __name__ == '__main__':
     con = Convert()
-    if con.hostname == 'mingyu-Precision-Tower-7810':
+    if con.hostname == 'mingyu-Precision-Tower-781':
         con.to_server()
 
     else:
@@ -347,7 +347,7 @@ if __name__ == '__main__':
         # for tname in tlist:
         #     ut.split(fpath, tname)
 
-        # con.avg_fantom_by_celllines()
+        con.avg_fantom_by_celllines()
 
         from Correlation_gpu import Correlation
         cor = Correlation()
