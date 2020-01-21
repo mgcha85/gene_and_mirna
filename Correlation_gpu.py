@@ -293,19 +293,18 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         con_fan = sqlite3.connect(fan_path)
 
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
-
         for tname in Database.load_tableList(ref_con):
             chromosome, strand = tname.split('_')
             print(chromosome, strand)

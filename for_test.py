@@ -15,12 +15,30 @@
 import sqlite3
 import pandas as pd
 import numpy as np
+import os
+from Database import Database
 
-con = sqlite3.connect('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/regression_100_0_test.db')
-df_x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid').T
-df_y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA').T
-df_b = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid').T
+con = sqlite3.connect("D:/Bioinformatics/database/Fantom/v5/tissues/sum_fan_gene_100.db")
+dfs = []
+for tname in Database.load_tableList(con):
+    df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+    dfs.append(df.shape[0])
 
-df_x.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/X.csv', header=False, index=None, sep='\t')
-df_y.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/Y.csv', header=False, index=None, sep='\t')
-df_b.to_csv('/home/mingyu/Bioinformatics/database/Fantom/v5/cell_lines/out/cross_validation/nz/B.csv', header=False, index=None, sep='\t')
+print(sum(dfs))
+
+# dirname = 'D:/Bioinformatics/database/Fantom/v5/tissues'
+# df = pd.read_csv(os.path.join(dirname, '00_human.tissue.hCAGE.hg19.assay_sdrf.txt'), sep='\t')
+# df['Comment [sample_name]'] = df['Comment [sample_name]'].str.split(' - ').str[0]
+# df['Comment [sample_name]'] = df['Comment [sample_name]'].str.split(', ').str[0]
+#
+# contents = []
+# for grp, df_sub in df.groupby('Comment [sample_name]'):
+#     contents.append([grp, ';'.join(df_sub['File Name.1']), df_sub.shape[0]])
+# df_res = pd.DataFrame(contents, columns=['tissue', 'file names', '#'])
+# df_res.to_excel('file_list.xlsx', index=None)
+
+# df = pd.read_excel('file_list.xlsx')
+# con = sqlite3.connect(os.path.join(dirname, 'FANTOM_tissue.db'))
+# tlist = Database.load_tableList(con)
+# remain = set(df['tissue']) - set(tlist)
+# print(remain)
