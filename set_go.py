@@ -575,7 +575,7 @@ if __name__ == '__main__':
         # sg.result(100, 'neg')
         # sg.to_tg(100, 'neg')
 
-        sg.hyper_test(100, 'neg')
+        sg.hyper_test(100, 'nz')
         # sg.plot_hyper_test(100, 'neg')
 
         # sg.figure()

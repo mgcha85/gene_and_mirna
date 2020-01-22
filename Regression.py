@@ -944,7 +944,7 @@ if __name__ == '__main__':
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        for type in ['tissues', 'cell_lines']:
+        for type in ['cell_lines', 'tissues']:
             # rg.regression(100, 'nz', type)
             # rg.regression_rna()
             # rg.compare()

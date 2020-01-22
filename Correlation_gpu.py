@@ -583,5 +583,5 @@ if __name__ == '__main__':
                 # sg.to_tg(hbw, opt)
 
                 # sg.move(hbw, opt)
-                # sg.hyper_test(hbw, opt)
+                sg.hyper_test(hbw, opt)
                 # sg.plot_hyper_test(hbw, opt)
