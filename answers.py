@@ -29,6 +29,23 @@ class answer:
             f.write('\n'.join(mir))
         print(len(mir))
 
+    def inter_sinigificant_mir(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation/nz')
+        fpath = os.path.join(dirname, 'cross_stats.xlsx')
+        reader = pd.ExcelFile(fpath)
+
+        df_tis = pd.read_excel(os.path.join(self.root, 'database/Fantom/v5/tissues/out/cross_validation/nz', 'cross_stats.xlsx'))
+
+        mir = [set(df_tis[df_tis['median_diff_ratio'] < 1.1]['miRNA (test)'])]
+        for sname in reader.sheet_names:
+            df = reader.parse(sname)
+            mir.append(set(df[df['median_diff_ratio'] < 1.1]['miRNA (test)']))
+
+        mir = set.intersection(*mir)
+        with open(os.path.join(dirname, 'significant_mir_inter_with_tissue.txt'), 'wt') as f:
+            f.write('\n'.join(mir))
+        print(len(mir))
+
     def identical_mir(self):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation/nz')
         fpath = os.path.join(dirname, 'cross_stats.xlsx')
@@ -64,4 +81,4 @@ class answer:
 
 if __name__ == '__main__':
     ans = answer()
-    ans.compare_go()
+    ans.inter_sinigificant_mir()

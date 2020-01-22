@@ -438,7 +438,7 @@ class Correlation:
             dfs[type] = dfs[type].drop(ridx)
         return dfs
 
-    def correlation_gpu(self, hbw, corr='spearman'):
+    def correlation_gpu(self, hbw, opt, corr='spearman'):
         if corr == 'spearman':
             from corr_gpu import Spearman
             corr = Spearman(self.root)
@@ -452,7 +452,7 @@ class Correlation:
         fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
         con_gene = sqlite3.connect(fpath_gene)
 
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}.db'.format(hbw))
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
         con_out = sqlite3.connect(fpath_out)
 
         def merge(con):
@@ -568,8 +568,8 @@ if __name__ == '__main__':
                 # rg.add_gene_name(hbw, opt)
                 # rg.filtering(hbw)
 
-                # cor.correlation_gpu(hbw)
-                # cor.add_corr(hbw)
+                cor.correlation_gpu(hbw, opt)
+                cor.add_corr(hbw)
 
                 # mg.comparison(hbw)
                 # mg.phypher(hbw)
