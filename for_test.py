@@ -18,13 +18,16 @@ import numpy as np
 import os
 from Database import Database
 
-con = sqlite3.connect("D:/Bioinformatics/database/Fantom/v5/tissues/sum_fan_gene_100.db")
-dfs = []
+con = sqlite3.connect("D:/Bioinformatics/database/gencode/gencode.v32lift37.annotation_attr.db")
+out_con = sqlite3.connect("D:/Bioinformatics/database/gencode/gencode.v32lift37.annotation_attr_merged.db")
+
 for tname in Database.load_tableList(con):
     df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
-    dfs.append(df.shape[0])
+    chr, str = tname.split('_')
+    df['chromosome'] = chr
+    df['strand'] = str
+    df.to_sql('gencode.v32lift37', out_con, if_exists='append', index=None)
 
-print(sum(dfs))
 
 # dirname = 'D:/Bioinformatics/database/Fantom/v5/tissues'
 # df = pd.read_csv(os.path.join(dirname, '00_human.tissue.hCAGE.hg19.assay_sdrf.txt'), sep='\t')
