@@ -47,17 +47,19 @@ class validation:
         import multiprocessing
         num_cores = multiprocessing.cpu_count()
 
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
-        flist = os.listdir(dirname)
-        flist = sorted([x for x in flist if x.endswith('.db') and 'test' in x])
+        # dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        # flist = os.listdir(dirname)
+        # flist = sorted([x for x in flist if x.endswith('.db') and 'test' in x])
+        flist = ['regression_100_nz.db', 'regression_100_nz_others.db']
 
         def processInput(fname):
             con_out = sqlite3.connect(os.path.join(dirname, 'regression_100_cv.db'))
             fpath = os.path.join(dirname, fname)
             con = sqlite3.connect(fpath)
             df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid')
-            df_x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
-            df_y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA')
+            df_x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid').T
+            df_y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA').T
 
             y = np.matmul(df_x.values, df.values)
             diff = np.abs(np.subtract(df_y.values, y))
@@ -91,7 +93,11 @@ class validation:
                         report.append([mir1, mir2, None, None, 0])
             df_rep = pd.DataFrame(report, columns=['miRNA1', 'miRNA2', 'sum', 'p-value', 'diff'])
             df_rep.sort_values(by=['diff']).to_sql(os.path.splitext(fname)[0], con_out, index=None, if_exists='replace')
-        Parallel(n_jobs=num_cores)(delayed(processInput)(fname) for fname in flist)
+        # Parallel(n_jobs=num_cores)(delayed(processInput)(fname) for fname in flist)
+
+        for fname in flist:
+            processInput(fname)
+        # Parallel(n_jobs=num_cores)(delayed(processInput)(fname) for fname in flist)
 
     def find_identical_distribution(self):
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', 'regression_100_cv.db')
@@ -181,12 +187,12 @@ class validation:
 
 if __name__ == '__main__':
     val = validation()
-    if val.hostname == 'mingyu-Precision-Tower-7810':
+    if val.hostname == 'mingyu-Precision-Tower-781':
         val.to_server()
         # for opt in ['nz', 'neg']:
         #     val.is_similar(opt)
     else:
         for opt in ['nz']:
             val.wilcox(opt)
-            val.sort_diff(opt)
+            # val.sort_diff(opt)
         # val.find_identical_distribution()

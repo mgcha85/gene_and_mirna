@@ -17,7 +17,7 @@ class GSEA:
             self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
         else:
             self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.scope = 500
+        self.scope = 100
 
     def filter_by_hgnc(self):
         fname = "data/human_cell_line_hCAGE_{}_score_vector.gct".format(self.scope)
@@ -41,38 +41,38 @@ class GSEA:
         with open(fname, 'wt') as f:
             f.write('\n'.join(contents))
 
-    def set_data(self):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_{}_score_vector.xlsx'.format(self.scope))
-        df = pd.read_excel(fpath)
-        df = df.dropna(how='any', axis=0)
-        df.loc[:, 'DESCRIPTION'] = np.nan
-        df = df.rename(columns={'gene': 'NAME'})
+    def set_data(self, type='nz'):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        fpath = os.path.join(dirname, 'regression_{}_{}_others.db'.format(self.scope, type))
+        con = sqlite3.connect(fpath)
+        df = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_cell_line_hCAGE_mir_{}_score_vector.xlsx'.format(self.scope))
-        df_mir = pd.read_excel(fpath)
-        df_mir = df_mir.dropna(how='any', axis=0)
-        df_mir.loc[:, 'DESCRIPTION'] = np.nan
-        df_mir = df_mir.rename(columns={'gene': 'NAME'})
+        fpath = os.path.join(self.root, 'database/gencode', 'gene_tid.csv')
+        tid = pd.read_csv(fpath, index_col=0, sep='\t')
 
-        df = pd.concat([df, df_mir]).reset_index(drop=True)
-
-        columns = ['NAME', 'DESCRIPTION'] + list(df.columns)[1:-1]
+        idx = sorted(list(set.intersection(set(tid.index), set(df.index))))
+        df.loc[idx, 'gene'] = tid.loc[idx, 'gene_name']
+        df = df.dropna(subset=['gene'])
+        df = df.set_index('gene', drop=True)
+        df = df.loc[~df.index.duplicated(keep='first')]
+        df.index.name = 'NAME'
+        df['Description'] = None
+        columns = [df.columns[-1], *df.columns[:-1]]
         df = df[columns]
-        df.iloc[:, 2:] = df.iloc[:, 2:].round(2)
 
-        contents = ["#1.2", "{} {}".format(df.shape[0], df.shape[1] - 2), '\t'.join(df.columns)]
-        for idx in df.index:
-            contents.append('\t'.join(df.loc[idx].astype(str)))
-        with open('data/human_cell_line_hCAGE_{}_score_vector.gct'.format(self.scope), 'wt') as f:
-            f.write('\n'.join(contents))
+        text = '#1.2\n{}\t{}\n'.format(df.shape[0], df.shape[1]-1)
+        text += df.to_csv(sep='\t')
+        with open(os.path.join(dirname, 'GSEA_{}_{}_others.gct'.format(self.scope, type)), 'wt') as f:
+            f.write(text)
 
-    def get_class(self):
-        df = pd.read_csv('data/human_cell_line_hCAGE_{}_score_vector.gct'.format(self.scope), sep='\t', skiprows=[0, 1])
+    def get_class(self, type='nz'):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        fpath = os.path.join(dirname, 'GSEA_{}_{}_others.gct'.format(self.scope, type))
+        df = pd.read_csv(fpath, sep='\t', skiprows=[0, 1])
         cls = df.iloc[:, 2:].mean(axis=0).astype(int).astype(str)
-        # cls[-N // 2:] = 1
 
         contents = ['#numeric', '#PeakProfle', ' '.join(cls)]
-        with open('data/human_cell_line_hCAGE_{}_score_vector.cls'.format(self.scope), 'wt') as f:
+        with open(fpath.replace('.gct', '.cls'), 'wt') as f:
             f.write('\n'.join(contents))
 
     # def get_class(self):
@@ -226,6 +226,19 @@ class GSEA:
         plt.grid()
         plt.show()
 
+    def extract_gene_set(self):
+        dirname = '/home/mingyu/gsea_home/output/feb13/my_analysis.Gsea.1581949269965'
+        flist = [x for x in os.listdir(dirname) if x.endswith('.xls') and 'HALLMARK' in x]
+
+        contents = []
+        for fname in flist:
+            fpath = os.path.join(dirname, fname)
+            df = pd.read_csv(fpath, sep='\t')
+            contents.append(';'.join(df['PROBE']))
+
+        with open(os.path.join(dirname, 'gene_sets.txt'), 'wt') as f:
+            f.write('\n'.join(contents))
+
     def run(self):
         phenoA, phenoB, class_vector = gp.parser.gsea_cls_parser("data/P53.cls")
         gene_exp = pd.read_csv("data/human_cell_line_hCAGE_100_score_vector.gct", sep="\t", skiprows=[0, 1])
@@ -253,8 +266,12 @@ if __name__ == '__main__':
     # urllib.request.urlretrieve(url, 'P53_collapsed_symbols.gct')
     gs = GSEA()
     # gs.set_data()
+    # gs.get_class()
+    gs.extract_gene_set()
+
+    # gs.set_data()
     # gs.filter_by_hgnc()
     # gs.get_class()
-    gs.lasso_gsea()
+    # gs.lasso_gsea()
     # gs.compare_amlan()
     # gs.chart_plot()

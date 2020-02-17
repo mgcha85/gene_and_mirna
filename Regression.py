@@ -381,7 +381,7 @@ class Regression(DeepLearning):
 
     def get_trn_data(self, hbw, type):
         fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_{}.db'.format(hbw)),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}.db'.format(hbw))}
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}_others.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
             dfs[label] = self.merge_table(fpath)
@@ -421,7 +421,7 @@ class Regression(DeepLearning):
         df_coef = pd.DataFrame(clf.coef_, index=mir.columns, columns=gene.columns).T
         df_inter = pd.Series(clf.intercept_, index=mir.columns)
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}.db'.format(hbw, opt))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}_others.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
 
         gene = gene.T
