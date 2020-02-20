@@ -148,7 +148,9 @@ class Correlation:
         tissues = df_tis['RNA-seq']
 
         # reference CAGE clusters
-        ref_path = os.path.join(self.root, 'database/Fantom/v5/cluster', 'result_all_clusters_spt.db')
+        # ref_path = os.path.join(self.root, 'database/Fantom/v5/cluster', 'result_all_clusters_spt.db')
+        # ref_con = sqlite3.connect(ref_path)
+        ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v32lift37.annotation_attr_spt.db')
         ref_con = sqlite3.connect(ref_path)
 
         # Fantom5
@@ -540,7 +542,7 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-781':
+    if cor.hostname == 'mingyu-Precision-Tower-7810':
         cor.to_server()
     else:
         from Regression import Regression
@@ -558,13 +560,13 @@ if __name__ == '__main__':
         for hbw in [100]:
             for opt in ['nz']:
                 cor.correlation_fan_rna(hbw)
-                # cor.high_clusters(hbw)
-                # cor.high_correlation(hbw, 0.8)
+                cor.high_clusters(hbw)
+                cor.high_correlation(hbw, 0.8)
 
                 # cell lines
                 # cor.sum_fan(hbw, ref='gene')
                 # cor.sum_fan(hbw, ref='mir')
-                #
+
                 # rg.regression(hbw, opt)
                 # rg.report(hbw, opt)
                 # rg.add_gene_name(hbw, opt)

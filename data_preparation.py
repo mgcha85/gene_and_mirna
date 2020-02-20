@@ -153,13 +153,10 @@ class data_preparation:
 
         fpath = os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.tmp')
         con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db'))
-        for df_sub in pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1 << 16, comment='#'):
+        for df_sub in pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1 << 10, comment='#'):
             df_sub = df_sub.dropna(subset=['description'])
             for tissue__ in df_list['FANTOM']:
-                if '_' in tissue__:
-                    tissue = tissue__.replace('_', ' ')
-                else:
-                    tissue = tissue__
+                tissue = tissue__.replace('_', '%20')
                 columns = list(df_sub.columns[:7])
                 columns += [col for col in df_sub.columns[7:] if tissue in col]
                 if columns:
@@ -197,16 +194,25 @@ class data_preparation:
             df = pd.read_sql("SELECT chromosome, start, end, strand, avg_score as score FROM '{}' ORDER BY chromosome, start".format(tissue), con)
             for str, df_str in df.groupby('strand'):
                 for chr, df_chr in df_str.groupby('chromosome'):
-                    df_chr.to_sql('_'.join([tissue_rna, chr, str]), con_out, if_exists='replace', index=None)
+                    df_chr.to_sql('{}_{}_{}'.format(tissue_rna, chr, str), con_out, if_exists='replace', index=None)
 
     def set_gencode(self):
         fpath = os.path.join(self.root, 'database/gencode', 'gencode.v32lift37.annotation_attr.db')
         con = sqlite3.connect(fpath)
         con_out = sqlite3.connect(fpath.replace('.db', '_spt.db'))
         for tname in Database.load_tableList(con):
+            chr, str = tname.split('_')
             df = pd.read_sql("SELECT start, end, gene_name, transcript_id FROM '{}' WHERE feature='transcript' AND "
                              "gene_type='protein_coding' AND transcript_type='protein_coding'".format(tname), con)
-            df.to_sql(tname, con_out, if_exists='replace', index=None)
+            if str == '+':
+                df['tss'] = df['start']
+                df['start'] = df['tss'] - 100
+                df['end'] = df['tss'] + 100
+            else:
+                df['tss'] = df['end']
+                df['start'] = df['tss'] - 100
+                df['end'] = df['tss'] + 100
+            df.drop('tss', axis=1).to_sql(tname, con_out, if_exists='replace', index=None)
 
     def download_tissue_fantom(self):
         import urllib.request
@@ -284,14 +290,14 @@ class data_preparation:
 
 if __name__ == '__main__':
     dp = data_preparation()
-    if dp.hostname == 'mingyu-Precision-Tower-781':
+    if dp.hostname == 'mingyu-Precision-Tower-7810':
         # dp.db_to_bed()
         dp.to_server()
         # dp.bed_to_db()
     else:
-        # dp.split_cage_tags()
-        # dp.avg_cage_tags()
-        # dp.set_cage_data()
+        dp.split_cage_tags()
+        dp.avg_cage_tags()
+        dp.set_cage_data()
         dp.set_gencode()
 
         # dp.avg_fantom_by_tissue()
