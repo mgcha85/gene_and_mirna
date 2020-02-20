@@ -381,7 +381,7 @@ class Regression(DeepLearning):
 
     def get_trn_data(self, hbw, type):
         fpaths = {'mir': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_{}.db'.format(hbw)),
-                  'gene': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}_others.db'.format(hbw))}
+                  'gene': os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}_others_union.db'.format(hbw))}
         dfs = {}
         for label, fpath in fpaths.items():
             dfs[label] = self.merge_table(fpath)
@@ -421,7 +421,7 @@ class Regression(DeepLearning):
         df_coef = pd.DataFrame(clf.coef_, index=mir.columns, columns=gene.columns).T
         df_inter = pd.Series(clf.intercept_, index=mir.columns)
 
-        fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}_others.db'.format(hbw, opt))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}_union.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
 
         gene = gene.T
@@ -944,8 +944,9 @@ if __name__ == '__main__':
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        for type in ['cell_lines', 'tissues']:
-            # rg.regression(100, 'nz', type)
+        rg.regression(100, 'nz', 'cell_lines')
+        # for type in ['cell_lines', 'tissues']:
+        #     rg.regression(100, 'nz', type)
             # rg.regression_rna()
             # rg.compare()
             # rg.eval()
@@ -955,8 +956,8 @@ if __name__ == '__main__':
             # rg.move()
             # rg.get_plugin_distance('nz')
 
-            rg.cross_stats(100, 'nz', type=type)
-            rg.check_overlap('nz', type=type)
+            # rg.cross_stats(100, 'nz', type=type)
+            # rg.check_overlap('nz', type=type)
 
             # rg.cross_regression(100, 'neg')
             # rg.cross_regression(100, 'nz', N=10, type='tissues')
@@ -965,4 +966,4 @@ if __name__ == '__main__':
             # rg.get_distance('nz')
             # rg.filtering(0)
 
-        rg.compare_tissue_cross('nz')
+        # rg.compare_tissue_cross('nz')

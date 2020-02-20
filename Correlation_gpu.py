@@ -152,7 +152,8 @@ class Correlation:
         ref_con = sqlite3.connect(ref_path)
 
         # Fantom5
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue_spt.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue_spt.db')
         con_fan = sqlite3.connect(fan_path)
 
         # RNA-seq
@@ -288,8 +289,8 @@ class Correlation:
             label = 'miRNA'
         else:
             # reference CAGE clusters
-            # ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
-            ref_path = os.path.join(self.root, 'database/gencode', 'other_researches_inter_fan_rna_{}.db'.format(hbw))
+            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
+            # ref_path = os.path.join(self.root, 'database/gencode', 'other_researches_union_fan_rna_{}.db'.format(hbw))
             ref_con = sqlite3.connect(ref_path)
             label = 'transcript_id'
 
@@ -301,7 +302,7 @@ class Correlation:
         cell_lines = Database.load_tableList(con_fan)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}_others_inter.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}_others_union.db'.format(ref, hbw))
         # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
@@ -453,7 +454,7 @@ class Correlation:
         fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}_others_inter.db'.format(hbw))
         con_gene = sqlite3.connect(fpath_gene)
 
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}_others.db'.format(hbw, opt))
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}_inter.db'.format(hbw, opt))
         con_out = sqlite3.connect(fpath_out)
 
         def merge(con):
@@ -539,7 +540,7 @@ class Correlation:
 
 if __name__ == '__main__':
     cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-7810':
+    if cor.hostname == 'mingyu-Precision-Tower-781':
         cor.to_server()
     else:
         from Regression import Regression
@@ -556,20 +557,20 @@ if __name__ == '__main__':
 
         for hbw in [100]:
             for opt in ['nz']:
-                # cor.correlation_fan_rna(hbw)
+                cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
                 # cor.high_correlation(hbw, 0.8)
 
                 # cell lines
-                cor.sum_fan(hbw, ref='gene')
+                # cor.sum_fan(hbw, ref='gene')
                 # cor.sum_fan(hbw, ref='mir')
-
+                #
                 # rg.regression(hbw, opt)
                 # rg.report(hbw, opt)
                 # rg.add_gene_name(hbw, opt)
                 # rg.filtering(hbw)
-
-                cor.correlation_gpu(hbw, opt)
+                #
+                # cor.correlation_gpu(hbw, opt)
                 # cor.add_corr(hbw)
 
                 # mg.comparison(hbw)

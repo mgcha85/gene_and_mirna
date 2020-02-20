@@ -23,7 +23,7 @@ class data_preparation:
         self.bed_columns = ['chromosome', 'start', 'end', 'location', 'score', 'strand']
 
     def to_server(self):
-        which = 'newton'
+        which = 'stokes'
         server = Server(self.root, which=which)
         server.connect()
 
@@ -117,6 +117,97 @@ class data_preparation:
                 df, cline, ename = row
                 df[['chromosome', 'start', 'end', 'strand', 'score']].to_sql(cline, con, if_exists='replace', index=None)
 
+    def cage_tags_to_db(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        fpath = os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.tmp')
+
+        # get comment
+        with open(fpath, 'rt') as f:
+            lines = f.read(1<<20).split('\n')
+
+        comments = []
+        for line in lines:
+            if line[:2] == '##':
+                comments.append(line)
+            else:
+                print('enough')
+                break
+
+        with open(os.path.join(dirname, 'comments.txt'), 'wt') as f:
+            f.write('\n'.join(comments))
+
+        # get contents
+        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db'))
+        for i, df_sub in enumerate(pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1<<16, comment='#')):
+            print('batch {}'.format(i))
+            df_sub.to_sql('overall', con, if_exists='append')
+
+    def split_cage_tags(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+
+        fpath = os.path.join(dirname, 'tissues_fantom_rna.xlsx')
+        df_list = pd.read_excel(fpath)
+
+        # fpath = os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db')
+        # con = sqlite3.connect(fpath)
+
+        fpath = os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.tmp')
+        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db'))
+        for df_sub in pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1 << 16, comment='#'):
+            df_sub = df_sub.dropna(subset=['description'])
+            for tissue__ in df_list['FANTOM']:
+                if '_' in tissue__:
+                    tissue = tissue__.replace('_', ' ')
+                else:
+                    tissue = tissue__
+                columns = list(df_sub.columns[:7])
+                columns += [col for col in df_sub.columns[7:] if tissue in col]
+                if columns:
+                    df_sub[columns].to_sql(tissue__, con, if_exists='append', index=None)
+
+    def avg_cage_tags(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db'))
+        con_out = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz_avg.db'))
+        for tissue in Database.load_tableList(con):
+            df = pd.read_sql("SELECT * FROM '{}'".format(tissue), con)
+            df['avg_score'] = df.iloc[:, 7:].mean(axis=1)
+
+            location1 = df[df.columns[0]].str.split(":", expand=True)
+            location2 = location1[1].str.split(",", expand=True)
+            location3 = location2[0].str.split(".", expand=True)
+            df['chromosome'] = location1[0]
+            df['strand'] = location2[1]
+            df['start'] = location3[0].astype(int)
+            df['end'] = location3[2].astype(int)
+
+            columns = ['chromosome', 'start', 'end', 'strand'] + list(df.columns[1:7]) + ['avg_score']
+            df[columns].to_sql(tissue, con_out, if_exists='replace', index=None)
+
+    def set_cage_data(self):
+        # tissue list
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'tissues_fantom_rna.xlsx')
+        df_tis = pd.read_excel(fpath, sheet_name='Sheet1', index_col=1)
+
+        dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
+        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz_avg.db'))
+        con_out = sqlite3.connect(os.path.join(dirname, 'CAGE_tag_tissue_spt.db'))
+        for tissue in Database.load_tableList(con):
+            tissue_rna = df_tis.loc[tissue, 'RNA-seq']
+            df = pd.read_sql("SELECT chromosome, start, end, strand, avg_score as score FROM '{}' ORDER BY chromosome, start".format(tissue), con)
+            for str, df_str in df.groupby('strand'):
+                for chr, df_chr in df_str.groupby('chromosome'):
+                    df_chr.to_sql('_'.join([tissue_rna, chr, str]), con_out, if_exists='replace', index=None)
+
+    def set_gencode(self):
+        fpath = os.path.join(self.root, 'database/gencode', 'gencode.v32lift37.annotation_attr.db')
+        con = sqlite3.connect(fpath)
+        con_out = sqlite3.connect(fpath.replace('.db', '_spt.db'))
+        for tname in Database.load_tableList(con):
+            df = pd.read_sql("SELECT start, end, gene_name, transcript_id FROM '{}' WHERE feature='transcript' AND "
+                             "gene_type='protein_coding' AND transcript_type='protein_coding'".format(tname), con)
+            df.to_sql(tname, con_out, if_exists='replace', index=None)
+
     def download_tissue_fantom(self):
         import urllib.request
 
@@ -193,12 +284,17 @@ class data_preparation:
 
 if __name__ == '__main__':
     dp = data_preparation()
-    if dp.hostname == 'mingyu-Precision-Tower-7810':
+    if dp.hostname == 'mingyu-Precision-Tower-781':
         # dp.db_to_bed()
         dp.to_server()
         # dp.bed_to_db()
     else:
-        dp.avg_fantom_by_tissue()
+        # dp.split_cage_tags()
+        # dp.avg_cage_tags()
+        # dp.set_cage_data()
+        dp.set_gencode()
+
+        # dp.avg_fantom_by_tissue()
 
         # from Correlation_gpu import Correlation
         # from Regression import Regression

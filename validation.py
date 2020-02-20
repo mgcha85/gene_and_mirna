@@ -47,11 +47,11 @@ class validation:
         import multiprocessing
         num_cores = multiprocessing.cpu_count()
 
-        # dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
-        # flist = os.listdir(dirname)
-        # flist = sorted([x for x in flist if x.endswith('.db') and 'test' in x])
-        flist = ['regression_100_nz.db', 'regression_100_nz_others.db']
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
+        flist = os.listdir(dirname)
+        flist = sorted([x for x in flist if x.endswith('.db') and 'test' in x])
+        # dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        # flist = ['regression_100_nz.db', 'regression_100_nz_others.db']
 
         def processInput(fname):
             con_out = sqlite3.connect(os.path.join(dirname, 'regression_100_cv.db'))
@@ -93,7 +93,6 @@ class validation:
                         report.append([mir1, mir2, None, None, 0])
             df_rep = pd.DataFrame(report, columns=['miRNA1', 'miRNA2', 'sum', 'p-value', 'diff'])
             df_rep.sort_values(by=['diff']).to_sql(os.path.splitext(fname)[0], con_out, index=None, if_exists='replace')
-        # Parallel(n_jobs=num_cores)(delayed(processInput)(fname) for fname in flist)
 
         for fname in flist:
             processInput(fname)

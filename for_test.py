@@ -1,14 +1,10 @@
-import sqlite3
 import pandas as pd
+import sqlite3
 
-fpath = '/home/mingyu/Bioinformatics/database/target_genes/predictions_processed.db'
-con = sqlite3.connect(fpath)
-df_mir = pd.read_sql("SELECT * FROM 'miranda_grp_mir'", con, index_col='mir')
-df_rna = pd.read_sql("SELECT * FROM 'rna22_grp_mir'", con, index_col='mir')
-df_ts = pd.read_sql("SELECT * FROM 'ts_grp_mir'", con, index_col='mir')
+df1 = pd.read_excel('/home/mingyu/Bioinformatics/database/gencode/high_correlated_fan_rna_100.xlsx')
+df1['transcript_id'] = df1['transcript_id'].str.split('_').str[0]
+df1 = df1.set_index('transcript_id', drop=True)
+df2 = pd.read_csv('/home/mingyu/Downloads/correlated_transcripts.txt', sep='\t', index_col=0)
 
-genes1 = df_mir.loc['hsa-let-7a-3p', 'genes'].split(';')
-genes2 = df_rna.loc['hsa-let-7a-3p', 'genes'].split(';')
-genes3 = df_ts.loc['hsa-let-7a-3p', 'genes'].split(';')
-
-print('see')
+inter = set.intersection(set(df1.index), set(df2.index))
+print(inter)
