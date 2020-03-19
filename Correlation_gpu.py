@@ -178,6 +178,8 @@ class Correlation:
             if chromosome == 'chrM' or chromosome == 'chrY':
                 continue
 
+            if chromosome != 'chr9':
+                continue
             sql = "SELECT start, end, gene_name, transcript_id FROM '{}'"
             df_ref = pd.read_sql_query(sql.format(tname), ref_con, index_col='transcript_id')
             if df_ref.empty:
@@ -204,12 +206,22 @@ class Correlation:
                 for src, df_src in zip(['fantom'], [df_fan]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
 
-            df_buf = self.filtering(df_buf)
+            # df_buf = self.filtering(df_buf)
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, if_exists='replace')
 
-            df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues], prod=False),
-                                  index=df_buf['fantom'].index)
+            for tid in df_buf['fantom'][tissues].index:
+                if tid == 'ENST00000374767.5_2':
+                    print('wait')
+                fan = df_buf['fantom'][tissues].loc[tid]
+                rna = df_buf['rna-seq'][tissues].loc[tid]
+                df_corr = pd.concat([fan, rna], axis=1)
+                df_corr.columns = ['fan', 'rna']
+                corr = df_corr.corr(method='spearman')
+                df_ref.loc[tid, 'corr'] = corr.loc['fan', 'rna']
+
+            # df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues], prod=False),
+            #                       index=df_buf['fantom'].index)
             df_ref = df_ref.dropna(subset=['corr'])
             df_ref.to_sql(tname, con_corr_out, if_exists='replace')
             dfs.append(df_ref)

@@ -153,8 +153,10 @@ class data_preparation:
         for df_sub in pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1 << 10, comment='#'):
             df_sub = df_sub.dropna(subset=['description'])
             for tissue__ in df_list['FANTOM']:
+                if tissue__ != 'placenta':
+                    continue
                 tissue = tissue__.replace('_', '%20')
-                columns__ = [col for col in df_sub.columns[7:] if tissue in col]
+                columns__ = [col for col in df_sub.columns[7:] if tissue in col.lower()]
                 if columns__:
                     columns = list(df_sub.columns[:7]) + columns__
                     df_sub[columns].to_sql(tissue__, con, if_exists='append', index=None)
@@ -324,7 +326,7 @@ if __name__ == '__main__':
         # dp.bed_to_db()
     else:
         # dp.split_cage_tags2()
-        # dp.split_cage_tags()
+        dp.split_cage_tags()
         dp.avg_cage_tags()
         dp.set_cage_data()
         dp.set_gencode()
