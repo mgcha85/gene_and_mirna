@@ -44,8 +44,8 @@ class Util:
         out_path = fpath.replace('.db', '_spt.db')
 
         con = sqlite3.connect(fpath)
-        # sql = "SELECT chromosome, start, end, strand, FPKM, reference_id, ref_gene_id, ref_gene_name FROM '{}'".format(tname)
-        sql = "SELECT chromosome, start, end, strand, score FROM '{}'".format(tname)
+        sql = "SELECT chromosome, start, end, strand, FPKM, reference_id, ref_gene_id, ref_gene_name FROM '{}'".format(tname)
+        # sql = "SELECT chromosome, start, end, strand, score FROM '{}'".format(tname)
         df = pd.read_sql_query(sql, con)
 
         out_con = sqlite3.connect(out_path)

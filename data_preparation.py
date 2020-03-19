@@ -148,24 +148,52 @@ class data_preparation:
         fpath = os.path.join(dirname, 'tissues_fantom_rna.xlsx')
         df_list = pd.read_excel(fpath)
 
-        # fpath = os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db')
-        # con = sqlite3.connect(fpath)
-
-        fpath = os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.tmp')
-        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db'))
+        fpath = os.path.join(dirname, 'hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz')
+        con = sqlite3.connect(os.path.join(dirname, 'hg19.cage_peak_phase1and2combined_tpm_ann.osc.db'))
         for df_sub in pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1 << 10, comment='#'):
             df_sub = df_sub.dropna(subset=['description'])
             for tissue__ in df_list['FANTOM']:
                 tissue = tissue__.replace('_', '%20')
-                columns = list(df_sub.columns[:7])
-                columns += [col for col in df_sub.columns[7:] if tissue in col]
-                if columns:
+                columns__ = [col for col in df_sub.columns[7:] if tissue in col]
+                if columns__:
+                    columns = list(df_sub.columns[:7]) + columns__
                     df_sub[columns].to_sql(tissue__, con, if_exists='append', index=None)
+                else:
+                    print('{} is not available'.format(tissue))
+
+    def split_cage_tags2(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5')
+
+        fpath = os.path.join(dirname, 'cell_lines/list', '00_human.cell_line.hCAGE.hg19.assay_sdrf2.xlsx')
+        df_list = pd.read_excel(fpath)
+        df_list = df_list.dropna(subset=['cell line'])
+
+        fpath = os.path.join(dirname, 'hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz')
+        con = sqlite3.connect(os.path.join(dirname, 'tissues', 'hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz.db'))
+        cnt = 0
+        clines = []
+        for df_sub in pd.read_csv(fpath, sep='\t', iterator=True, chunksize=1 << 10, comment='#'):
+            df_sub = df_sub.dropna(subset=['description'])
+            for cline__ in df_list['cell line']:
+                cline = cline__.replace('_', '%20')
+                columns = list(df_sub.columns[:7])
+                col = [col for col in df_sub.columns[7:] if cline in col]
+                if col:
+                    print(cnt+1, col[0])
+                    clines.append(cline)
+                    cnt += 1
+            break
+
+        with open('cell_lines_proc.txt', 'wt') as f:
+            f.write('\n'.join(clines))
+
+                # if columns:
+                #     df_sub[columns].to_sql(cline__, con, if_exists='append', index=None)
 
     def avg_cage_tags(self):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
-        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz.db'))
-        con_out = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz_avg.db'))
+        con = sqlite3.connect(os.path.join(dirname, 'hg19.cage_peak_phase1and2combined_tpm_ann.osc.db'))
+        con_out = sqlite3.connect(os.path.join(dirname, 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db'))
         for tissue in Database.load_tableList(con):
             df = pd.read_sql("SELECT * FROM '{}'".format(tissue), con)
             df['avg_score'] = df.iloc[:, 7:].mean(axis=1)
@@ -187,7 +215,7 @@ class data_preparation:
         df_tis = pd.read_excel(fpath, sheet_name='Sheet1', index_col=1)
 
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
-        con = sqlite3.connect(os.path.join(dirname, 'robust_phase1_pls_2.tpm.desc121113.osc.txt.gz_avg.db'))
+        con = sqlite3.connect(os.path.join(dirname, 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db'))
         con_out = sqlite3.connect(os.path.join(dirname, 'CAGE_tag_tissue_spt.db'))
         for tissue in Database.load_tableList(con):
             tissue_rna = df_tis.loc[tissue, 'RNA-seq']
@@ -295,7 +323,8 @@ if __name__ == '__main__':
         dp.to_server()
         # dp.bed_to_db()
     else:
-        dp.split_cage_tags()
+        # dp.split_cage_tags2()
+        # dp.split_cage_tags()
         dp.avg_cage_tags()
         dp.set_cage_data()
         dp.set_gencode()

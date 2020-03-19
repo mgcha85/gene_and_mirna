@@ -94,7 +94,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
     __device__ float get_sum(const int *X, const int ref_start, const int ref_end, const float *score, const int offset, const int N, const int idx)
     {
         float sum = 0.0;
-        if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return -1;
+        if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return sum;
         
         for(int i=offset; i<N; i++) {
             int res_start = X[WIDTH * i + START];
@@ -122,19 +122,8 @@ if hostname != 'mingyu-Precision-Tower-7810':
             if(sum > 0) out[i] = sum;
         }
     }
-    
+
     __global__ void cuda_sql(const int *ref, const int *res, float *score, float *out, const int N, const int M)
-    {
-        const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-        if (idx >= N) return;
-        
-        int ref_start = ref[idx * WIDTH + START];
-        int ref_end = ref[idx * WIDTH + END];
-        
-        out[idx] = get_sum(res, ref_start, ref_end, score, 0, M, idx);
-    }
-    
-    __global__ void cuda_sql2(const int *ref, const int *res, float *score, float *out, const int N, const int M)
     {
         const int idx = threadIdx.x + blockIdx.x * blockDim.x;
         if (idx >= N) return;
@@ -194,7 +183,7 @@ class Sqlgpu:
         score_gpu = cuda.mem_alloc(score.nbytes)
         cuda.memcpy_htod(score_gpu, score)
 
-        out = np.random.random(N).astype(np.float32)
+        out = np.zeros(N).astype(np.float32)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 

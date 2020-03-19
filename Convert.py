@@ -161,7 +161,7 @@ class Convert:
 
             df_res['FPKM'] = df_res[cols].mean(axis=1)
             df_res.index.name = 'reference_id'
-            df_res.drop(['frame', 'gene_id', 'transcript_id', 'cov', 'TPM'], axis=1).to_sql(src, con_out, if_exists='replace')
+            df_res.drop(['gene_id', 'transcript_id', 'cov', 'TPM'], axis=1).to_sql(src, con_out, if_exists='replace')
         writer.save()
         writer.close()
 

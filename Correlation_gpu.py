@@ -163,14 +163,15 @@ class Correlation:
         con_rna = sqlite3.connect(rna_path)
 
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_{}.db'.format(hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_rna_{}_processed.db'.format(hbw))
         con_out = sqlite3.connect(out_path)
 
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.db'.format(hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}_processed.db'.format(hbw))
         con_corr_out = sqlite3.connect(out_path)
 
         M_ = len(tissues)
 
+        dfs = []
         tlist = Database.load_tableList(ref_con)
         for tname in tlist:
             chromosome, strand = tname.split('_')
@@ -209,8 +210,28 @@ class Correlation:
 
             df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues], prod=False),
                                   index=df_buf['fantom'].index)
-            df_ref.dropna(subset=['corr']).to_sql(tname, con_corr_out, if_exists='replace')
+            df_ref = df_ref.dropna(subset=['corr'])
+            df_ref.to_sql(tname, con_corr_out, if_exists='replace')
+            dfs.append(df_ref)
+        pd.concat(dfs).to_excel(out_path.replace('.db', '.xlsx'))
 
+    def corr_stats(self, hbw):
+        import pandas_profiling
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.xlsx'.format(hbw))
+        df = pd.read_excel(fpath, index_col=0)
+
+        mean = df['corr'].mean()
+        median = df['corr'].median()
+        max = df['corr'].max()
+        min = df['corr'].min()
+        std = df['corr'].std()
+        quantile7 = df['corr'].quantile(q=0.7)
+        quantile8 = df['corr'].quantile(q=0.8)
+        quantile9 = df['corr'].quantile(q=0.9)
+        print('mean: {:0.2f}, median: {:0.2f}, max: {:0.2f}, min: {:0.2f}, std: {:0.2f}, quantile7: {:0.2f}, '
+              'quantile8: {:0.2f}, quantile9: {:0.2f}'
+              ''.format(mean, median, max, min, std, quantile7, quantile8, quantile9))
+        
     def high_clusters(self, hbw):
         fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
@@ -297,15 +318,14 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
-        # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
         con_fan = sqlite3.connect(fan_path)
 
         cell_lines = Database.load_tableList(con_fan)
-
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}_others_union.db'.format(ref, hbw))
-        # out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}_raw.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}_raw.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -559,9 +579,10 @@ if __name__ == '__main__':
 
         for hbw in [100]:
             for opt in ['nz']:
+                # cor.corr_stats(hbw)
                 cor.correlation_fan_rna(hbw)
-                cor.high_clusters(hbw)
-                cor.high_correlation(hbw, 0.8)
+                # cor.high_clusters(hbw)
+                # cor.high_correlation(hbw, 0.8)
 
                 # cell lines
                 # cor.sum_fan(hbw, ref='gene')

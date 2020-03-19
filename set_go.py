@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from Database import Database
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import hypergeom
 
 
 class set_go:
@@ -348,7 +349,6 @@ class set_go:
                 df.to_sql(tname, con_out, index=None, if_exists='replace')
 
     def hyper_test(self, hbw, opt):
-        from scipy.stats import hypergeom
         high_genes = self.get_bg_genes().split('\n')
         out_path = os.path.join(self.root, 'database/target_genes', 'hyper_test_lasso_{}_{}.xlsx'.format(hbw, opt))
 
@@ -413,6 +413,69 @@ class set_go:
                 df.iloc[r, -1] = v
 
             df.sort_index().drop(cols + ['gene_lasso'], axis=1).to_excel(out_path)
+
+    def hyper_gsea(self):
+        def get_gene_set(dirname):
+            flist = [x for x in os.listdir(dirname) if x.endswith('.xls') and 'HALLMARK' in x]
+
+            contents = []
+            for fname in flist:
+                fpath = os.path.join(dirname, fname)
+                df = pd.read_csv(fpath, sep='\t')
+                contents.append(';'.join(df['PROBE']))
+            return contents
+
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100_nz.db')
+        con = sqlite3.connect(fpath)
+        df = pd.read_sql("SELECT * FROM 'lasso_go'", con, index_col='miRNA')
+
+        # tr_id to gene_name
+        fpath = os.path.join(self.root, 'database/gencode', 'gene_tid.csv')
+        df_list = pd.read_csv(fpath, index_col=0, sep='\t')
+        bg_gene = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
+        bg_gene = df_list.loc[bg_gene.index, 'gene_name'].dropna()
+        bg_gene = set(bg_gene)
+
+        dirname = '/home/mingyu/gsea_home/output/feb13/my_analysis.Gsea.1581949269965'
+        gene_sets = get_gene_set(dirname)
+        for mir in df.index:
+            genes = df.loc[mir, 'gene_lasso'].split(';')
+            for i, gs in enumerate(gene_sets):
+                gene_set = set(gs.split(';'))
+                target_genes = set(genes)
+                gene_inter = set.intersection(gene_set, target_genes)
+
+                q = len(gene_inter)
+                if q <= 0:
+                    continue
+
+                m = len(gene_set)
+                n = len(bg_gene)
+                k = len(target_genes)
+                p = hypergeom.sf(q-1, n+m, m, k)
+                df.loc[mir, 'p-val (GSEA set{})'.format(i)] = 1 - p
+
+        data = df.iloc[:, 4:].values
+        thres = 0.01 / df.shape[0]
+        rix, cix = np.where(data < thres)
+
+        sets = {}
+        for r, c in zip(rix, cix):
+            if r in sets:
+                sets[r].append(str(c+1))
+            else:
+                sets[r] = [str(c+1)]
+
+        contents = []
+        for r, c in sets.items():
+            contents.append([df.index[r], ';'.join(c)])
+        df_add = pd.DataFrame(contents, columns=['tid', 'set_num']).set_index('tid')
+
+        df['significant'] = 0
+        df['set_num'] = None
+        df.loc[df_add.index, 'set_num'] = df_add.loc[:, 'set_num']
+        df.loc[df_add.index, 'significant'] = 1
+        df.to_sql('lasso_gsea', con, if_exists='replace')
 
     def plot_hyper_test(self, hbw, opt):
         fpath = os.path.join(self.root, 'database/target_genes', 'hyper_test_lasso_{}_{}.xlsx'.format(hbw, opt))
@@ -575,7 +638,9 @@ if __name__ == '__main__':
         # sg.result(100, 'neg')
         # sg.to_tg(100, 'neg')
 
-        sg.hyper_test(100, 'nz')
+        sg.hyper_gsea()
+
+        # sg.hyper_test(100, 'nz')
         # sg.plot_hyper_test(100, 'neg')
 
         # sg.figure()

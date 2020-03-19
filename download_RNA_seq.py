@@ -5,6 +5,10 @@ import os
 from fa_to_bed import fa2bed
 import pandas as pd
 import sqlite3
+from collections import OrderedDict
+from Convert import Convert
+from Util import Util
+from Database import Database
 
 
 class Download_RNA_seq:
@@ -22,25 +26,29 @@ class Download_RNA_seq:
         self.url = 'https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/'
         self.f2b = fa2bed()
 
-    def to_server(self):
+    def to_server(self, tag):
         from Server import Server
         import sys
 
-        which = 'newton'
+        which = 'stokes'
         server = Server(self.root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
         curdir = os.getcwd().split('/')[-1]
         server_root = os.path.join(server.server, 'source', curdir)
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='20:00:00')
+        server.job_script(fname, src_root=server_root, time='24:00:00')
         server.upload(local_path, server_path)
         server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command(
+            "cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -103,16 +111,16 @@ class Download_RNA_seq:
             page = self.get_script(url)
 
             soup = BeautifulSoup(page, "lxml")
-            for col in ["even col_28"]:
+            for col in ["even col_28", "odd col_28"]:
                 items = soup.findAll("td", {"class": col})
-                for item in items[157:]:
-                    contents.append(item.findAll("a")[0].attrs['href'])
+                for item in items:
                     download_url = item.findAll("a")[0].attrs['href']
+                    contents.append(download_url)
                     print('download {}...'.format(download_url))
-                    ulr_dir, fname = os.path.split(download_url)
-                    urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
+                    # ulr_dir, fname = os.path.split(download_url)
+                    # urllib.request.urlretrieve(download_url, os.path.join(self.rna_dir, fname))
 
-        with open('temp.csv', 'wt') as f:
+        with open('RNA-seq_list.csv', 'wt') as f:
             f.write('\n'.join(sorted(contents)))
 
     def check_not_download(self):
@@ -161,6 +169,16 @@ class Download_RNA_seq:
                 contents[fid] = [fpath]
         return contents
 
+    def get_pair(self, contents):
+        pair_list = OrderedDict()
+        for url in contents:
+            key = url.split('/')[-2]
+            if key not in pair_list:
+                pair_list[key] = [url]
+            else:
+                pair_list[key].append(url)
+        return pair_list
+
     def bam_to_bed(self, dirname):
         from time import time
 
@@ -181,19 +199,38 @@ class Download_RNA_seq:
             elapsed = time() - start
             print('[{}] {:.0f}:{:.0f}'.format(fid, elapsed // 60, elapsed % 60))
 
-    def to_bed(self):
+    def to_bed(self, i, batchsize=10, download=False):
         from time import time
 
-        contents = self.get_file_pair()
-        for fid, fpath in contents.items():
-            start = time()
-            sam_path = os.path.join(fid + '.sam')
-            ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
-            if ret == 0:
+        if download:
+            with open('RNA-seq_list.csv', 'rt') as f:
+                rna_seq = f.read().split('\n')
+                pair_list = self.get_pair(rna_seq)
+
+            fids = list(pair_list.keys())[i*batchsize:(i+1)*batchsize]
+            for fid in fids:
+                fpaths = []
+                for url in pair_list[fid]:
+                    dirname, fname = os.path.split(url)
+                    fpath = os.path.join(self.rna_dir, fname)
+                    fpaths.append(fpath)
+                    urllib.request.urlretrieve(url, fpath)
+
+                sam_path = os.path.join(self.rna_dir, fid + '.sam')
+                self.f2b.comp_fa_to_sam(fpaths, sam_path)
                 self.f2b.sam_to_bam(sam_path)
-                self.f2b.bam_to_gtf(sam_path.replace('.bam', '.gtf'))
-                # self.f2b.gff_to_gtf(sam_path.replace('.sam', '.gff'))
-                # self.f2b.gtf_to_db(sam_path.replace('.sam', '.gtf'))
+                self.f2b.bam_to_gtf(sam_path.replace('.sam', '.bam'))
+
+        else:
+            pair_list = self.get_file_pair()
+            for fid, fpath in pair_list.items():
+                start = time()
+                sam_path = os.path.join(fid + '.sam')
+                ret = self.f2b.comp_fa_to_sam(fpath, sam_path)
+                if ret == 0:
+                    self.f2b.sam_to_bam(sam_path)
+                    self.f2b.bam_to_gtf(sam_path.replace('.bam', '.gtf'))
+                    self.f2b.gtf_to_db(self.root)
 
             elapsed = time() - start
             print('[{}] {:.0f}:{}'.format(fid, elapsed // 60, elapsed % 60))
@@ -214,8 +251,35 @@ class Download_RNA_seq:
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    if drs.hostname == 'mingyu-Precision-Tower-7810':
-        drs.to_server()
+    batch_size = 10
+
+    if drs.hostname == 'mingyu-Precision-Tower-781':
+        drs.to_server("")
+        # with open('RNA-seq_list.csv', 'rt') as f:
+        #     rna_seq = f.read().split('\n')
+        #     pair_list = drs.get_pair(rna_seq)
+        #
+        #     n = len(pair_list)
+        #     m = int((n + batch_size - 1) / batch_size)
+        #     for i in range(m):
+        #         drs.to_server(str(i))
     else:
-        drs.to_bed()
-        # drs.run()
+        drs.f2b.gtf_to_db(os.path.join(drs.root, 'database/RNA-seq'))
+
+        conv = Convert()
+        conv.avg_rna_seq_by_tissues()
+
+        util = Util()
+        fpath = os.path.join(drs.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        con = sqlite3.connect(fpath)
+        for tname in Database.load_tableList(con):
+            util.split(fpath, tname)
+
+        # import sys
+        #
+        # local_path = sys.argv[0]
+        # dirname, fname = os.path.split(local_path)
+        # fname_, ext = os.path.splitext(fname)
+        # tag = fname_.split('_')[-1]
+        # drs.to_bed(int(tag), batch_size, download=True)
+        # drs.to_bed(0, batch_size, download=True)
