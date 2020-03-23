@@ -12,6 +12,7 @@ from Database import Database
 from copy import deepcopy
 from joblib import Parallel, delayed
 import multiprocessing
+from scipy.stats import spearmanr
 
 
 class Correlation:
@@ -153,6 +154,10 @@ class Correlation:
         ref_path = os.path.join(self.root, 'database/gencode', 'gencode.v32lift37.annotation_attr_spt.db')
         ref_con = sqlite3.connect(ref_path)
 
+        # # for check (temp)
+        # with open('remain.txt', 'rt') as f:
+        #     remains = f.read().split('\n')
+
         # Fantom5
         fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
         # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue_spt.db')
@@ -175,15 +180,19 @@ class Correlation:
         tlist = Database.load_tableList(ref_con)
         for tname in tlist:
             chromosome, strand = tname.split('_')
-            if chromosome == 'chrM' or chromosome == 'chrY':
-                continue
+            # if chromosome == 'chrM' or chromosome == 'chrY':
+            #     continue
 
-            if chromosome != 'chr9':
-                continue
             sql = "SELECT start, end, gene_name, transcript_id FROM '{}'"
             df_ref = pd.read_sql_query(sql.format(tname), ref_con, index_col='transcript_id')
             if df_ref.empty:
                 continue
+
+            # # for check (temp)
+            # df_ref = df_ref.loc[set.intersection(set(df_ref.index), set(remains))]
+            # if df_ref.empty:
+            #     continue
+
             df_ref['corr'] = None
 
             N_ = df_ref.shape[0]
@@ -196,12 +205,17 @@ class Correlation:
 
             for i, tissue in enumerate(tissues):
                 tname_rsc = '_'.join([tissue, chromosome, strand])
-                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}'"
-                                           "".format(tname_rsc, chromosome, strand), con_fan).sort_values(by=['start'])
+                # RNA-seq
                 df_rna = pd.read_sql_query("SELECT start, end, FPKM, reference_id FROM '{}'"
                                            "".format(tname_rsc, chromosome, strand), con_rna, index_col='reference_id').sort_values(by=['start'])
+                df_rna['FPKM'] = df_rna['FPKM'].round(4)
                 tid = set.intersection(set(df_ref.index), set(df_rna.index))
                 df_buf['rna-seq'].loc[tid, tissue] = df_rna.loc[tid, 'FPKM'].astype(float)
+
+                # FANTOM
+                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}'"
+                                           "".format(tname_rsc, chromosome, strand), con_fan).sort_values(by=['start'])
+                df_fan['score'] = df_fan['score'].round(4)
 
                 for src, df_src in zip(['fantom'], [df_fan]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
@@ -210,18 +224,18 @@ class Correlation:
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, if_exists='replace')
 
-            for tid in df_buf['fantom'][tissues].index:
-                if tid == 'ENST00000374767.5_2':
-                    print('wait')
-                fan = df_buf['fantom'][tissues].loc[tid]
-                rna = df_buf['rna-seq'][tissues].loc[tid]
-                df_corr = pd.concat([fan, rna], axis=1)
-                df_corr.columns = ['fan', 'rna']
-                corr = df_corr.corr(method='spearman')
-                df_ref.loc[tid, 'corr'] = corr.loc['fan', 'rna']
+            # for tid in df_buf['fantom'][tissues].index:
+            #     fan = df_buf['fantom'][tissues].loc[tid]
+            #     rna = df_buf['rna-seq'][tissues].loc[tid]
+            #     df_corr = pd.concat([fan, rna], axis=1)
+            #     df_corr.columns = ['fan', 'rna']
+            #     corr = df_corr.corr(method='spearman')
+            #     df_ref.loc[tid, 'corr'] = corr.loc['fan', 'rna']
 
-            # df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues], prod=False),
-            #                       index=df_buf['fantom'].index)
+            # for idx in df_buf['fantom'][tissues].index:
+            #     df_ref.loc[idx, 'corr'] = spearmanr(df_buf['fantom'][tissues].loc[idx], df_buf['rna-seq'][tissues].loc[idx]).correlation
+            df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues], prod=False),
+                                  index=df_buf['fantom'].index).round(4)
             df_ref = df_ref.dropna(subset=['corr'])
             df_ref.to_sql(tname, con_corr_out, if_exists='replace')
             dfs.append(df_ref)
@@ -245,7 +259,7 @@ class Correlation:
               ''.format(mean, median, max, min, std, quantile7, quantile8, quantile9))
         
     def high_clusters(self, hbw):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}.db'.format(hbw))
+        fpath = os.path.join(self.root, 'database/Fantom/v5/tissues', 'correlation_fan_rna_{}_processed.db'.format(hbw))
         con = sqlite3.connect(fpath)
         con_out = sqlite3.connect(fpath.replace('.db', '_max.db'))
         tlist = Database.load_tableList(con)
@@ -288,7 +302,7 @@ class Correlation:
 
     def high_correlation(self, hbw=100, thres=0.8):
         dirname = os.path.join(self.root, 'database/Fantom/v5/tissues')
-        fpath = os.path.join(dirname, 'correlation_fan_rna_{}.db'.format(hbw))
+        fpath = os.path.join(dirname, 'correlation_fan_rna_{}_processed.db'.format(hbw))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
 
@@ -299,7 +313,7 @@ class Correlation:
         for tname in tlist:
             chromosome, strand = tname.split('_')
             sql = "SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM (SELECT * FROM '{}' WHERE " \
-                  "corr>{}) GROUP BY gene_name".format(tname, thres)
+                  "round(corr, 4)>{}) GROUP BY gene_name".format(tname, thres)
             # sql = "SELECT * FROM (SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM '{}' GROUP " \
             #       "BY gene_name) WHERE corr>{}".format(tname, thres)
             df = pd.read_sql_query(sql, con)
@@ -330,14 +344,13 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
         con_fan = sqlite3.connect(fan_path)
 
-        cell_lines = Database.load_tableList(con_fan)
+        cell_lines = sorted(list(set([x.split('_')[0] for x in Database.load_tableList(con_fan)])))
         # output
-        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}_raw.db'.format(ref, hbw))
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}_raw.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -361,9 +374,11 @@ class Correlation:
             df_buf[['start', 'end']] = df_ref[['start', 'end']]
 
             for i, cline in enumerate(cell_lines):
-                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                # print(cline)
+                df_fan = pd.read_sql_query("SELECT start, end, avg_score as score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
                                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
-                print(df_ref.shape[0], df_fan.shape[0])
+                # df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}_{}_{}'"
+                #                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
                 if df_fan.shape[0] == 0:
                     continue
                 df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
@@ -431,6 +446,16 @@ class Correlation:
         out = sqlgpu.bin_run(df_ref, df_res)
         return out
 
+    def get_score_sum_cpu(self, df_ref, df_res):
+        df_out = pd.Series(index=df_ref.index)
+        for idx in df_ref.index:
+            if idx != 'ENST00000525827.5_1':
+                continue
+            start = df_ref.loc[idx, 'start']
+            end = df_ref.loc[idx, 'end']
+            df_out[idx] = df_res.loc[df_res[(df_res['start'] < end) & (df_res['end'] > start)].index, 'score'].sum()
+        return df_out
+
     def processInput_corr(self, df_ref, loc, cline, pct):
         print('{:.2f} %'.format(pct))
         fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'human_hCAGE_celllines.db')
@@ -485,10 +510,10 @@ class Correlation:
         fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_100.db')
         con_mir = sqlite3.connect(fpath_mir)
 
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}_others_inter.db'.format(hbw))
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
         con_gene = sqlite3.connect(fpath_gene)
 
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}_inter.db'.format(hbw, opt))
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
         con_out = sqlite3.connect(fpath_out)
 
         def merge(con):
@@ -500,7 +525,26 @@ class Correlation:
 
         df_mir = merge(con_mir)
         df_gene = merge(con_gene)
+
         df_out = pd.DataFrame(data=corr.run(df_gene.loc[:, '10964C':], df_mir.loc[:, '10964C':]), index=df_gene.index, columns=df_mir.index)
+        df_out = df_out.replace(2, np.nan)
+
+        # df_out = pd.DataFrame(index=df_gene.index, columns=df_mir.index)
+        # df_gene_tr = df_gene.loc[:, '10964C':].T
+        # df_mir_tr = df_mir.loc[:, '10964C':].T
+        # for mir in df_mir_tr.columns:
+        #     df_corr = df_mir_tr[mir:mir].corrwith(df_gene_tr, method='spearman')
+        #     print('see')
+        # df_corr.to_excel('temp.xlsx')
+        # exit(1)
+        #
+        # for i in range(df_corr.shape[0]):
+        #     for j in range(df_corr.shape[1]):
+        #         if i != j:
+        #             gene = df_corr.index[i]
+        #             mir = df_corr.columns[j]
+        #             df_out.loc[gene, mir] = df_corr.iloc[i, j]
+
         df_out.to_sql('corr', con_out, if_exists='replace')
 
     def get_sample_corr(self, hbw):
@@ -594,17 +638,18 @@ if __name__ == '__main__':
                 # cor.corr_stats(hbw)
                 cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
-                # cor.high_correlation(hbw, 0.8)
+                # cor.high_correlation(hbw, 0.75)
+                exit(1)
 
                 # cell lines
                 # cor.sum_fan(hbw, ref='gene')
                 # cor.sum_fan(hbw, ref='mir')
 
-                # rg.regression(hbw, opt)
-                # rg.report(hbw, opt)
-                # rg.add_gene_name(hbw, opt)
-                # rg.filtering(hbw)
-                #
+                rg.regression(hbw, opt)
+                rg.report(hbw, opt)
+                rg.add_gene_name(hbw, opt)
+                rg.filtering(hbw)
+
                 # cor.correlation_gpu(hbw, opt)
                 # cor.add_corr(hbw)
 
@@ -613,12 +658,13 @@ if __name__ == '__main__':
                 # mg.plot(hbw)
 
                 # sg.set_input(hbw, opt)
-                # sg.submit_data(hbw, opt, bg=True)
-                # sg.extract_genes(hbw, opt)
+                sg.submit_data(hbw, opt, bg=True)
+                sg.extract_genes(hbw, opt)
+                exit(1)
 
-                # sg.result(hbw, opt)
-                # sg.to_tg(hbw, opt)
+                sg.result(hbw, opt)
+                sg.to_tg(hbw, opt)
 
-                # sg.move(hbw, opt)
-                # sg.hyper_test(hbw, opt)
-                # sg.plot_hyper_test(hbw, opt)
+                sg.move(hbw, opt)
+                sg.hyper_test(hbw, opt)
+                sg.plot_hyper_test(hbw, opt)

@@ -248,6 +248,80 @@ class Download_RNA_seq:
             df = df[df['chromosome'].str.len() <= 5]
             df.to_sql(tname, con_out)
 
+    def avg_by_rep(self):
+        con = sqlite3.connect(os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq.db'))
+        con_out = sqlite3.connect(os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_src.db'))
+        df = pd.read_excel("RNA-seq_data_structure.xlsx")
+        for src, df_sub in df.groupby('source'):
+            print(src)
+            dfs, tids, cols = [], [], []
+            for i, fid in enumerate(df_sub['fid']):
+                df_rna = pd.read_sql("SELECT chromosome, start, end, strand, ref_gene_id, ref_gene_name, "
+                                     "reference_id, FPKM as FPKM_{fid} FROM '{fid}'".format(fid=fid), con,
+                                     index_col='reference_id')
+                dfs.append(df_rna)
+                cols.append('FPKM_{}'.format(fid))
+                tids.append(set(df_rna.index))
+
+            columns__ = ['chromosome', 'start', 'end', 'strand', 'ref_gene_id', 'ref_gene_name']
+            df_merge = pd.DataFrame(index=list(set.union(*tids)), columns=columns__ + cols)
+            for i, df_sub in enumerate(dfs):
+                columns = columns__ + [cols[i]]
+                df_merge.loc[df_sub.index, columns] = df_sub.loc[:, columns]
+
+            df_merge[cols] = df_merge[cols].astype(float)
+            df_merge['FPKM'] = df_merge[cols].mean(axis=1)
+            df_merge.index.name = 'reference_id'
+            df_merge.to_sql(src, con_out, if_exists='replace')
+
+    def avg_by_tissue(self):
+        con = sqlite3.connect(os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_src.db'))
+        con_out = sqlite3.connect(os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db'))
+        tlist = Database.load_tableList(con)
+
+        table_dict = {}
+        for tname in tlist:
+            tissue = tname.split('_')[0]
+            if tissue not in table_dict:
+                table_dict[tissue] = [tname]
+            else:
+                table_dict[tissue].append(tname)
+
+        for tissue, tnames in table_dict.items():
+            print(tissue)
+            dfs, tids, cols = [], [], []
+            for tname in tnames:
+                df = pd.read_sql("SELECT chromosome, start, end, strand, ref_gene_id, ref_gene_name, "
+                                         "reference_id, FPKM as FPKM_{tname} FROM '{tname}'"
+                                 "".format(tname=tname), con, index_col='reference_id')
+                dfs.append(df)
+                cols.append('FPKM_{}'.format(tname))
+                tids.append(set(df.index))
+
+            columns__ = ['chromosome', 'start', 'end', 'strand', 'ref_gene_id', 'ref_gene_name']
+            df_merge = pd.DataFrame(index=list(set.union(*tids)), columns=columns__ + cols)
+            for i, df_sub in enumerate(dfs):
+                columns = columns__ + [cols[i]]
+                df_merge.loc[df_sub.index, columns] = df_sub.loc[:, columns]
+
+            df_merge[cols] = df_merge[cols].astype(float)
+            df_merge[cols] = df_merge[cols].fillna(0)
+            df_merge['FPKM'] = df_merge[cols].mean(axis=1)
+            df_merge.index.name = 'reference_id'
+            df_merge.to_sql(tissue, con_out, if_exists='replace')
+
+    def split(self):
+        con = sqlite3.connect(os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db'))
+        con_out = sqlite3.connect(os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_spt.db'))
+
+        for tname in Database.load_tableList(con):
+            print(tname)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+            for str, df_str in df.groupby('strand'):
+                for chr, df_chr in df_str.groupby('chromosome'):
+                    if len(chr) <= 5:
+                        df_chr.drop(['chromosome', 'strand'], axis=1).to_sql('_'.join([tname, chr, str]), con_out, index=None, if_exists='replace')
+
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
@@ -264,16 +338,20 @@ if __name__ == '__main__':
         #     for i in range(m):
         #         drs.to_server(str(i))
     else:
-        drs.f2b.gtf_to_db(os.path.join(drs.root, 'database/RNA-seq'))
+        # drs.avg_by_rep()
+        drs.avg_by_tissue()
+        drs.split()
 
-        conv = Convert()
-        conv.avg_rna_seq_by_tissues()
+        # drs.f2b.gtf_to_db(os.path.join(drs.root, 'database/RNA-seq'))
 
-        util = Util()
-        fpath = os.path.join(drs.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
-        con = sqlite3.connect(fpath)
-        for tname in Database.load_tableList(con):
-            util.split(fpath, tname)
+        # conv = Convert()
+        # conv.avg_rna_seq_by_tissues()
+        #
+        # util = Util()
+        # fpath = os.path.join(drs.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
+        # con = sqlite3.connect(fpath)
+        # for tname in Database.load_tableList(con):
+        #     util.split(fpath, tname)
 
         # import sys
         #

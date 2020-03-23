@@ -59,7 +59,10 @@ if hostname != 'mingyu-Precision-Tower-7810':
             squareSum_X = squareSum_X + X[i] * X[i];
             squareSum_Y = squareSum_Y + Y[i] * Y[i];
         }
-        return (N*sum_XY - sum_X*sum_Y) / sqrt((N*squareSum_X - sum_X*sum_X) * (N*squareSum_Y - sum_Y*sum_Y));
+        float den = sqrt((N*squareSum_X - sum_X*sum_X) * (N*squareSum_Y - sum_Y*sum_Y));
+        float nom = (N*sum_XY - sum_X*sum_Y);
+        //printf("den: %f, nom: %d\\n", den, nom);
+        return nom / den;
     }
 
     __device__ float spearman_correlation(float *X, float *Y, float *X_rank, float *Y_rank, const int N)
@@ -92,6 +95,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
             nidx = idx * WIDTH;
             midx = idx * WIDTH;
         }
+        //printf("nidx: %d, midx: %d\\n", (int)(idx / M), (idx % M));
         out[idx] = spearman_correlation(&X[nidx], &Y[midx], &X_rank[nidx], &Y_rank[midx], WIDTH);
     }
 
@@ -146,7 +150,17 @@ class Spearman:
     def run(self, X, Y, prod=True):
         # X, Y: pandas DataFrame
         # gpu
+        # 2 which is not in -1 to 1 means nan
+
         THREADS_PER_BLOCK = 1 << 10
+
+        # print(X.shape)
+        # print(Y.shape)
+        # X = X[X.sum(axis=1) > 0]
+        # Y = Y[Y.sum(axis=1) > 0]
+        # print(X.shape)
+        # print(Y.shape)
+
         N = np.int32(X.shape[0])
         M = np.int32(Y.shape[0])
         WIDTH = np.int32(X.shape[1])

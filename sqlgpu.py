@@ -48,7 +48,6 @@ if hostname != 'mingyu-Precision-Tower-7810':
     
         int start = 0;
         int end = N - 1;
-        
         while(start < end) 
         {
             int mid = (start + end) / 2;
@@ -66,6 +65,16 @@ if hostname != 'mingyu-Precision-Tower-7810':
             }
         }
         return -1;
+    }
+    
+    __device__ int search_index(const int *X, const int start, const int end, const int N) {
+        if(N <= 1) return -1;
+        
+        for(int i=0; i<N; i++) {
+            if(X[WIDTH * i + START] < end && X[WIDTH * i + END] >= start) {
+                return i;
+            }
+        }
     }
     
     __device__ void get_overlap(const int *X, const int ref_start, const int ref_end, int *addr, const int N, const int idx)
@@ -94,13 +103,13 @@ if hostname != 'mingyu-Precision-Tower-7810':
     __device__ float get_sum(const int *X, const int ref_start, const int ref_end, const float *score, const int offset, const int N, const int idx)
     {
         float sum = 0.0;
-        if((X[START] > ref_end) || (X[WIDTH * (N - 1) + END] < ref_start)) return sum;
+        if((X[START] >= ref_end) || (X[WIDTH * (N - 1) + END] <= ref_start)) return sum;
         
         for(int i=offset; i<N; i++) {
             int res_start = X[WIDTH * i + START];
             int res_end = X[WIDTH * i + END];
             
-            if((res_start < ref_end) && (res_end > ref_start)) {
+            if((res_start < ref_end) && (res_end >= ref_start)) {
                 sum += score[i];
             }
             if(ref_end < res_start) break;
@@ -132,10 +141,14 @@ if hostname != 'mingyu-Precision-Tower-7810':
         int ref_start = ref[idx * WIDTH + START];
         int ref_end = ref[idx * WIDTH + END];
         
+        offset = search_index(res, ref_start, ref_end, M);
+        
+        /*
         offset1 = binary_search_loc(res, ref_start, END, M)-1;
         offset2 = binary_search_loc(res, ref_end, START, M)-1;
         if(offset1 < offset2)   offset = offset1;
         else                    offset = offset2;
+        */
         
         out[idx] = get_sum(res, ref_start, ref_end, score, offset, M, idx);
     }

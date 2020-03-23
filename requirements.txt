@@ -20,3 +20,5 @@ paramiko
 xlrd
 xlsxwriter
 matplotlib-venn
+mechanize
+openpyxl

@@ -61,7 +61,8 @@ class set_go:
         df['gene_name'] = df['gene_name'].str.split(';')
         df['Transcripts'] = df['Transcripts'].str.split(';')
 
-        hgenes = self.get_bg_genes().split('\n')
+        # hgenes = self.get_bg_genes().split('\n')
+        hgenes = self.get_bg_genes()
         # df['gene_name'] = df['gene_name'].str.split(';')
         # df['Transcripts'] = df['Transcripts'].str.split(';')
 
@@ -80,9 +81,11 @@ class set_go:
             df_res.to_sql(mir, con_out, if_exists='replace')
 
     def get_bg_genes(self):
-        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_genes.txt')
-        with open(fpath, 'rt') as f:
-            return f.read()
+        fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.xlsx')
+        df = pd.read_excel(fpath)
+        return '\n'.join(sorted(list(set(df['gene_name']))))
+        # with open(fpath, 'rt') as f:
+        #     return f.read()
 
     def get_con_mirna(self):
         fpath = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
