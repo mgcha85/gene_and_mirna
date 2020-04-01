@@ -134,7 +134,7 @@ class target_genes:
         con_out = sqlite3.connect(fpath_out)
         for gene, row in contents.items():
             row.drop(['chromosome', 'strand'], axis=1).to_sql('_'.join([row['chromosome'].iloc[0], row['strand'].iloc[0]]), con_out,
-                                                              index=None, if_exists='append')
+                                                              index=None, if_exists='replace')
 
 
 if __name__ == '__main__':
@@ -143,6 +143,6 @@ if __name__ == '__main__':
         tg.to_server()
     else:
         # tg.group_by_mir()
-        # tg.union()
-        # tg.intersection()
+        tg.union()
+        tg.intersection()
         tg.make_table()

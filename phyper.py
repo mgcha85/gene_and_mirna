@@ -165,7 +165,7 @@ class phyper:
     #     return df_gene.index
 
     def get_param(self):
-        dirname = '/home/mingyu/gsea_home/output/aug28/my_analysis.Gsea.1567011190321'
+        dirname = 'C:/Users/Mingyu/gsea_home/output/mar25/my_analysis.Gsea.1585092763735'
         flist = os.listdir(dirname)
 
         fmap = OrderedDict()

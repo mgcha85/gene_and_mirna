@@ -27,7 +27,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
 
     enum{NIDX, MIDX, NUM_IDX};
 
-    __device__ void rankify(float *X, float *Rank_X, const int N) {
+    __device__ void rankify(double *X, double *Rank_X, const int N) {
         for(int i=0; i<N; i++)
         {
             int r=1, s=1;
@@ -44,10 +44,10 @@ if hostname != 'mingyu-Precision-Tower-7810':
         }
     }
 
-    __device__ float correlationCoefficient(float *X, float *Y, const int N)
+    __device__ double correlationCoefficient(double *X, double *Y, const int N)
     {
-        float sum_X=0, sum_Y=0, sum_XY=0;
-        float squareSum_X=0, squareSum_Y=0;
+        double sum_X=0, sum_Y=0, sum_XY=0;
+        double squareSum_X=0, squareSum_Y=0;
 
         for(int i=0; i<N; i++)
         {
@@ -59,13 +59,13 @@ if hostname != 'mingyu-Precision-Tower-7810':
             squareSum_X = squareSum_X + X[i] * X[i];
             squareSum_Y = squareSum_Y + Y[i] * Y[i];
         }
-        float den = sqrt((N*squareSum_X - sum_X*sum_X) * (N*squareSum_Y - sum_Y*sum_Y));
-        float nom = (N*sum_XY - sum_X*sum_Y);
+        double den = sqrt((N*squareSum_X - sum_X*sum_X) * (N*squareSum_Y - sum_Y*sum_Y));
+        double nom = (N*sum_XY - sum_X*sum_Y);
         //printf("den: %f, nom: %d\\n", den, nom);
         return nom / den;
     }
 
-    __device__ float spearman_correlation(float *X, float *Y, float *X_rank, float *Y_rank, const int N)
+    __device__ double spearman_correlation(double *X, double *Y, double *X_rank, double *Y_rank, const int N)
     {
         rankify(X, X_rank, N);
         rankify(Y, Y_rank, N);
@@ -78,7 +78,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
             printf("%f\\n", X[i]);
     }
 
-    __global__ void cuda_spearman(float *X, float *Y, float *X_rank, float *Y_rank, float *out, const int N, const int M, const int WIDTH, const int prod)
+    __global__ void cuda_spearman(double *X, double *Y, double *X_rank, double *Y_rank, double *out, const int N, const int M, const int WIDTH, const int prod)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         int NM, nidx, midx;
@@ -99,7 +99,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
         out[idx] = spearman_correlation(&X[nidx], &Y[midx], &X_rank[nidx], &Y_rank[midx], WIDTH);
     }
 
-    __global__ void cuda_pearson(float *X, float *Y, float *out, const int N, const int M, const int WIDTH, const int prod)
+    __global__ void cuda_pearson(double *X, double *Y, double *out, const int N, const int M, const int WIDTH, const int prod)
     {
         int idx = threadIdx.x + blockIdx.x * blockDim.x;
         int NM, nidx, midx;
@@ -170,21 +170,21 @@ class Spearman:
         else:
             NM = N
 
-        gene = X.values.flatten().astype(np.float32)
+        gene = X.values.flatten().astype(np.float64)
         gene_gpu = cuda.mem_alloc(gene.nbytes)
         cuda.memcpy_htod(gene_gpu, gene)
 
         gene_rank_gpu = cuda.mem_alloc(gene.nbytes)
         cuda.memcpy_htod(gene_rank_gpu, gene)
 
-        mir = Y.values.flatten().astype(np.float32)
+        mir = Y.values.flatten().astype(np.float64)
         mir_gpu = cuda.mem_alloc(mir.nbytes)
         cuda.memcpy_htod(mir_gpu, mir)
 
         mir_rank_gpu = cuda.mem_alloc(mir.nbytes)
         cuda.memcpy_htod(mir_rank_gpu, mir)
 
-        out = np.zeros(NM).astype(np.float32)
+        out = np.zeros(NM).astype(np.float64)
         out_gpu = cuda.mem_alloc(out.nbytes)
         cuda.memcpy_htod(out_gpu, out)
 

@@ -61,8 +61,8 @@ class set_go:
         df['gene_name'] = df['gene_name'].str.split(';')
         df['Transcripts'] = df['Transcripts'].str.split(';')
 
-        # hgenes = self.get_bg_genes().split('\n')
-        hgenes = self.get_bg_genes()
+        hgenes = self.get_bg_genes().split('\n')
+        # hgenes = self.get_bg_genes()
         # df['gene_name'] = df['gene_name'].str.split(';')
         # df['Transcripts'] = df['Transcripts'].str.split(';')
 
@@ -342,9 +342,9 @@ class set_go:
                 df_pred.to_sql(tname, con_out, index=None, if_exists='replace')
 
     def move(self, hbw, opt):
-        fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed_result.db')
+        fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed.db')
         con = sqlite3.connect(fpath)
-        fpath_out = os.path.join(self.root, 'database/target_genes', 'predictions_processed_result_{}_{}.db'.format(hbw, opt))
+        fpath_out = os.path.join(self.root, 'database/target_genes', 'predictions_processed_{}_{}.db'.format(hbw, opt))
         con_out = sqlite3.connect(fpath_out)
         for tname in Database.load_tableList(con):
             if '_pre' in tname and tname != 'go_pre':
@@ -356,7 +356,7 @@ class set_go:
         out_path = os.path.join(self.root, 'database/target_genes', 'hyper_test_lasso_{}_{}.xlsx'.format(hbw, opt))
 
         con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt)))
-        con_pred = sqlite3.connect(os.path.join(self.root, 'database/target_genes', 'predictions_processed_result_{}_{}.db'.format(hbw, opt)))
+        con_pred = sqlite3.connect(os.path.join(self.root, 'database/target_genes', 'predictions_processed_{}_{}.db'.format(hbw, opt)))
         N = len(high_genes)
 
         df = pd.read_sql("SELECT miRNA, gene_lasso FROM 'lasso_go'", con, index_col='miRNA')
@@ -539,15 +539,16 @@ class set_go:
         plt.savefig(os.path.join(self.root, 'database/target_genes', 'hyper_test_lasso.png'))
 
     def add_pre_mir(self):
-        fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed_result.db')
+        fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed.db')
         con = sqlite3.connect(fpath)
 
         con_mir = sqlite3.connect(os.path.join(self.root, 'database/target_genes', 'mirna_primirna_mapping.db'))
 
-        tlist = Database.load_tableList(con)
+        # tlist = Database.load_tableList(con)
+        tlist = ['miranda_grp_mir', 'rna22_grp_mir', 'ts_grp_mir', 'union']
         for tname in tlist:
             print(tname)
-            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='pre-miRNA')
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='mir')
             for mir in df.index:
                 mid = pd.read_sql("SELECT * FROM 'mirna_primirna_mapping' WHERE mirna_name='{}'".format(mir), con_mir)
                 if mid.empty:
@@ -557,9 +558,11 @@ class set_go:
             df.to_sql(tname, con, if_exists='replace')
 
     def convert_pre(self):
-        fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed_result.db')
+        fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed.db')
         con = sqlite3.connect(fpath)
-        tlist = Database.load_tableList(con)
+        # tlist = Database.load_tableList(con)
+
+        tlist = ['intersection', 'miranda_grp_mir', 'rna22_grp_mir', 'ts_grp_mir', 'union']
         for tname in tlist:
             df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             contents = []
@@ -637,13 +640,16 @@ if __name__ == '__main__':
         # sg.set_input(100, 'neg')
         # sg.submit_data(100, 'neg', bg=True)
         # sg.extract_genes(100, 'neg')
-        #
+
         # sg.result(100, 'neg')
         # sg.to_tg(100, 'neg')
 
-        sg.hyper_gsea()
+        # sg.hyper_gsea()
+        # sg.add_pre_mir()
+        # sg.convert_pre()
+        # sg.move(100, 'nz')
 
-        # sg.hyper_test(100, 'nz')
+        sg.hyper_test(100, 'nz')
         # sg.plot_hyper_test(100, 'neg')
 
         # sg.figure()

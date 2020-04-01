@@ -2,7 +2,7 @@ import pandas as pd
 import sqlite3
 import os
 import socket
-import gseapy as gp
+# import gseapy as gp
 import numpy as np
 
 
@@ -43,7 +43,7 @@ class GSEA:
 
     def set_data(self, type='nz'):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
-        fpath = os.path.join(dirname, 'regression_{}_{}_others.db'.format(self.scope, type))
+        fpath = os.path.join(dirname, 'regression_{}_{}.db'.format(self.scope, type))
         con = sqlite3.connect(fpath)
         df = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
 
@@ -265,9 +265,10 @@ if __name__ == '__main__':
     # url = 'https://raw.githubusercontent.com/stephens999/ash-orig/master/data/GSEA/p53/P53_collapsed_symbols.gct'
     # urllib.request.urlretrieve(url, 'P53_collapsed_symbols.gct')
     gs = GSEA()
-    # gs.set_data()
-    # gs.get_class()
-    gs.extract_gene_set()
+    gs.set_data()
+    gs.get_class()
+
+    # gs.extract_gene_set()
 
     # gs.set_data()
     # gs.filter_by_hgnc()

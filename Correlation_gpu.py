@@ -220,22 +220,12 @@ class Correlation:
                 for src, df_src in zip(['fantom'], [df_fan]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
 
-            # df_buf = self.filtering(df_buf)
+            df_buf = self.filtering(df_buf)
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, if_exists='replace')
 
-            # for tid in df_buf['fantom'][tissues].index:
-            #     fan = df_buf['fantom'][tissues].loc[tid]
-            #     rna = df_buf['rna-seq'][tissues].loc[tid]
-            #     df_corr = pd.concat([fan, rna], axis=1)
-            #     df_corr.columns = ['fan', 'rna']
-            #     corr = df_corr.corr(method='spearman')
-            #     df_ref.loc[tid, 'corr'] = corr.loc['fan', 'rna']
-
-            # for idx in df_buf['fantom'][tissues].index:
-            #     df_ref.loc[idx, 'corr'] = spearmanr(df_buf['fantom'][tissues].loc[idx], df_buf['rna-seq'][tissues].loc[idx]).correlation
-            df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues], df_buf['rna-seq'][tissues], prod=False),
-                                  index=df_buf['fantom'].index).round(4)
+            df_ref['corr'] = pd.Series(data=corr.run(df_buf['fantom'][tissues].round(4), df_buf['rna-seq'][tissues].round(4), prod=False),
+                                  index=df_buf['fantom'].index).round(2)
             df_ref = df_ref.dropna(subset=['corr'])
             df_ref.to_sql(tname, con_corr_out, if_exists='replace')
             dfs.append(df_ref)
@@ -314,8 +304,7 @@ class Correlation:
             chromosome, strand = tname.split('_')
             sql = "SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM (SELECT * FROM '{}' WHERE " \
                   "round(corr, 4)>{}) GROUP BY gene_name".format(tname, thres)
-            # sql = "SELECT * FROM (SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM '{}' GROUP " \
-            #       "BY gene_name) WHERE corr>{}".format(tname, thres)
+            # sql = "SELECT * FROM '{}' WHERE corr>{}".format(tname, thres)
             df = pd.read_sql_query(sql, con)
             if df.empty:
                 continue
@@ -624,10 +613,12 @@ if __name__ == '__main__':
         from Regression import Regression
         from mir_gene import mir_gene
         from set_go import set_go
+        from validation import validation
 
         rg = Regression()
         mg = mir_gene()
         sg = set_go()
+        val = validation()
 
         # cor.high_correlation_by_thres(100)
         # cor.get_sample_corr(hbw)
@@ -638,17 +629,17 @@ if __name__ == '__main__':
                 # cor.corr_stats(hbw)
                 cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
-                # cor.high_correlation(hbw, 0.75)
-                exit(1)
+                cor.high_correlation(hbw, 0.75)
+                # exit(1)
 
                 # cell lines
-                # cor.sum_fan(hbw, ref='gene')
+                cor.sum_fan(hbw, ref='gene')
                 # cor.sum_fan(hbw, ref='mir')
 
                 rg.regression(hbw, opt)
                 rg.report(hbw, opt)
                 rg.add_gene_name(hbw, opt)
-                rg.filtering(hbw)
+                # rg.filtering(hbw)
 
                 # cor.correlation_gpu(hbw, opt)
                 # cor.add_corr(hbw)
@@ -657,14 +648,18 @@ if __name__ == '__main__':
                 # mg.phypher(hbw)
                 # mg.plot(hbw)
 
-                # sg.set_input(hbw, opt)
+                sg.set_input(hbw, opt)
                 sg.submit_data(hbw, opt, bg=True)
                 sg.extract_genes(hbw, opt)
-                exit(1)
 
                 sg.result(hbw, opt)
                 sg.to_tg(hbw, opt)
 
-                sg.move(hbw, opt)
+                # sg.move(hbw, opt)
                 sg.hyper_test(hbw, opt)
-                sg.plot_hyper_test(hbw, opt)
+                # sg.plot_hyper_test(hbw, opt)
+
+                rg.cross_regression(100, opt)
+                rg.cross_stats(100, opt)
+
+                val.wilcox(opt)

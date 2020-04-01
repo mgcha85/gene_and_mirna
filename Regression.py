@@ -645,9 +645,6 @@ class Regression(DeepLearning):
             dfs[label] = self.merge_table(fpath)
             print('[{}] #:{}'.format(label, dfs[label].shape[0]))
 
-        # con_rna = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt)))
-        # df_rna = pd.read_sql("SELECT miRNA FROM 'result'", con_rna)
-
         clf = linear_model.Lasso(alpha=0.1)
         if type == 'cell_lines':
             df_gene = dfs['gene'].loc[:, '10964C':].T
@@ -668,6 +665,7 @@ class Regression(DeepLearning):
 
             m = (n + N - 1) // N
             idx = np.arange(m * i, m * (i + 1))
+            idx = idx[idx < n]
             dixd = list(df.index[idx])
             if axis == 0:
                 trn, test = df.drop(dixd), df.loc[dixd, :]
@@ -675,7 +673,7 @@ class Regression(DeepLearning):
                 trn, test = df.drop(dixd, axis=1), df.loc[:, dixd]
             return trn, test
 
-        for i in range(N):
+        for i in range(N-1, N):
             gene_trn, gene_test = get_batch(df_gene, i)
             mir_trn, mir_test = get_batch(df_mir, i)
 
@@ -944,9 +942,9 @@ if __name__ == '__main__':
         # rg.dl_pred()
         # rg.evaluation()
     else:
-        rg.regression(100, 'nz', 'cell_lines')
-        # for type in ['cell_lines', 'tissues']:
-        #     rg.regression(100, 'nz', type)
+        # rg.regression(100, 'nz', 'cell_lines')
+        for type in ['cell_lines', 'tissues']:
+            # rg.regression(100, 'nz', type)
             # rg.regression_rna()
             # rg.compare()
             # rg.eval()
@@ -955,8 +953,9 @@ if __name__ == '__main__':
             # rg.add_gene_name('rna')
             # rg.move()
             # rg.get_plugin_distance('nz')
+            # rg.cross_regression(100, 'nz')
 
-            # rg.cross_stats(100, 'nz', type=type)
+            rg.cross_stats(100, 'nz', type=type)
             # rg.check_overlap('nz', type=type)
 
             # rg.cross_regression(100, 'neg')

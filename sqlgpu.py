@@ -71,7 +71,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
         if(N <= 1) return -1;
         
         for(int i=0; i<N; i++) {
-            if(X[WIDTH * i + START] < end && X[WIDTH * i + END] >= start) {
+            if(X[WIDTH * i + START] <= end && X[WIDTH * i + END] >= start) {
                 return i;
             }
         }
@@ -109,7 +109,7 @@ if hostname != 'mingyu-Precision-Tower-7810':
             int res_start = X[WIDTH * i + START];
             int res_end = X[WIDTH * i + END];
             
-            if((res_start < ref_end) && (res_end >= ref_start)) {
+            if((res_start <= ref_end) && (res_end >= ref_start)) {
                 sum += score[i];
             }
             if(ref_end < res_start) break;

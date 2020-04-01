@@ -50,8 +50,6 @@ class validation:
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/cross_validation', opt)
         flist = os.listdir(dirname)
         flist = sorted([x for x in flist if x.endswith('.db') and 'test' in x])
-        # dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
-        # flist = ['regression_100_nz.db', 'regression_100_nz_others.db']
 
         def processInput(fname):
             con_out = sqlite3.connect(os.path.join(dirname, 'regression_100_cv.db'))
@@ -170,7 +168,6 @@ class validation:
         con = sqlite3.connect(os.path.join(dirname, 'regression_100_cv.db'))
         con_out = sqlite3.connect(os.path.join(dirname, 'regression_100_cv_sorted.db'))
 
-        # mir = 'hsa-mir-3155a'
         summary = []
         for tname in Database.load_tableList(con):
             df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
@@ -186,12 +183,13 @@ class validation:
 
 if __name__ == '__main__':
     val = validation()
-    if val.hostname == 'mingyu-Precision-Tower-781':
+    if val.hostname == 'mingyu-Precision-Tower-7810':
         val.to_server()
         # for opt in ['nz', 'neg']:
         #     val.is_similar(opt)
     else:
         for opt in ['nz']:
-            val.wilcox(opt)
-            # val.sort_diff(opt)
+            # val.wilcox(opt)
+            # val.is_similar(opt)
+            val.sort_diff(opt)
         # val.find_identical_distribution()
