@@ -3,6 +3,17 @@
 ## Data preparation
 ### Data resources
 
+|Resource | URL|
+|Annotated genes | https://www.gencodegenes.org/human/release_32lift37.html|
+|RNA-seq by tissues | https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/?s_page=1&s_pagesize=500|
+|FANTOM by tissues | https://fantom.gsc.riken.jp/5/datafiles/latest/extra/CAGE_peaks/hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz|
+
+### Converting Data Format
+| Convert | Command | 
+| fastq → sam (hi-sat) | hisat2 -p 4 -x genome_tran -1 {fastq1} – 2 {fastq2} -S {sam} |
+| sam → bam (samtools) | samtools sorted -@ 8 -o {bam} {sam} | 
+| bam → gtf (stringtie)	| stringtie -p 4 -G genes.gtf -o {gtf} -i {bam} |
+
 ## Welcome to GitHub Pages
 
 You can use the [editor on GitHub](https://github.com/mgcha85/gene_and_mirna/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
