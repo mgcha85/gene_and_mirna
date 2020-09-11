@@ -173,7 +173,7 @@ where Yactual is miRNA expression level, X is gene expression level and N is the
 
 
 | # | test | train |
-| ------------- | ------------- |
+| ------------- | ------------- | ------------- |
 | 0 | 0.0043 | 0.0553 |
 | 1 | 0.0026 | 0.0565 |
 | 2 | 0.0022 | 0.0580 |
