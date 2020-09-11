@@ -213,3 +213,48 @@ Furthermore, we checked the Lasso regression if the target genes have many non-z
 | ------------- | ------------- | ------------- |
 | Intersection | 4.06% | 0.02 |
 | Union | 3.55% | 0.02 |
+
+
+### Hypertest
+we calculated hypergeometic test by comparing this result to other research or other result such as RNA-seq or GO. Since each miRNA has target genes, we can compare the target genes based on each miRNA. For this, we use survival function to calculate p-value. The function has four inputs, which q, m, n and k; q is # of the intersection of predicted genes by Lasso and predicted genes by another research. m is # of genes by another research, n is the # of high correlated genes – m and k is # of target genes by Lasso result. For the survival function, q-1 is used instead of q because the function is the inverse of the cumulative distribution function (1-cdf). Therefore the survival function excludes till q-1 instead of q.  
+
+Not only we calculated p-value between this result and another result but we also consider the common genes by all three researches by a miRNA and common genes, which are overlapped by at least two methods and the union of the target gene are calculated. Also, GO has q-value by a miRNA so it is used for this comparison.  
+
+The below link contains the all comparison for the hypergeometric test.  
+
+https://drive.google.com/open?id=1QTLmrX6h4n1TCietbyW031_-_n9f_49v  
+
+q significant is the multiplication of q-value (GO) and row number.  
+
+The # significant column shows statistically importance of miRNA. The number shows how many research is important. The importance is considered if the p-value is smaller than 1 / # miRNA; threshold. Therefore, 2 means p-values of two researches are smaller than threshold and important.  
+The result shows only 13 miRNAs are statistically important out of 327.  
+
+### Cross-Validation
+We checked the prediction error by cross-validation. The number of cell lines is 240. So we applied 10 cross validation; 216 (90%) as train and 24 (10%) as test. Then, we calculated coefficient by using Lasso respectively. After we get the coefficient, we calculate B_trn * X_test as Yh_test.  
+E_test = |Y_test – Yh_test|  
+E_trn = |Y_trn – Yh_trn|  
+where Yh_trn = B_trn * X_trn  
+since E_test is not small enough, we calculated other statistics to check out if the cross-validation is valid.  
+The below link is the result.  
+https://drive.google.com/open?id=1AP60_tHKeIIKG2klkBknY9-B9Zj-iEDX  
+
+median_diff (test) is median value of E_test. because diff means difference, it shows E matrix.  
+median_expr (test) is the median value of expression data (Y_test).  
+med_diff_expr_ratio (x) is median_diff (x) / median_expr (x).  
+med_der_ratio = med_diff_expr_ratio (test) / mer_diff_expr_ratio (train)  
+median_diff_ratio = median_diff (test) / median_diff (train)  
+
+Every cross-validation set has this table.  
+
+and the median_diff_ratio shows how consistent between test and train by a miRNA. most miRNA has small value, which means consistent. However, several  miRNAs have big value. This means the prediction model is not very well.  
+
+## Summary
+For data preparation,  
+
+I used raw data from FANTOM and processed data from FANTOM. I calculated correlation  coefficient by a transcript by each data set. The correlation of the correlation coefficient between them is 0.6866. And I also check random generated value, which has same min and max value as raw data. The random generated values for miRNA and gene are computed for correlation and I compared this to correlation from raw data. The result is 0.00229, which means they are almost orthogonal.  
+For the validation, 
+1. 10 cross validation by using lasso result and calculate distance
+2. lasso result by 240 cell lines and lasso result by 22 tissues comparison: X_cell Y_tissue = Y_pred is compared to Y_cell 
+3. Lasso result vs. other researches: calculated correlation coefficient of expression level between miRNA and target genes and lasso regression to check how many non-zero (target genes for this research) values exist.  
+4. GSEA and GO are calculated to evaluate this result.
+
