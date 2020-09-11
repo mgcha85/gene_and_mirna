@@ -185,3 +185,31 @@ where Yactual is miRNA expression level, X is gene expression level and N is the
 | 8 | 0.0021 | 0.0572 |
 | 9 | 0.0027 | 0.0562 |
 
+
+### FANTOM cell lines vs. RNA-seq tissues
+From EMBL-EBI, we have RNA-seq data on 27 tissues. 22 cell lines are the number of common between EBI and FANTOM. using FPKM data, the target genes by miRNA can be calculated. the number of high consistent transcripts of gene and miRNA are m and n respectively. Then, X: (m x 27) and Y: (n x 27). The RNA-seq data contains only 264 miRNAs out of 330 miRNAs. To compare FANTOM and RNA-seq data, we calculated three distances as the below formula.
+
+distance1: YPRED = BFANTOM_264 · XRNA  and Σ|YRNA – YPRED| / N = 16.0025
+
+distance2: YPRED = BFANTOM_264_from_330 · XRNA and Σ|YRNA – YPRED| / N = 16.0025
+
+distance3: YPRED = BRNA_264 · XRNA and Σ|YRNA – YPRED| / N = 0.1164
+
+where BFANTOM_264 is calculated by using the 264 miRNAs’ expression data on FANTOM 240 cell lines, XRNA is RNA-seq gene expression matrix with size (m x 27), YRNA is RNA-seq miRNA expression matrix with size (n x 27),  BFANTOM_264_from_330 is the 264 miRNAs coefficient from the 330 miRNAs coefficients, which we already calculated before and BRNA_264 is the lasso result of XRNA and YRNA.
+
+ 
+
+### Lasso result vs. other researches
+we use three researches; MIRANDA, RNA22 and TargerScan for the comparison. From the three researches, we extracted target genes by a miRNA. One version is the intersection of three researches and another version is the union of the researches. For example, miRNA1 has gene1, gene2 and gene3 by research1, gene2, gene4 and gene5 by research2 and gene2, gene6 and gene7 by research3. Then the intersection of the researches is gene2 and the union of the researches is gene1, gene2, gene3, gene4, gene5, gene6 and gene7. We applied GSEA and GO on this result.
+
+We checked the correlation of expression level between RNA-seq and FANTOM tag using target genes of other researches. The union of target genes are used for this. The expression level are obtained as we have done in  1.2.2. 
+
+Figure2 shows the correlation coefficient of expression level between RNA-seq and FANTOM tag between target genes and miRNA. the mean value of the figure is 0.02; almost zero, which is the normal distribution.
+
+Furthermore, we checked the Lasso regression if the target genes have many non-zeros values from the coefficient. Based on the result, only 4.06% target genes has non-zeros coefficient from intersection result and 3.55% target genes has non-zeros coefficient from union result
+
+	
+| | % non-zeros | mean of correlation |
+| ------------- | ------------- | ------------- |
+| Intersection | 4.06% | 0.02 |
+| Union | 3.55% | 0.02 |
