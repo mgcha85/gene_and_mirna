@@ -25,7 +25,7 @@
 
 ### 22 common tissues between FANTOM and RNA-seq
 The common tissues are listed in the below table. 
-| RNA-seq |	FANTOM |
+| RNA-seq | FANTOM |
 | ------------- | ------------- |
 | appendix | appendix |
 | urinarybladder | bladder |
@@ -38,7 +38,7 @@ The common tissues are listed in the below table.
 | kidney | kidney|
 | liver | liver|
 | lung | lung|
-| lymphnode	| lymph_node|
+| lymphnode | lymph_node|
 | ovary | ovary|
 | pancreas | pancreas|
 | placenta | placenta|
