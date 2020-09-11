@@ -117,10 +117,46 @@ Figure 1 shows the input and output data of Lasso regression and target genes.
 
 
 ### Gene ontology analysis
-From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.
-
+From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 http://cbl-gorilla.cs.technion.ac.il/
-
+  
 Figure 2 shows the input of GO by the website.
+
+### Gene Set Enrichment Analysis
+For GSEA analysis, three inputs are required;  
+
+1. Expression dataset  
+
+2. phenotype labels  
+
+3. gene sets  
+
+For the expression dataset, we used the table which consist of gene rows and cell line columns. The gene names
+of the dataset are required only Hugo symbol although GECODE contains
+multi-symbols. Thus, the symbols were converted to Hugo symbols by
+HGNC.  [https://www.genenames.org/tools/multi-symbol-checker/]  
+
+For phenotype label, we selected
+continuous file format as peak profile. The peak values are obtained by
+averaging expression levels by cell lines and converted to integer value.  
+
+Finally, molecular signature database (MSigDb) is used for gene set. We
+had high correlated gene set by a miRNA in section 2.2. Through GSEA,
+we searched statistically important gene set.  
+
+In this experiment, we used some specific parameters. Since the expres-
+sion dataset is already gene level data, we did not collapse dataset to gene
+symbols. GSEA ranks the genes and analyzes ranked list of genes. For the
+rank, various options exist. In this experiment, we used continuous phe-
+notypes and Pearson, Cosine, Manhattan and Euclidean are available for
+the phenotypes. For this model, Manhattan is proper ranking method since
+it calculates similarity through distance with only one direction. The
+GSEA software is v3.0 from broadinstitute.  
+
+The GSEA analysis result are in the below link.  
+
+https://drive.google.com/open?id=1SfNwJtYHWc1oRLbuy4lcu8Fd9cTsgpJj  
+
+Figure 4. shows input data of GSEA and Figure 5 shows the parameters of GSEA.  
 
 
