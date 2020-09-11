@@ -116,4 +116,11 @@ From the coefficient matrix, each row shows coefficient of one miRNA and multipl
 Figure 1 shows the input and output data of Lasso regression and target genes.
 
 
+### Gene ontology analysis
+From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.
+
+http://cbl-gorilla.cs.technion.ac.il/
+
+Figure 2 shows the input of GO by the website.
+
 
