@@ -59,12 +59,12 @@ RNA-seq data already contains FPKM while FANTOM does not have expression data. T
 
 
 #### High consistent genes
-RNA-seq and FANTOM data have expression level by a gene on the 22 tissues. Each gene has two 22 length vectors (RNA-seq and FANTOM), which an element show expression level on a tissue. By the two vectors, the correlation coefficient is calculated to observe how consistent between RNA-seq and FANTOM on a gene. Each gene has the coefficient and high coefficient shows two data source are consistent on the 22 tissues. For the correlation, spearman method was used. We round the coefficient at the decimal point with two digit. To extract only high correlated one, we set threshold as 0.75. Finally, 4,781 transcripts are received as high consistent ones. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got 3,519 genes. The list of 3,519 transcripts is in the below link. only double type is used for every calculation. Transcript region are only used that gene and transcript type are protein coding gene from genecode transcripts.
+RNA-seq and FANTOM data have expression level by a gene on the 22 tissues. Each gene has two 22 length vectors (RNA-seq and FANTOM), which an element show expression level on a tissue. By the two vectors, the correlation coefficient is calculated to observe how consistent between RNA-seq and FANTOM on a gene. Each gene has the coefficient and high coefficient shows two data source are consistent on the 22 tissues. For the correlation, spearman method was used. We round the coefficient at the decimal point with two digit. To extract only high correlated one, we set threshold as 0.75. Finally, 4,781 transcripts are received as high consistent ones. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got 3,519 genes. The list of 3,519 transcripts is in the below link. only double type is used for every calculation. Transcript region are only used that gene and transcript type are protein coding gene from genecode transcripts.  
 https://drive.google.com/open?id=1FAYRAa746bWeeN6G3tsKlTJ6CDXRNkp3
 
 
 #### High consistent miRNA
-For the consistent miRNAs, we compared eleven papers and retrieved the TSS locations by the miRNA name. The consistent miRNA TSSs are predicted by all papers and the TSS regions are close then we chose the meddle point as the TSS. The number of miRNA TSSs is 330. The name and TSS of 330 miRNAs are in the below link.
+For the consistent miRNAs, we compared eleven papers and retrieved the TSS locations by the miRNA name. The consistent miRNA TSSs are predicted by all papers and the TSS regions are close then we chose the meddle point as the TSS. The number of miRNA TSSs is 330. The name and TSS of 330 miRNAs are in the below link.  
 https://drive.google.com/open?id=1qZHBqubcYeJfVk7uvE8lFyzVXZeSknmIOf-qfS5zBmM
 
 
@@ -89,42 +89,11 @@ The total number of transcripts for 51,686 out of 83,866.
 The total number of transcripts for 31,344 out of 83,866. the procedure is same as before filter but the three filters.
 
 
+#### RNA-seq data comparison
+First, processed cage data are same as Amlan’s and mine.
+Therefore, we checked RNA-seq data.
+I aligned sequence using same reference gene and compared but it is still different.
+So, we think only reason is stringtie version difference.
+I updated stringtie as what Amlan use and sent the updated gtf file to Amlan.
 
 
-## Welcome to GitHub Pages
-
-You can use the [editor on GitHub](https://github.com/mgcha85/gene_and_mirna/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
-
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
-### Markdown
-
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/mgcha85/gene_and_mirna/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
