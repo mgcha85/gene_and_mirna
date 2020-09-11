@@ -96,4 +96,11 @@ I aligned sequence using same reference gene and compared but it is still differ
 So, we think only reason is stringtie version difference.
 I updated stringtie as what Amlan use and sent the updated gtf file to Amlan.
 
+## Methodology
+### FANTOM cell line data
+we received cell line specific data. The below table shows the url of the data source and the table including file id, cell line and so on.
 
+| label | URL|
+| ------------- | ------------- |
+| FANTOM url | http://fantom.gsc.riken.jp/5/datafiles/latest/basic/human.tissue.hCAGE/|
+| cell line data list | https://drive.google.com/open?id=1frNwIbWzFwWdvKfThP8DT1mdbPfGRERy|
