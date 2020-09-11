@@ -104,3 +104,16 @@ we received cell line specific data. The below table shows the url of the data s
 | ------------- | ------------- |
 | FANTOM url | http://fantom.gsc.riken.jp/5/datafiles/latest/basic/human.tissue.hCAGE/|
 | cell line data list | https://drive.google.com/open?id=1frNwIbWzFwWdvKfThP8DT1mdbPfGRERy|
+
+### Expression data by 240 cell lines
+sum of cell line data have multiple replications. Thus, we averaged if replications exist as we did before. From the data preparation step, we got high consistent transcripts on gene and miRNA. We extracted the expression level from 240 cell lines. The score sum of the region where (+/-)100bp from annotated gene TSS is the expression level. We calculated this levels about the high consistent genes and miRNAs.
+
+### Lasso linear regression
+To predict target genes on a miRNA, we used lasso regression. the consistent genes and miRNAs have 240 vector, which are expression level on each cell line. Assume the number of genes and miRNA are m and n respectively. gene matrix **X**: (m x 240) and miRNA matrix **Y**: (n x 240). Lasso calculated the relationship between **X** and **Y**. The coefficient matrix by the Lasso result is **B** (n x m); **Y = BX**. Before, processing Lasso, **X** and **Y** were centered by subtracting mean value by each row. 
+
+From the coefficient matrix, each row shows coefficient of one miRNA and multiple genes. Therefore, the non-zero coefficient values are assumed target genes, which are related to the corresponding miRNA.
+
+Figure 1 shows the input and output data of Lasso regression and target genes.
+
+
+
