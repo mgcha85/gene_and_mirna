@@ -14,6 +14,37 @@
 | sam → bam (samtools) | samtools sorted -@ 8 -o {bam} {sam} | 
 | bam → gtf (stringtie)	| stringtie -p 4 -G genes.gtf -o {gtf} -i {bam} |
 
+### File entries by Tissues
+| resource	| URL |
+| FANTOM	| https://drive.google.com/open?id=1y3w-rOvgbxtlCKWss1wAzcHD884Na__tijNWL7Yjb2I | 
+| RNA-seq	| https://drive.google.com/open?id=1lKZN5hn2e6Zq3eKzn5r3H5NqdEfjgUmy | 
+
+### 22 common tissues between FANTOM and RNA-seq
+The common tissues are listed in the below table. 
+| RNA-seq |	FANTOM |
+| appendix | appendix |
+| urinarybladder | bladder | 
+| brain	| brain| 
+| colon	| colon| 
+| esophagus	| esophagus| 
+| fat	| adipose| 
+| gallbladder	| gall_bladder| 
+| heart	| heart| 
+| kidney | kidney| 
+| liver	| liver| 
+| lung	| lung| 
+| lymphnode	| lymph_node| 
+| ovary	| ovary| 
+| pancreas	| pancreas| 
+| placenta	| placenta| 
+| prostate	| prostate| 
+| salivarygland	| salivary_gland| 
+| smallintestine	| small_intestine| 
+| spleen	| spleen| 
+| testis	| testis| 
+| thyroid	| thyroid| 
+| endometrium	| uterus| 
+
 ## Welcome to GitHub Pages
 
 You can use the [editor on GitHub](https://github.com/mgcha85/gene_and_mirna/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
