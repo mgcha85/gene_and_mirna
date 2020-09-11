@@ -114,13 +114,14 @@ To predict target genes on a miRNA, we used lasso regression. the consistent gen
 From the coefficient matrix, each row shows coefficient of one miRNA and multiple genes. Therefore, the non-zero coefficient values are assumed target genes, which are related to the corresponding miRNA.
 
 Figure 1 shows the input and output data of Lasso regression and target genes.
-
+![Image](/images/Figure_1.png)
 
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 http://cbl-gorilla.cs.technion.ac.il/
   
 Figure 2 shows the input of GO by the website.
+![Image](/images/Figure_2.png)
 
 ### Gene Set Enrichment Analysis
 For GSEA analysis, three inputs are required;  
@@ -158,6 +159,9 @@ The GSEA analysis result are in the below link.
 https://drive.google.com/open?id=1SfNwJtYHWc1oRLbuy4lcu8Fd9cTsgpJj  
 
 Figure 4. shows input data of GSEA and Figure 5 shows the parameters of GSEA.  
+![Image](/images/Figure_4.png)
+![Image](/images/Figure_5.png)
+
 
 ### Validation
 #### Lasso 
