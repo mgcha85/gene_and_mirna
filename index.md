@@ -4,24 +4,29 @@
 ### Data resources
 
 |Resource | URL|
+| ------------- | ------------- |
 |Annotated genes | https://www.gencodegenes.org/human/release_32lift37.html|
 |RNA-seq by tissues | https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/?s_page=1&s_pagesize=500|
 |FANTOM by tissues | https://fantom.gsc.riken.jp/5/datafiles/latest/extra/CAGE_peaks/hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz|
 
 ### Converting Data Format
-| Convert | Command | 
+
+| Convert | Command |
+| ------------- | ------------- |
 | fastq → sam (hi-sat) | hisat2 -p 4 -x genome_tran -1 {fastq1} – 2 {fastq2} -S {sam} |
-| sam → bam (samtools) | samtools sorted -@ 8 -o {bam} {sam} | 
+| sam → bam (samtools) | samtools sorted -@ 8 -o {bam} {sam} |
 | bam → gtf (stringtie)	| stringtie -p 4 -G genes.gtf -o {gtf} -i {bam} |
 
 ### File entries by Tissues
 | resource	| URL |
+| ------------- | ------------- |
 | FANTOM	| https://drive.google.com/open?id=1y3w-rOvgbxtlCKWss1wAzcHD884Na__tijNWL7Yjb2I | 
 | RNA-seq	| https://drive.google.com/open?id=1lKZN5hn2e6Zq3eKzn5r3H5NqdEfjgUmy | 
 
 ### 22 common tissues between FANTOM and RNA-seq
 The common tissues are listed in the below table. 
 | RNA-seq |	FANTOM |
+| ------------- | ------------- |
 | appendix | appendix |
 | urinarybladder | bladder | 
 | brain	| brain| 
