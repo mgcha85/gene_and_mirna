@@ -115,13 +115,15 @@ From the coefficient matrix, each row shows coefficient of one miRNA and multipl
 
 Figure 1 shows the input and output data of Lasso regression and target genes.
 ![Image](/images/Figure_1.png)
+Figure1. Input and output of Lasso regression  
 
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 http://cbl-gorilla.cs.technion.ac.il/
   
 Figure 2 shows the input of GO by the website.
-![Image](/images/Figure_2.png)
+![Image](/images/Figure_2.png)  
+Figure2. GO input set
 
 ### Gene Set Enrichment Analysis
 For GSEA analysis, three inputs are required;  
@@ -160,8 +162,10 @@ https://drive.google.com/open?id=1SfNwJtYHWc1oRLbuy4lcu8Fd9cTsgpJj
 
 Figure 4. shows input data of GSEA and Figure 5 shows the parameters of GSEA.  
 ![Image](/images/Figure_4.png)
-![Image](/images/Figure_5.png)
+Figure4. GSEA input profile  
 
+![Image](/images/Figure_5.png)
+Figure5. GSEA parameter set  
 
 ### Validation
 #### Lasso 
@@ -262,3 +266,8 @@ For the validation,
 3. Lasso result vs. other researches: calculated correlation coefficient of expression level between miRNA and target genes and lasso regression to check how many non-zero (target genes for this research) values exist.  
 4. GSEA and GO are calculated to evaluate this result.
 
+
+![Image](/images/Figure_3.png)
+Figure3. GO output  
+![Image](/images/Figure_6.png)
+Figure6. GSEA heat map  
