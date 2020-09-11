@@ -165,7 +165,7 @@ Figure 4. shows input data of GSEA and Figure 5 shows the parameters of GSEA.
 
 For the cross-validation, we split the 240 vector to 216 (90%) as a train and 24 (10%) as a test. by the two set, we calculated the distance between actual Y and predicted Y. The below equation shows the distance.  
 
-**Σ|Yactual – Ypred| / N **
+**Σ|Yactual – Ypred| / N**
 
 **Ypred = BX**
 
