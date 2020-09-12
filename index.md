@@ -18,13 +18,15 @@
 | bam → gtf (stringtie)	| stringtie -p 4 -G genes.gtf -o {gtf} -i {bam} |
 
 ### File entries by Tissues
-| resource | URL |
+
+|Resource | URL|
 | ------------- | ------------- |
-| FANTOM | https://drive.google.com/open?id=1y3w-rOvgbxtlCKWss1wAzcHD884Na__tijNWL7Yjb2I |
-| RNA-seq | https://drive.google.com/open?id=1lKZN5hn2e6Zq3eKzn5r3H5NqdEfjgUmy |
+|FANTOM | https://drive.google.com/open?id=1y3w-rOvgbxtlCKWss1wAzcHD884Na__tijNWL7Yjb2I|
+|RNA-seq | https://drive.google.com/open?id=1lKZN5hn2e6Zq3eKzn5r3H5NqdEfjgUmy|
 
 ### 22 common tissues between FANTOM and RNA-seq
 The common tissues are listed in the below table. 
+
 | RNA-seq | FANTOM |
 | ------------- | ------------- |
 | appendix | appendix |
