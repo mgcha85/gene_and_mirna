@@ -62,12 +62,12 @@ RNA-seq data already contains FPKM while FANTOM does not have expression data. T
 
 #### High consistent genes
 RNA-seq and FANTOM data have expression level by a gene on the 22 tissues. Each gene has two 22 length vectors (RNA-seq and FANTOM), which an element show expression level on a tissue. By the two vectors, the correlation coefficient is calculated to observe how consistent between RNA-seq and FANTOM on a gene. Each gene has the coefficient and high coefficient shows two data source are consistent on the 22 tissues. For the correlation, spearman method was used. We round the coefficient at the decimal point with two digit. To extract only high correlated one, we set threshold as 0.75. Finally, 4,781 transcripts are received as high consistent ones. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got 3,519 genes. The list of 3,519 transcripts is in the below link. only double type is used for every calculation. Transcript region are only used that gene and transcript type are protein coding gene from genecode transcripts.  
-https://drive.google.com/open?id=1FAYRAa746bWeeN6G3tsKlTJ6CDXRNkp3
+[link!](https://drive.google.com/open?id=1FAYRAa746bWeeN6G3tsKlTJ6CDXRNkp3)
 
 
 #### High consistent miRNA
 For the consistent miRNAs, we compared eleven papers and retrieved the TSS locations by the miRNA name. The consistent miRNA TSSs are predicted by all papers and the TSS regions are close then we chose the meddle point as the TSS. The number of miRNA TSSs is 330. The name and TSS of 330 miRNAs are in the below link.  
-https://drive.google.com/open?id=1qZHBqubcYeJfVk7uvE8lFyzVXZeSknmIOf-qfS5zBmM
+[link!](https://drive.google.com/open?id=1qZHBqubcYeJfVk7uvE8lFyzVXZeSknmIOf-qfS5zBmM)
 
 
 ### Comparison
