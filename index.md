@@ -201,7 +201,7 @@ From EMBL-EBI, we have RNA-seq data on 27 tissues. 22 cell lines are the number 
 
 distance1: ![Image](/images/formula3.gif) and ![Image](/images/formula3-1.gif)
 
-distance2: YPRED = BFANTOM_264_from_330 · XRNA and Σ|YRNA – YPRED| / N = 16.0025
+distance2: ![Image](/images/formula4.gif) and ![Image](/images/formula3-1.gif)
 
 distance3: YPRED = BRNA_264 · XRNA and Σ|YRNA – YPRED| / N = 0.1164
 
