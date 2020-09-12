@@ -203,7 +203,7 @@ distance1: ![Image](/images/formula3.gif) and ![Image](/images/formula3-1.gif)
 
 distance2: ![Image](/images/formula4.gif) and ![Image](/images/formula3-1.gif)
 
-distance3: YPRED = BRNA_264 · XRNA and Σ|YRNA – YPRED| / N = 0.1164
+distance3: ![Image](/images/formula5.gif) and ![Image](/images/formula5-1.gif)
 
 where BFANTOM_264 is calculated by using the 264 miRNAs’ expression data on FANTOM 240 cell lines, XRNA is RNA-seq gene expression matrix with size (m x 27), YRNA is RNA-seq miRNA expression matrix with size (n x 27),  BFANTOM_264_from_330 is the 264 miRNAs coefficient from the 330 miRNAs coefficients, which we already calculated before and BRNA_264 is the lasso result of XRNA and YRNA.
 
