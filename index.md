@@ -121,7 +121,7 @@ Figure1. Input and output of Lasso regression
 
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
-http://cbl-gorilla.cs.technion.ac.il/
+[link to see](http://cbl-gorilla.cs.technion.ac.il/)
   
 Figure 2 shows the input of GO by the website.
 ![Image](/images/Figure_2.png)  
@@ -139,7 +139,7 @@ For GSEA analysis, three inputs are required;
 For the expression dataset, we used the table which consist of gene rows and cell line columns. The gene names
 of the dataset are required only Hugo symbol although GECODE contains
 multi-symbols. Thus, the symbols were converted to Hugo symbols by
-HGNC.  [https://www.genenames.org/tools/multi-symbol-checker/]  
+HGNC.  [https://www.genenames.org/tools/multi-symbol-checker/](https://www.genenames.org/tools/multi-symbol-checker/) 
 
 For phenotype label, we selected
 continuous file format as peak profile. The peak values are obtained by
@@ -160,7 +160,7 @@ GSEA software is v3.0 from broadinstitute.
 
 The GSEA analysis result are in the below link.  
 
-https://drive.google.com/open?id=1SfNwJtYHWc1oRLbuy4lcu8Fd9cTsgpJj  
+[link to see](https://drive.google.com/open?id=1SfNwJtYHWc1oRLbuy4lcu8Fd9cTsgpJj)  
 
 Figure 4. shows input data of GSEA and Figure 5 shows the parameters of GSEA.  
 ![Image](/images/Figure_4.png)
@@ -231,8 +231,8 @@ we calculated hypergeometic test by comparing this result to other research or o
 Not only we calculated p-value between this result and another result but we also consider the common genes by all three researches by a miRNA and common genes, which are overlapped by at least two methods and the union of the target gene are calculated. Also, GO has q-value by a miRNA so it is used for this comparison.  
 
 The below link contains the all comparison for the hypergeometric test.  
+[link to see](https://drive.google.com/open?id=1QTLmrX6h4n1TCietbyW031_-_n9f_49v)  
 
-https://drive.google.com/open?id=1QTLmrX6h4n1TCietbyW031_-_n9f_49v  
 
 q significant is the multiplication of q-value (GO) and row number.  
 
@@ -246,7 +246,8 @@ E_trn = |Y_trn – Yh_trn|
 where Yh_trn = B_trn * X_trn  
 since E_test is not small enough, we calculated other statistics to check out if the cross-validation is valid.  
 The below link is the result.  
-https://drive.google.com/open?id=1AP60_tHKeIIKG2klkBknY9-B9Zj-iEDX  
+[link to see](https://drive.google.com/open?id=1AP60_tHKeIIKG2klkBknY9-B9Zj-iEDX)  
+
 
 median_diff (test) is median value of E_test. because diff means difference, it shows E matrix.  
 median_expr (test) is the median value of expression data (Y_test).  
