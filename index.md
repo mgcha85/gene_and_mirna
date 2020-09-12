@@ -175,9 +175,8 @@ Figure5. GSEA parameter set
 
 For the cross-validation, we split the 240 vector to 216 (90%) as a train and 24 (10%) as a test. by the two set, we calculated the distance between actual Y and predicted Y. The below equation shows the distance.  
 
-**Σ|Yactual – Ypred| / N**
-
-**Ypred = BX**
+![Image](/images/formula1.png)
+![Image](/images/formula2.png)
 
 where Yactual is miRNA expression level, X is gene expression level and N is the size of Y matrix (n x 240). The below table shows 10-fold cross validation result.
 
