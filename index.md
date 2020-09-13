@@ -4,14 +4,14 @@
 Table of Contents
 =================
 
-  * [Data preparation](## Data preparation)
-    * [Data resources](###Data resources)
-    * [Converting Data Format](###Converting Data Format)
-    * [File entries by Tissues](###File entries by Tissues)
+  * [Data preparation](#Data-preparation)
+    * [Data resources](#Data-resources)
   
 
-## Data preparation
-### Data resources
+Data-preparation
+============
+Data-resources
+--------------------
 
 |Resource | URL|
 | ------------- | ------------- |
@@ -19,7 +19,8 @@ Table of Contents
 |RNA-seq by tissues | https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/?s_page=1&s_pagesize=500|
 |FANTOM by tissues | https://fantom.gsc.riken.jp/5/datafiles/latest/extra/CAGE_peaks/hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz|
 
-### Converting Data Format
+Converting Data Format
+--------------------
 
 | Convert | Command |
 | ------------- | ------------- |
@@ -27,7 +28,8 @@ Table of Contents
 | sam → bam (samtools) | samtools sorted -@ 8 -o {bam} {sam} |
 | bam → gtf (stringtie)	| stringtie -p 4 -G genes.gtf -o {gtf} -i {bam} |
 
-### File entries by Tissues
+File entries by Tissues
+--------------------
 
 |Resource | URL|
 | ------------- | ------------- |
