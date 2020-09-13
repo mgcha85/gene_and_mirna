@@ -95,8 +95,7 @@ Comparison
 ## CAGE raw data vs. CAGE tag processed data
 ### Before  vs. After Filter
 
-### There are three filters
-
+There are three filters
 maximum value of FANTOM or RNA-seq on 22 tissues is zero
 median of FANTOM or RNA-seq on 22 tissues is zero
 maximum value is greater than sum of others
