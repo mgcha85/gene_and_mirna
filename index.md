@@ -1,5 +1,28 @@
 # prediction target genes of miRNA using Lasso
 
+
+Table of Contents
+=================
+
+  * [github-markdown-toc](#github-markdown-toc)
+  * [Installation](#installation)
+    * [Precompiled binaries](#precompiled-binaries)
+    * [Compiling from source](#compiling-from-source)
+    * [Homebew (Mac only)](#homebew-mac-only)
+  * [Tests](#tests)
+  * [Usage](#usage)
+    * [STDIN](#stdin)
+    * [Local files](#local-files)
+    * [Remote files](#remote-files)
+    * [Multiple files](#multiple-files)
+    * [Combo](#combo)
+    * [Depth](#depth)
+    * [No Escape](#no-escape)
+    * [Github token](#github-token)
+    * [Bash/ZSH auto\-complete](#bashzsh-auto-complete)
+  * [LICENSE](#license)
+
+
 ## Data preparation
 ### Data resources
 
