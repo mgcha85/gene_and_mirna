@@ -141,7 +141,9 @@ The target genes are [here](https://drive.google.com/file/d/1gQlfWrGh_GZEGHGTyei
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 [link to see](http://cbl-gorilla.cs.technion.ac.il/)
-  
+From this analysis, we recevied another gene set based on the Lasso result.  
+the result is [here](https://drive.google.com/file/d/1JXhQbQLv6scJV88k3499GNvHKP8zWBtk/view?usp=sharing).  
+
 Figure 2 shows the input of GO by the website.
 ![Image](/images/Figure_2.png)  
 Figure2. GO input set
