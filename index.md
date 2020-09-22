@@ -86,23 +86,8 @@ There are three filters.
 2. median of FANTOM or RNA-seq on 22 tissues is zero.  
 3. maximum value is greater than sum of others.  
 
-### before filter
-
-The total number of transcripts for 51,686 out of 83,866.
-
-83,866 is the number of transcripts from GENCODE. The reason why only 51,686 transcripts exist if RNA-seq data is missed in specific tissue, it is skipped. So I only took when every 22 tissue data available in RNA-seq.
-
-### after filter
-
-The total number of transcripts for 31,344 out of 83,866. the procedure is same as before filter but the three filters.
-
-
-### RNA-seq data comparison
-First, processed cage data are same as Amlan’s and mine.
-Therefore, we checked RNA-seq data.
-I aligned sequence using same reference gene and compared but it is still different.
-So, we think only reason is stringtie version difference.
-I updated stringtie as what Amlan use and sent the updated gtf file to Amlan.
+### aftr filter
+The total number of transcripts for 27,493 out of 84,088. 84,088 is the number of TSS in gencode.
 
 
 ## High consistent genes
