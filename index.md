@@ -87,7 +87,7 @@ There are three filters.
 3. maximum value is greater than sum of others.  
 
 ### after filter
-The total number of transcripts for 27,493 out of 84,088. 84,088 is the number of TSS in gencode.
+After the filtering, the total number of transcripts for 27,493 out of 84,088, which is the number of TSS in gencode.
 
 
 ## High consistent genes
