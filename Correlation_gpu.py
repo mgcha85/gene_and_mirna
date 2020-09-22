@@ -300,13 +300,25 @@ class Correlation:
         cnt = 0
         for tname in tlist:
             chromosome, strand = tname.split('_')
-            sql = "SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM (SELECT * FROM '{}' WHERE " \
-                  "round(corr, 2)>={}) GROUP BY gene_name".format(tname, thres)
+            print(chromosome, strand)
+            # sql = "SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM (SELECT * FROM '{}' WHERE " \
+            #       "round(corr, 2)>={}) GROUP BY gene_name".format(tname, thres)
             # sql = "SELECT * FROM '{}' WHERE corr>{}".format(tname, thres)
-            df = pd.read_sql(sql, con)
+
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             if df.empty:
                 continue
 
+            df_grps = []
+            for gname, df_grp in df.groupby('gene_name'):
+                idx = df_grp['corr'].idxmax()
+                df_grps.append(df_grp.loc[idx])
+            df = pd.concat(df_grps, axis=1).T
+            df = df[df['corr'] >= thres]
+            if df.empty:
+                continue
+
+            df[['start', 'end']] = df[['start', 'end']].astype(int)
             df.to_sql(tname, con_out, if_exists='replace', index=False)
             df.loc[:, 'chromosome'] = chromosome
             df.loc[:, 'strand'] = strand
@@ -615,7 +627,7 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     cor = Correlation(root)
-    if hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
         cor.to_server(root, "")
     else:
         from Regression import Regression
@@ -637,12 +649,13 @@ if __name__ == '__main__':
                 # cor.corr_stats(hbw)
                 # cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
-                cor.high_correlation(hbw, 0.75)
-                exit(1)
+                # cor.high_correlation(hbw, 0.75)
+                # exit(1)
 
                 # cell lines
                 cor.sum_fan(hbw, ref='gene')
                 # cor.sum_fan(hbw, ref='mir')
+                exit(1)
 
                 rg.regression(hbw, opt)
                 rg.report(hbw, opt)
