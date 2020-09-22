@@ -124,9 +124,11 @@ some of 240 data does not have chromosomeY so, we did not consider the chromosom
 
 
 ### Lasso linear regression
-To predict target genes on a miRNA, we used lasso regression. the consistent genes and miRNAs have 240 vector, which are expression level on each cell line. Assume the number of genes and miRNA are m and n respectively. gene matrix **X**: (m x 240) and miRNA matrix **Y**: (n x 240). Lasso calculated the relationship between **X** and **Y**. The coefficient matrix by the Lasso result is **B** (n x m); **Y = BX**. Before, processing Lasso, **X** and **Y** were centered by subtracting mean value by each row. 
+To predict target genes on a miRNA, we used lasso regression. the consistent genes and miRNAs have 240 vector, which are expression level on each cell line. Assume the number of genes and miRNA are m and n respectively. gene matrix **X**: (m x 240) and miRNA matrix **Y**: (n x 240).  
+Lasso calculated the relationship between **X** and **Y**. The coefficient matrix by the Lasso result is **B** (n x m); **Y = BX**.  
+Before, processing Lasso, **X** and **Y** were centered by subtracting mean value by each row.  
 
-From the coefficient matrix, each row shows coefficient of one miRNA and multiple genes. Therefore, the non-zero coefficient values are assumed target genes, which are related to the corresponding miRNA.
+From the coefficient matrix (**B**), each row shows coefficient of one miRNA and multiple genes. Therefore, the non-zero coefficient values are assumed target genes, which are related to the corresponding miRNA.
 
 Figure 1 shows the input and output data of Lasso regression and target genes.
 ![Image](/images/Figure_1.png)
