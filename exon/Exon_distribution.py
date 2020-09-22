@@ -53,7 +53,7 @@ class Exon_distribution:
         genes = []
         for tname in tlist:
             print(tname)
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             if df.empty:
                 continue
             genes.append(set(df['gene_name']))
@@ -213,7 +213,7 @@ class Exon_distribution:
             print('{:0.2f}%'.format(100 * (i + 1) / N))
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue_full.db')
         con = sqlite3.connect(fpath)
-        df = pd.read_sql_query("SELECT * FROM '{}' WHERE gene_name='{}'".format(tname, gene), con)
+        df = pd.read_sql("SELECT * FROM '{}' WHERE gene_name='{}'".format(tname, gene), con)
         if df.empty:
             return
         return df

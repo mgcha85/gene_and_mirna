@@ -239,8 +239,8 @@ class Regression(DeepLearning):
     #         mirna = df.loc[idx, 'miRNA']
     #         gene = df.loc[idx, 'gene']
     #
-    #         df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mirna), con_mir, index_col='premiRNA')
-    #         df_gene = pd.read_sql_query("SELECT * FROM 'human_genes_wo_duplicates' WHERE gene_name='{}'".format(gene), con_gene, index_col='gene_name')
+    #         df_mir = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mirna), con_mir, index_col='premiRNA')
+    #         df_gene = pd.read_sql("SELECT * FROM 'human_genes_wo_duplicates' WHERE gene_name='{}'".format(gene), con_gene, index_col='gene_name')
     #         if df_mir.empty or df_gene.empty:
     #             appendex.append([None, None])
     #             continue
@@ -266,13 +266,13 @@ class Regression(DeepLearning):
     def add_truth(self):
         fpath_ref = os.path.join(self.root, 'database', 'miRTarBase.db')
         con_ref = sqlite3.connect(fpath_ref)
-        df_ref = pd.read_sql_query("SELECT * FROM 'miRTarBase' WHERE Species_miRNA='Homo sapiens'", con_ref)
+        df_ref = pd.read_sql("SELECT * FROM 'miRTarBase' WHERE Species_miRNA='Homo sapiens'", con_ref)
         df_ref['miRNA'] = df_ref['miRNA'].str.lower()
         df_ref = df_ref.set_index('miRNA')
 
         fpath_fan = os.path.join(self.root, 'database', 'fantom5.db')
         con_fan = sqlite3.connect(fpath_fan)
-        df_fan = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con_fan, index_col='premiRNA')
+        df_fan = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates'", con_fan, index_col='premiRNA')
 
         df_cor = pd.read_excel('Regression.xlsx', index_col=0)
         df_cor.loc[:, 'index'] = np.arange(df_cor.shape[0])
@@ -309,14 +309,14 @@ class Regression(DeepLearning):
         con_mir = sqlite3.connect(mir_path)
 
         dfs = []
-        df_ref = pd.read_sql_query("SELECT * FROM 'miRTarBase' WHERE Species_miRNA='Homo sapiens'", con)
+        df_ref = pd.read_sql("SELECT * FROM 'miRTarBase' WHERE Species_miRNA='Homo sapiens'", con)
         for i, pmir in enumerate(df.index):
             if i % 1000 == 0 or i + 1 == df.shape[0]:
                 print('{:0.2f}%'.format(100 * (i + 1) / df.shape[0]))
 
             df_sub = df.loc[pmir, :]
 
-            mir = pd.read_sql_query("SELECT miRNA FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(pmir), con_mir)
+            mir = pd.read_sql("SELECT miRNA FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(pmir), con_mir)
             if len(mir) == 0:
                 continue
 

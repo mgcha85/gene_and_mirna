@@ -38,7 +38,7 @@ class Extract_Ensembl:
     def compare(self):
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export.db')
         con = sqlite3.connect(fpath)
-        df_ens__ = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+        df_ens__ = pd.read_sql("SELECT * FROM 'Ensembl'", con)
 
         contents = []
         df_mir = pd.read_excel('gene.xlsx')
@@ -71,7 +71,7 @@ class Extract_Ensembl:
     def compare_mir(self):
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export.db')
         con = sqlite3.connect(fpath)
-        df_ens__ = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+        df_ens__ = pd.read_sql("SELECT * FROM 'Ensembl'", con)
 
         contents = []
         df_mir = pd.read_excel('miRNA.xlsx')
@@ -106,7 +106,7 @@ class Extract_Ensembl:
     def match(self):
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'mart_export.db')
         con = sqlite3.connect(fpath)
-        df_38 = pd.read_sql_query("SELECT * FROM 'Ensembl'", con)
+        df_38 = pd.read_sql("SELECT * FROM 'Ensembl'", con)
 
         fpath = os.path.join(self.root, 'database/ensembl/TSS', 'Ensembl_hg19.filter')
         df_19 = pd.read_csv(fpath, sep='\t', names=['chr_old', 'start_old', 'end_old', 'arrow', 'chr_new', 'start_new', 'end_new'])

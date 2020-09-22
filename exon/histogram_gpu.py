@@ -110,7 +110,7 @@ class histogram_gpu:
 
         con = sqlite3.connect(dbpath_src)
         tname = src_tname.format(chromosome)
-        return pd.read_sql_query("SELECT * FROM '{}' WHERE NOT start>{end} AND NOT end<{start}"
+        return pd.read_sql("SELECT * FROM '{}' WHERE NOT start>{end} AND NOT end<{start}"
                                  "".format(tname, start=start, end=end), con)
 
     def extract_from_sql(self, df_ref, dbpath_src, src_tname):
@@ -164,7 +164,7 @@ class histogram_gpu:
         chrom_table = {}
         chrom_table_by_str = {}
         for i, tname in enumerate(sorted(table_list)):
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             chrom_table[i] = tname.split('_')[1]
             chrom_table_by_str[tname.split('_')[1]] = i
             df['chromosome'] = i
@@ -237,7 +237,7 @@ class histogram_gpu:
                 print(cline, tname)
 
                 try:
-                    df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                    df_ref = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
                 except Exception as e:
                     print(e)
                     continue
@@ -294,7 +294,7 @@ if __name__ == '__main__':
         for tname, lstyle, label in zip(['cell_specific_{}', 'mitss_pred_with_seq'], ['-', '--', ':'], ['Hua', 'D-mirT']):
             tname = tname.format(cline)
             try:
-                df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                df_ref = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             except Exception as e:
                 print(e)
                 continue

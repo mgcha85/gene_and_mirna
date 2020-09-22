@@ -54,7 +54,7 @@ class Correlation2:
     def get_reference(self):
         fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation.db')
         con = sqlite3.connect(fpath)
-        df = pd.read_sql_query("SELECT * FROM 'human_genes'", con)
+        df = pd.read_sql("SELECT * FROM 'human_genes'", con)
         df_unique = df.drop_duplicates(subset=['gene_name'], keep=False)
 
         idx_duplicates = list(set(df.index) - set(df_unique.index))
@@ -70,7 +70,7 @@ class Correlation2:
         out_con = sqlite3.connect(fpath.replace('.db', '_2.db'))
 
         for tname in tlist:
-            df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df_rna = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             attribute = df_rna['attribute'].str.split('; ')
 
             pkm = []
@@ -139,7 +139,7 @@ class Correlation2:
         threshold = None
         for tname in tlist_rna:
             print(tname)
-            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            df_fan = pd.read_sql("SELECT * FROM '{}'".format(tname), con_fan)
             mean = df_fan['score'].mean()
             std = df_fan['score'].std()
             df_fan.loc[:, 'score (norm)'] = ((df_fan['score'] - mean) / std).round(4)
@@ -159,7 +159,7 @@ class Correlation2:
 
         for tname in tlist_rna:
             print(tname)
-            df_rna = pd.read_sql_query("SELECT * FROM {} WHERE FPKM>0".format(tname), con_rna)
+            df_rna = pd.read_sql("SELECT * FROM {} WHERE FPKM>0".format(tname), con_rna)
             df_rna['FPKM'] = df_rna['FPKM'].astype(float)
             df_grp = df_rna.groupby('gene_name')
 
@@ -189,7 +189,7 @@ class Correlation2:
         dfs = {}
         gene_names = []
         for tname in tlist:
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con, index_col='gene_name')
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='gene_name')
             if df.empty:
                 continue
             dfs[tname] = df
@@ -326,7 +326,7 @@ class Correlation2:
     def run(self):
         fpath = os.path.join(self.root, 'database/gencode', 'gencode.v30lift37.basic.annotation.db')
         con = sqlite3.connect(fpath)
-        df_ref = pd.read_sql_query("SELECT chromosome, start, end, strand, gene_name FROM 'gencode.v30lift37' WHERE "
+        df_ref = pd.read_sql("SELECT chromosome, start, end, strand, gene_name FROM 'gencode.v30lift37' WHERE "
                                    "feature='transcript'", con, index_col='gene_name')
 
         fpath_rna = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
@@ -348,7 +348,7 @@ class Correlation2:
 
         for tissue, tname_rna in tlist_fan.items():
             print(tissue)
-            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con_fan, index_col='gene_name')
+            df_fan = pd.read_sql("SELECT * FROM '{}'".format(tissue), con_fan, index_col='gene_name')
             for rtname in tname_rna:
                 df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(rtname), con_rna, index_col='gene_name')
 

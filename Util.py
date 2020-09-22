@@ -46,7 +46,7 @@ class Util:
         con = sqlite3.connect(fpath)
         sql = "SELECT chromosome, start, end, strand, FPKM, reference_id, ref_gene_id, ref_gene_name FROM '{}'".format(tname)
         # sql = "SELECT chromosome, start, end, strand, score FROM '{}'".format(tname)
-        df = pd.read_sql_query(sql, con)
+        df = pd.read_sql(sql, con)
 
         out_con = sqlite3.connect(out_path)
         for chr, df_chr in df.groupby('chromosome'):

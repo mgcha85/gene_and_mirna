@@ -300,7 +300,7 @@ if __name__ == '__main__':
         writer = pd.ExcelWriter('_'.join([sqlgpu.__class__.__name__, chromosome, strand, 'addr.xlsx']), engine='xlsxwriter')
         print(tname)
 
-        df_ref = pd.read_sql_query("SELECT start, end FROM '{}'".format(tname), con_ref)
+        df_ref = pd.read_sql("SELECT start, end FROM '{}'".format(tname), con_ref)
         if strand == '+':
             tss = deepcopy(df_ref['start'])
         else:
@@ -312,7 +312,7 @@ if __name__ == '__main__':
         df_rep = pd.DataFrame(index=df_ref.index, columns=['ref_start', 'ref_end', 'score'])
         df_rep[['ref_start', 'ref_end']] = df_ref[['start', 'end']]
         for tissue in tissues:
-            df_res = pd.read_sql_query("SELECT start, end, FPKM FROM '{}_{}_{}'".format(tissue, chromosome, strand), con_rna)
+            df_res = pd.read_sql("SELECT start, end, FPKM FROM '{}_{}_{}'".format(tissue, chromosome, strand), con_rna)
             df_res = df_res.rename(columns={"FPKM": "score"})
             temp = sqlgpu.bin_run(df_ref, df_res)
             df_rep.loc[:, 'score'] = temp

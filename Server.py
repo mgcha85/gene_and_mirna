@@ -11,14 +11,17 @@ class Server:
     def connect(self):
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
+        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         hostname = '{}.ist.ucf.edu'.format(self.which)
         username = 'mcha'
         password = 'Serenade Seedling cameras Dauphin'
-        key_filename = '/home/mingyu/mcha-keys/mcha_id_rsa_1'
+        # key_filename = '/home/mingyu/mcha-keys/mcha_id_rsa_1'
+        key_filename = 'D:/mcha-keys/mcha_id_rsa_1'
         self.ssh.connect(hostname, username=username, password=password, key_filename=key_filename)
+        print('connected') if self.ssh else print('failed to connect')
 
-    def job_script(self, fname, src_root=None, time='12:00:00'):
+    def job_script(self, fname, src_root=None, pversion=3, time='12:00:00'):
         if src_root is None:
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
 
@@ -27,13 +30,13 @@ class Server:
                   '#SBATCH --output=mchajobresults-%J.out', '#SBATCH --gres=gpu:1',
                   '#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules',
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
-                  'module load cuda/cuda-9.0', 'module load anaconda/anaconda3',
-                  'time python {}'.format(os.path.join(src_root, fname))]
+                  'module load cuda/cuda-9.0', 'module load anaconda/anaconda{}'.format(pversion),
+                  'time python {}'.format('/'.join([src_root, fname]))]
         if self.which == 'stokes':
             script.pop(7)
             script.pop(-3)
 
-        with open('dl-submit.slurm', 'wt') as f:
+        with open('dl-submit.slurm', 'wt', newline='\n') as f:
             f.write('\n'.join(script))
 
     def upload(self, local_file, server_file):

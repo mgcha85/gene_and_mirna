@@ -27,7 +27,7 @@ class Intergenic:
         fpath = os.path.join(dirname, fname)
         con = sqlite3.connect(fpath)
 
-        df = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE Type='intronic'", con)
+        df = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE Type='intronic'", con)
 
         for idx in df.index:
             promoter = df.loc[idx, 'promoter']

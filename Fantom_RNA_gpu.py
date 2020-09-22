@@ -183,7 +183,7 @@ class Fantom_RNA:
             dfs = []
             for tname in tlist:
                 _, chromosome, strand = tname.split('_')
-                df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
                 df.loc[:, 'chromosome'] = chromosome
                 df.loc[:, 'strand'] = strand
                 dfs.append(df)
@@ -198,7 +198,7 @@ class Fantom_RNA:
         tlist = Database.load_tableList(con)
         dfs = []
         for tname in tlist:
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             if df.empty:
                 continue
             df.loc[:, 'tissue'] = tname
@@ -238,8 +238,8 @@ class Fantom_RNA:
         for tname in tlist:
             print(tname)
             _, chromosome, strand = tname.split('_')
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
-            df_tis = pd.read_sql_query("SELECT * FROM 'FANTOM_{}_{}'".format(chromosome, strand), con_tis)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
+            df_tis = pd.read_sql("SELECT * FROM 'FANTOM_{}_{}'".format(chromosome, strand), con_tis)
             df_tis.index = df_tis['start'].astype(str) + ';' + df_tis['end'].astype(str)
 
             tissues = []
@@ -263,7 +263,7 @@ class Fantom_RNA:
 
         for tname in tlist:
             print(tname)
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             df_grp = df.groupby('gene_name')
 
             contents = []
@@ -284,7 +284,7 @@ class Fantom_RNA:
 
         for tname in tlist:
             print(tname)
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
 
             result = {}
             for idx in df.index:
@@ -360,7 +360,7 @@ class Fantom_RNA:
         tissues_src = Database.load_tableList(con_rna)
 
         for tissue in tissues:
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tissue), con)
             dfs, data_length, df_sorted = self.split_table_for_ref(df, label=[['start', 'gene_end'], ['gene_start', 'end']])
             dfs_ref, data_length_cum_ref = self.set_data(dfs, data_length)
             print(self.table_names)

@@ -38,7 +38,7 @@ class histone_features:
 
         fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_tissue.db')
         con = sqlite3.connect(fpath)
-        df = pd.read_sql_query("SELECT * FROM '{}' WHERE gene_name>'' AND NOT chromosome='chrMT' AND "
+        df = pd.read_sql("SELECT * FROM '{}' WHERE gene_name>'' AND NOT chromosome='chrMT' AND "
                                  "NOT chromosome='chrY'".format(fid[0]), con)
         return df[df['chromosome'].str.len() <= 5].reset_index(drop=True)
 
@@ -50,7 +50,7 @@ class histone_features:
             chromosome = df_ref.loc[idx, 'chromosome']
             start = df_ref.loc[idx, 'start']
             end = df_ref.loc[idx, 'end']
-            df__ = pd.read_sql_query("SELECT * FROM '{}_{}' WHERE NOT start>{end} AND NOT end<{start}".format(fname, chromosome, start=start, end=end), con)
+            df__ = pd.read_sql("SELECT * FROM '{}_{}' WHERE NOT start>{end} AND NOT end<{start}".format(fname, chromosome, start=start, end=end), con)
 
             bin_width = (end - start + BINSIZE) // BINSIZE
             hist = np.zeros(bin_width)

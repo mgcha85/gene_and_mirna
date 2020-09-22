@@ -56,7 +56,7 @@ class Report:
             dfs = []
             index = []
             for fid in df_src['fid']:
-                df_fid = pd.read_sql_query("SELECT * FROM '{}' WHERE FPKM>''".format(fid), con)[:1000]
+                df_fid = pd.read_sql("SELECT * FROM '{}' WHERE FPKM>''".format(fid), con)[:1000]
                 df_fid.to_csv(os.path.join(dirname, fid + '.csv'), index=None)
                 df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid[
                     'end'].astype(str)

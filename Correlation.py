@@ -59,11 +59,11 @@ class Correlation:
             start = df_fantom.loc[idx, 'start']
             end = df_fantom.loc[idx, 'end']
 
-            df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE chromosome='{}' AND "
+            df_mir = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE chromosome='{}' AND "
                                        "strand='{}' AND tss>={start} AND tss<{end}"
                                        "".format(chromosome, strand, start=start, end=end), con)
 
-            df_gene = pd.read_sql_query("SELECT * FROM 'human_gene' WHERE chromosome='{}' AND start>={start} AND "
+            df_gene = pd.read_sql("SELECT * FROM 'human_gene' WHERE chromosome='{}' AND start>={start} AND "
                                         "start<{end}".format(chromosome, strand, start=start, end=end), con)
             if not df_mir.empty:
                 mirna = ';'.join(df_mir['premiRNA'])
@@ -82,7 +82,7 @@ class Correlation:
         fpath = os.path.join(self.root, 'database/Fantom/v5', 'hg19.final_confirmed_tss.db')
         con = sqlite3.connect(fpath)
         if Database.checkTableExists(con, tissue):
-            return pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
+            return pd.read_sql("SELECT * FROM '{}'".format(tissue), con)
 
     def run(self):
         RANGE = 500
@@ -122,13 +122,13 @@ class Correlation:
                 end = tss + RANGE
                 chromosome = df_ref.loc[idx, 'chromosome']
 
-                df_fan = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT "
+                df_fan = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT "
                                            "start>{end} AND NOT end<{start}".format(tname_fan, chromosome, start=start,
                                                                                     end=end), con_fan)
 
                 tnames_rna = [x for x in tlist_rna if tname_fan in x]
                 for tname_rna in tnames_rna:
-                    df_rna = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT "
+                    df_rna = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT "
                                                "start>{end} AND NOT end<{start}".format(tname_rna, chromosome,
                                                                                         start=start, end=end), con_rna)
                     contents.append([chromosome, start, end, strand, df_fan['FPKM'].astype(float).sum(), df_fan['TPM'].astype(float).sum(),
@@ -185,7 +185,7 @@ class Correlation:
         dfs = {'GENE': [], 'miRNA': [], 'value': []}
         for tname in tableList:
             print(tname)
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
             df = df[~df.index.duplicated(keep='first')]
 
             for idx in df.index:
@@ -205,7 +205,7 @@ class Correlation:
         df = pd.read_excel(fname, index_col=0)
 
         con = sqlite3.connect(os.path.join(self.root, 'database', 'fantom5.db'))
-        df_gene = pd.read_sql_query("SELECT * FROM 'human_gene'", con, index_col='gene')
+        df_gene = pd.read_sql("SELECT * FROM 'human_gene'", con, index_col='gene')
 
         report = []
         for i, gene in enumerate(df.index):
@@ -223,7 +223,7 @@ class Correlation:
             mirna = df.loc[gene, 'miRNA']
 
             for mir in mirna:
-                df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mir), con)
+                df_mir = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mir), con)
                 mir_gene = ';'.join(df_mir['Gene'].astype(str))
                 mirna_chromosome = ';'.join(df_mir['chromosome'])
                 mirna_start = ';'.join(df_mir['start'].astype(str))

@@ -57,7 +57,7 @@ class Tss_map:
                 df_sub.index = df_sub['start'].astype(str) + ';' + df_sub['end'].astype(str)
 
                 for cline in self.cell_lines:
-                    df = pd.read_sql_query("SELECT * FROM '{}_{}_{}'".format(cline, chrom, '+'), con)
+                    df = pd.read_sql("SELECT * FROM '{}_{}_{}'".format(cline, chrom, '+'), con)
                     df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
                     df = df[~df.index.duplicated(keep='first')]
                     df_sub[cline] = df['type']

@@ -103,7 +103,7 @@ class Expression:
             if chromosome == 'chrY':
                 continue
             self.chr_str_map['{}_{}'.format(chromosome, strand)] = i
-            df = pd.read_sql_query("SELECT start, end, gene_name FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT start, end, gene_name FROM '{}'".format(tname), con)
             if df.empty:
                 continue
 
@@ -187,7 +187,7 @@ class Expression:
     def to_output(self, con_ref, out_data, data_lengths_cum):
         tlist = Database.load_tableList(con_ref)
         for i, tname in enumerate(sorted(tlist)):
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_ref)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con_ref)
             sidx = data_lengths_cum[i]
             eidx = data_lengths_cum[i + 1]
 
@@ -210,7 +210,7 @@ class Expression:
         con_out = sqlite3.connect(fpath_fan_out)
         for i, tname in enumerate(tlist_fan):
             print(tname)
-            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            df_fan = pd.read_sql("SELECT * FROM '{}'".format(tname), con_fan)
             res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
             df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
             df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
@@ -233,7 +233,7 @@ class Expression:
 
         for i, tname in enumerate(tlist_fan):
             print(tname)
-            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            df_fan = pd.read_sql("SELECT * FROM '{}'".format(tname), con_fan)
             res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
             df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum, scope=scope)
             df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)
@@ -257,7 +257,7 @@ class Expression:
 
         for i, tname in enumerate(tlist_fan):
             print(tname)
-            df_fan = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_fan)
+            df_fan = pd.read_sql("SELECT * FROM '{}'".format(tname), con_fan)
             res_buffer, res_data_lengths_cum, df_fan_sorted = self.set_data(df_fan)
             df_out = self.to_gpu(ref_buffer, ref_data_lengths_cum, res_buffer, res_data_lengths_cum)
             df_res = pd.concat([df_fan_sorted, df_out[['label', 'index']]], axis=1)

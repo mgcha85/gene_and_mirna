@@ -133,7 +133,7 @@ class Fantom_RNA:
         end = df.loc[idx, 'end']
         strand = df.loc[idx, 'strand']
 
-        df_rna = pd.read_sql_query("SELECT * FROM '{}_4a' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} "
+        df_rna = pd.read_sql("SELECT * FROM '{}_4a' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} "
                                    "AND NOT stop<{start}".format(tissue, chromosome, strand, start=start, end=end),
                                    con_rna)
         return self.rpkm(df.loc[idx], df_rna)
@@ -173,7 +173,7 @@ class Fantom_RNA:
 
         for tissue in tissues:
             print(tissue)
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tissue), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tissue), con)
             if df.shape[1] <= 5:
                 continue
 

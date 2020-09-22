@@ -244,7 +244,7 @@ class Download_RNA_seq:
         for fname in flist:
             con = sqlite3.connect(os.path.join(dirname, fname))
             tname = os.path.splitext(fname)[0]
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             df = df[df['chromosome'].str.len() <= 5]
             df.to_sql(tname, con_out)
 

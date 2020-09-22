@@ -16,35 +16,31 @@ from scipy.stats import spearmanr
 
 
 class Correlation:
-    def __init__(self):
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.table_names = {}
+    def __init__(self, root):
+        self.root = root
 
-    def to_server(self):
+    def to_server(self, root, tag):
         from Server import Server
         import sys
 
         which = 'newton'
-        server = Server(self.root, which=which)
+        server = Server(root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
-        curdir = os.getcwd().split('/')[-1]
-        server_root = os.path.join(server.server, 'source', curdir)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
+        curdir = os.getcwd().split(os.sep)[-1]
+        server_root = os.path.join(server.server, 'source', curdir).replace(os.sep, '/')
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='08:00:00')
+        server.job_script(fname, src_root=server_root, time='08:00:00', pversion=3)
         server.upload(local_path, server_path)
-        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+        server.upload('dl-submit.slurm', server_root + '/' + 'dl-submit.slurm')
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {root};sbatch {root}/dl-submit.slurm".format(root=server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -90,7 +86,7 @@ class Correlation:
 
             sql = "SELECT start, end, gene_id, gene_name, gene_type, transcript_id, transcript_type, transcript_name " \
                   "FROM '{}' WHERE feature='transcript' AND transcript_type='protein_coding'"
-            df_ref = pd.read_sql_query(sql.format(tname), ref_con, index_col='transcript_id')
+            df_ref = pd.read_sql(sql.format(tname), ref_con, index_col='transcript_id')
             if df_ref.empty:
                 continue
 
@@ -115,9 +111,9 @@ class Correlation:
 
             for i, tissue in enumerate(tissues):
                 tname_rsc = '_'.join([tissue, chromosome, strand])
-                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}'"
+                df_fan = pd.read_sql("SELECT start, end, score FROM '{}'"
                                            "".format(tname_rsc, chromosome, strand), con_fan).sort_values(by=['start'])
-                df_rna = pd.read_sql_query("SELECT start, end, FPKM, reference_id FROM '{}'"
+                df_rna = pd.read_sql("SELECT start, end, FPKM, reference_id FROM '{}'"
                                            "".format(tname_rsc, chromosome, strand), con_rna, index_col='reference_id').sort_values(by=['start'])
                 tid = set.intersection(set(df_ref.index), set(df_rna.index))
                 df_buf['rna-seq'].loc[tid, tissue] = df_rna.loc[tid, 'FPKM']
@@ -184,7 +180,7 @@ class Correlation:
             #     continue
 
             sql = "SELECT start, end, gene_name, transcript_id FROM '{}'"
-            df_ref = pd.read_sql_query(sql.format(tname), ref_con, index_col='transcript_id')
+            df_ref = pd.read_sql(sql.format(tname), ref_con, index_col='transcript_id')
             if df_ref.empty:
                 continue
 
@@ -206,20 +202,22 @@ class Correlation:
             for i, tissue in enumerate(tissues):
                 tname_rsc = '_'.join([tissue, chromosome, strand])
                 # RNA-seq
-                df_rna = pd.read_sql_query("SELECT start, end, FPKM, reference_id FROM '{}'"
+                df_rna = pd.read_sql("SELECT start, end, FPKM, reference_id FROM '{}'"
                                            "".format(tname_rsc, chromosome, strand), con_rna, index_col='reference_id').sort_values(by=['start'])
                 df_rna['FPKM'] = df_rna['FPKM'].round(4)
                 tid = set.intersection(set(df_ref.index), set(df_rna.index))
                 df_buf['rna-seq'].loc[tid, tissue] = df_rna.loc[tid, 'FPKM'].astype(float)
 
                 # FANTOM
-                df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}'"
+                df_fan = pd.read_sql("SELECT start, end, score FROM '{}'"
                                            "".format(tname_rsc, chromosome, strand), con_fan).sort_values(by=['start'])
                 df_fan['score'] = df_fan['score'].round(4)
 
                 for src, df_src in zip(['fantom'], [df_fan]):
                     df_buf[src].loc[:, tissue] = self.get_score_sum(df_ref[['start', 'end']], df_src[['start', 'end', 'score']])
 
+            for src in ['fantom', 'rna-seq']:
+                df_buf[src].to_sql('_'.join([src, chromosome, strand, '_raw']), con_out, if_exists='replace')
             df_buf = self.filtering(df_buf)
             for src in ['fantom', 'rna-seq']:
                 df_buf[src].to_sql('_'.join([src, chromosome, strand]), con_out, if_exists='replace')
@@ -275,7 +273,7 @@ class Correlation:
             dfs = []
             for tname in tlist:
                 chromosome, strand = tname.split('_')
-                df = pd.read_sql_query("SELECT * FROM '{}' WHERE corr>{} AND transcript_type='protein_coding'".format(tname, thres), con)
+                df = pd.read_sql("SELECT * FROM '{}' WHERE corr>{} AND transcript_type='protein_coding'".format(tname, thres), con)
                 if df.empty:
                     continue
 
@@ -305,11 +303,11 @@ class Correlation:
             sql = "SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM (SELECT * FROM '{}' WHERE " \
                   "round(corr, 4)>{}) GROUP BY gene_name".format(tname, thres)
             # sql = "SELECT * FROM '{}' WHERE corr>{}".format(tname, thres)
-            df = pd.read_sql_query(sql, con)
+            df = pd.read_sql(sql, con)
             if df.empty:
                 continue
 
-            df.to_sql(tname, con_out, if_exists='replace', index=None)
+            df.to_sql(tname, con_out, if_exists='replace', index=False)
             df.loc[:, 'chromosome'] = chromosome
             df.loc[:, 'strand'] = strand
             cnt += df.shape[0]
@@ -371,7 +369,7 @@ class Correlation:
                 if df_fan.shape[0] == 0:
                     continue
                 df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
-            pd.concat([df_ref[label], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
+            pd.concat([df_ref[label], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=False, if_exists='replace')
 
     # def sum_fan(self, hbw, ref='gene'):
     #     if ref == 'mir':
@@ -606,9 +604,19 @@ class Correlation:
 
 
 if __name__ == '__main__':
-    cor = Correlation()
-    if cor.hostname == 'mingyu-Precision-Tower-7810':
-        cor.to_server()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    cor = Correlation(root)
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        cor.to_server(root, "")
     else:
         from Regression import Regression
         from mir_gene import mir_gene
@@ -629,8 +637,8 @@ if __name__ == '__main__':
                 # cor.corr_stats(hbw)
                 cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
-                cor.high_correlation(hbw, 0.75)
-                # exit(1)
+                # cor.high_correlation(hbw, 0.75)
+                exit(1)
 
                 # cell lines
                 cor.sum_fan(hbw, ref='gene')

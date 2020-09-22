@@ -24,7 +24,7 @@ class Database:
             con = sqlite3.connect(os.path.join(self.root, self.fname + '_{}.db'.format(date.year)), check_same_thread=False)
         else:
             return
-        df = pd.read_sql_query("SELECT * FROM {tn} WHERE Date BETWEEN '{date}' AND '{date}'".format(tn=code, date=date), con, index_col='Date')
+        df = pd.read_sql("SELECT * FROM {tn} WHERE Date BETWEEN '{date}' AND '{date}'".format(tn=code, date=date), con, index_col='Date')
         df.index = pd.to_datetime(df.index)
         return df
 
@@ -36,7 +36,7 @@ class Database:
         else:
             return
 
-        df = pd.read_sql_query("SELECT * FROM {tn} WHERE Date BETWEEN '{date} {time1}' AND '{date} "
+        df = pd.read_sql("SELECT * FROM {tn} WHERE Date BETWEEN '{date} {time1}' AND '{date} "
                                "{time2}'".format(tn=code, date=date, time1=time1, time2=time2), con, index_col='Date')
         df.index = pd.to_datetime(df.index)
         return df
@@ -61,7 +61,7 @@ class Database:
             if Database.checkTableExists(con, code) is False:
                 return
             
-            df = pd.read_sql_query("SELECT * FROM '{tn}' WHERE Date BETWEEN '{date1} {time1}' AND '{date2} {time2}'".format(tn=code,
+            df = pd.read_sql("SELECT * FROM '{tn}' WHERE Date BETWEEN '{date1} {time1}' AND '{date2} {time2}'".format(tn=code,
                                     date1=date1, date2=date2, time1=time1, time2=time2), con, index_col='Date').astype(float)
             df.index = pd.to_datetime(df.index)
             dfs.append(df)
@@ -72,7 +72,7 @@ class Database:
         dfs = []
         for date in range:
             con = sqlite3.connect(os.path.join(self.root, 'database', self.fname + '_{}.db'.format(date)), check_same_thread=False)
-            df = pd.read_sql_query("SELECT * FROM '{tn}' WHERE Date BETWEEN '{date1}' AND '{date2}'".format(tn=code,
+            df = pd.read_sql("SELECT * FROM '{tn}' WHERE Date BETWEEN '{date1}' AND '{date2}'".format(tn=code,
                                 date1=date1, date2=date2), con, index_col='Date')
             df.index = pd.to_datetime(df.index)
             dfs.append(df)
@@ -88,7 +88,7 @@ class Database:
         else:
             return
 
-        df = pd.read_sql_query("SELECT * FROM '{tn}'".format(tn=code), con, index_col='Date')
+        df = pd.read_sql("SELECT * FROM '{tn}'".format(tn=code), con, index_col='Date')
         df.index = pd.to_datetime(df.index)
         return df
 
@@ -119,7 +119,7 @@ class Database:
         for fname in flist:
             fpath = os.path.join(root, fname)
             con = sqlite3.connect(fpath, check_same_thread=False)
-            df = pd.read_sql_query("SELECT * FROM '038500'", con, index_col='Date')
+            df = pd.read_sql("SELECT * FROM '038500'", con, index_col='Date')
             df.index = pd.to_datetime(df.index)
             dateList.extend([*np.unique(df.index.date)])
         return dateList
@@ -128,7 +128,7 @@ class Database:
     def get_sample(root):
         today = datetime.date.today()
         con = sqlite3.connect(os.path.join(root, 'database', 'intra_day_5min_{:04d}-{:02d}.db'.format(today.year, today.month)), check_same_thread=False)
-        df = pd.read_sql_query("SELECT * FROM '038500'", con, index_col='Date')
+        df = pd.read_sql("SELECT * FROM '038500'", con, index_col='Date')
         df.index = pd.to_datetime(df.index)
         return df
 

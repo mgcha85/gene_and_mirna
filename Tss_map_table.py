@@ -51,7 +51,7 @@ class Tss_map_table:
         chrom = df_gencode.loc[idx, 'chromosome']
         start = tss - 100
         end = tss + 100
-        df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} AND "
+        df_tags = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}' AND strand='{}' AND NOT start>{end} AND "
                                     "NOT end<{start}".format(cline, chrom, strand, start=start, end=end), con_ctag)
         df_tags = df_tags[df_tags.iloc[:, 4:].sum(axis=1) > 0]
         if not df_tags.empty:
@@ -82,7 +82,7 @@ class Tss_map_table:
         con_ctag = self.connect_cage_tags()
         df.index = df['start'].astype(str) + ';' + df['end'].astype(str)
 
-        df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}'".format(cline, chrom), con_ctag)
+        df_tags = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}'".format(cline, chrom), con_ctag)
         df_tags.index = df_tags['start'].astype(str) + ';' + df_tags['end'].astype(str)
 
         others = set(df_tags.index) - set(df.index)
@@ -118,7 +118,7 @@ class Tss_map_table:
             for chrom in self.chrom:
                 for slabel, strand, tss_label in zip(['plus', 'minus'], ['+', '-'], ['start', 'end']):
                     print(chrom, strand)
-                    df_gencode = pd.read_sql_query("SELECT * FROM '{}'".format(self.tnames['gencode'].format(chrom, slabel)), con_gencode)
+                    df_gencode = pd.read_sql("SELECT * FROM '{}'".format(self.tnames['gencode'].format(chrom, slabel)), con_gencode)
                     df_ctag = self.search_neighbor_tag(df_gencode, tss_label, cline, strand)
 
                     df_ctag = self.set_type(df_ctag)

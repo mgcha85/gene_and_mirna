@@ -141,7 +141,7 @@ class Convert:
             dfs = []
             index = []
             for fid in df_src['fid']:
-                df_fid = pd.read_sql_query("SELECT * FROM '{}'".format(fid), con, index_col='reference_id')
+                df_fid = pd.read_sql("SELECT * FROM '{}'".format(fid), con, index_col='reference_id')
                 # df_fid.index = df_fid['chromosome'] + ':' + df_fid['start'].astype(str) + '-' + df_fid['end'].astype(str)
                 index.append(set(df_fid.index))
                 dfs.append(df_fid)

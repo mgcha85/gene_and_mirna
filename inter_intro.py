@@ -49,7 +49,7 @@ class inter_intro:
         out_path = fpath.replace('.db', '_out.db')
         out_con = sqlite3.connect(out_path)
 
-        df_rsc = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con_rsc)
+        df_rsc = pd.read_sql("SELECT * FROM '{}'".format(tname), con_rsc)
 
         for idx in df_rsc.index:
             chromosome = df_rsc.loc[idx, 'chromosome']
@@ -58,7 +58,7 @@ class inter_intro:
             strand = df_rsc.loc[idx, 'strand']
 
             tname_ref = 'genes_{}_{}'.format(chromosome, strand)
-            df_ref = pd.read_sql_query("SELECT * FROM '{}' WHERE NOT start>{end} AND NOT end<{start} AND "
+            df_ref = pd.read_sql("SELECT * FROM '{}' WHERE NOT start>{end} AND NOT end<{start} AND "
                                        "feature='transcript'".format(tname_ref, start=start, end=end), con_ref)
             if not df_ref.empty:
                 df_rsc.loc[idx, 'type'] = 'intronic'

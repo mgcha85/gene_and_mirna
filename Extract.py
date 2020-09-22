@@ -52,7 +52,7 @@ class Extract:
         con_gene = sqlite3.connect(gene_path)
 
         mir_low = mir.lower()
-        df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mir_low),
+        df_mir = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE premiRNA='{}'".format(mir_low),
                                    con_mir, index_col='premiRNA')
         if df_mir.empty:
             return
@@ -62,7 +62,7 @@ class Extract:
 
         gene = df.loc[mir, 'Target Gene']
         distance = None
-        df_gene = pd.read_sql_query(
+        df_gene = pd.read_sql(
             "SELECT * FROM 'human_genes_wo_duplicates' WHERE gene_name='{}'".format(gene), con_gene,
             index_col='gene_name')
         if df_gene.empty:
@@ -96,7 +96,7 @@ class Extract:
         fpath = os.path.join(self.root, 'database', 'miRTarBase.db')
         con = sqlite3.connect(fpath)
 
-        df = pd.read_sql_query("SELECT * FROM 'miRTarBase' WHERE Species_miRNA='Homo sapiens'", con)
+        df = pd.read_sql("SELECT * FROM 'miRTarBase' WHERE Species_miRNA='Homo sapiens'", con)
         df = df.drop_duplicates(subset=['miRNA', 'Target Gene'])
         df = df.set_index('miRNA', drop=True)
 
@@ -106,7 +106,7 @@ class Extract:
                 print('{:0.2f}%'.format(100 * (i + 1) / df.shape[0]))
 
             mir_low = mir.lower()
-            df_mir = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE miRNA='{}'".format(mir_low), con_mir, index_col='miRNA')
+            df_mir = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE miRNA='{}'".format(mir_low), con_mir, index_col='miRNA')
             df_mir = df_mir.loc[~df_mir.index.duplicated(keep='first')]
             if df_mir.empty:
                 continue
@@ -117,7 +117,7 @@ class Extract:
             genes = df.loc[mir, 'Target Gene']
             for gene in genes:
                 distance = None
-                df_gene = pd.read_sql_query(
+                df_gene = pd.read_sql(
                     "SELECT * FROM 'human_genes_wo_duplicates' WHERE gene_name='{}'".format(gene), con_gene,
                     index_col='gene_name')
                 if df_gene.empty:
@@ -165,7 +165,7 @@ class Extract:
         con = sqlite3.connect(fpath)
         out_con = sqlite3.connect(fpath.replace('.db', '_mir.db'))
 
-        df = pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates'", con)
+        df = pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates'", con)
         print(df.shape[0])
 
         df_chr = df.groupby('chromosome')

@@ -45,12 +45,12 @@ class Search_TSSs:
     def load_miRNA_tss(self):
         fpath = os.path.join(self.root, 'database', 'fantom5.db')
         con = sqlite3.connect(fpath)
-        return pd.read_sql_query("SELECT * FROM 'human_promoters_wo_duplicates' WHERE Type='intronic'", con)
+        return pd.read_sql("SELECT * FROM 'human_promoters_wo_duplicates' WHERE Type='intronic'", con)
 
     def load_gene_tss(self):
         fpath = os.path.join(self.root, 'database', 'fantom5.db')
         con = sqlite3.connect(fpath)
-        return pd.read_sql_query("SELECT * FROM 'human_gene'", con, index_col='gene')
+        return pd.read_sql("SELECT * FROM 'human_gene'", con, index_col='gene')
 
     def main(self):
         df_mir = self.load_miRNA_tss()
@@ -76,7 +76,7 @@ class Search_TSSs:
             row = []
             for gene in genes:
                 for cline in self.cell_lines:
-                    df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND start<={tss} AND end>={tss}"
+                    df_tags = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}' AND start<={tss} AND end>={tss}"
                                                 "".format(cline, chromosome, tss=tss), con_tag)
                     if df_tags.empty:
                         continue
@@ -93,7 +93,7 @@ class Search_TSSs:
                     else:
                         gene_tss = df_gene_name['end']
 
-                    df_gene_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start>{tss} AND NOT "
+                    df_gene_tags = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start>{tss} AND NOT "
                                                 "end<{tss}".format(cline, chromosome, tss=gene_tss), con_tag)
                     if df_gene_tags.empty:
                         continue
@@ -105,7 +105,7 @@ class Search_TSSs:
                     start = tsss[0]
                     end = tsss[1]
                     length = end - start
-                    df_tags = pd.read_sql_query("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start<={} AND NOT "
+                    df_tags = pd.read_sql("SELECT * FROM '{}' WHERE chromosome='{}' AND NOT start<={} AND NOT "
                                                 "end>={}".format(cline, chromosome, start, end), con_tag)
 
                     starts = ';'.join(list(df_tags['start'].values.astype(str)))

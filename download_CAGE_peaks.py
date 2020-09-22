@@ -27,22 +27,28 @@ class Download_RNA_seq:
         self.url = 'http://fantom.gsc.riken.jp/5/sstar/'
         self.f2b = fa2bed()
 
-    def to_server(self):
+    def to_server(self, root, tag):
+        from Server import Server
+        import sys
+
         which = 'newton'
-        server = Server(self.root, which=which)
+        server = Server(root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
-        curdir = os.getcwd().split('/')[-1]
-        server_root = os.path.join(server.server, 'source', curdir)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
+        curdir = os.getcwd().split(os.sep)[-1]
+        server_root = os.path.join(server.server, 'source', curdir).replace(os.sep, '/')
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='04:00:00')
+        server.job_script(fname, src_root=server_root, time='08:00:00', pversion=3)
         server.upload(local_path, server_path)
-        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+        server.upload('dl-submit.slurm', server_root + '/' + 'dl-submit.slurm')
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {root};sbatch {root}/dl-submit.slurm".format(root=server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -212,7 +218,7 @@ class Download_RNA_seq:
         for fname in flist:
             con = sqlite3.connect(os.path.join(dirname, fname))
             tname = os.path.splitext(fname)[0]
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             df = df[df['chromosome'].str.len() <= 5]
             df.to_sql(tname, con_out)
 
@@ -368,17 +374,24 @@ class Download_RNA_seq:
                     del df
 
                 df_res['score'] /= len(contents)
-            df_res.to_sql(df_ref.loc[fname, 'RNA-seq'], out_con, if_exists='replace', index=None)
+            df_res.to_sql(df_ref.loc[fname, 'RNA-seq'], out_con, if_exists='replace', index=False)
             del df_res, indecies, contents
         df_rep.to_excel('temp.xlsx')
 
 
 if __name__ == '__main__':
     drs = Download_RNA_seq()
-    if drs.hostname == 'mingyu-Precision-Tower-781':
-        # drs.download_tissue_fantom()
-        # drs.get_list()
-        # drs.merge_cline_db()
-        drs.to_server()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        drs.to_server(root, "")
     else:
         drs.run()

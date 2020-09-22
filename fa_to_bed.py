@@ -235,7 +235,7 @@ class fa2bed:
                 con = sqlite3.connect(fpath)
                 tlist = Database.load_tableList(con)
                 for tname in tlist:
-                    df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+                    df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
                     df.to_csv(os.path.join(dirname, tname + '.csv'), sep='\t', index=None, header=False)
 
     def chain_transfer(self):
