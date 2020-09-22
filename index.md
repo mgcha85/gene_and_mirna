@@ -128,11 +128,11 @@ To predict target genes on a miRNA, we used lasso regression. the consistent gen
 Lasso calculated the relationship between **X** and **Y**. The coefficient matrix by the Lasso result is **B** (n x m); **Y = BX**.  
 Before, processing Lasso, **X** and **Y** were centered by subtracting mean value by each row.  
 
-From the coefficient matrix (**B**), each row shows coefficient of one miRNA and multiple genes. Therefore, the non-zero coefficient values are assumed target genes, which are related to the corresponding miRNA.
+From the coefficient matrix (**B**), each row shows coefficient of one miRNA and multiple genes. Therefore, the non-zero coefficient values are assumed target genes, which are related to the corresponding miRNA. The coefficient of Lasso is [here](https://drive.google.com/file/d/1Y2sA1EE5KC4ZGyXqjyQnHA877p7NfC6O/view?usp=sharing)  
 
 Figure 1 shows the mean of **B** as a sample.
 ![Image](/images/Figure_1.png)
-Figure1. The mean of **B**  
+Figure1. The mean of **B**    
 
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
