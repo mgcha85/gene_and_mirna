@@ -134,6 +134,10 @@ Figure 1 shows the mean of **B** as a sample.
 ![Image](/images/Figure_1.png)
 Figure1. The mean of **B**    
 
+When the coefficient is not zero between gene and miRNA From the result, we assume those are target genes by a miRNA.   
+The target genes are [here](https://drive.google.com/file/d/1gQlfWrGh_GZEGHGTyeiVxajql9d7dSKL/view?usp=sharing).  
+257 miRNA has target genes out of 330. This means 73 miRNAs has zero coefficients.
+
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 [link to see](http://cbl-gorilla.cs.technion.ac.il/)
