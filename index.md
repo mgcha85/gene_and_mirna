@@ -93,7 +93,7 @@ After the filtering, the total number of transcripts for 27,493 out of 84,088, w
 ## High consistent genes
 RNA-seq and FANTOM data have expression level by a gene on the 22 tissues. Each gene has two 22 length vectors (RNA-seq and FANTOM), which an element show expression level on a tissue. By the two vectors, the correlation coefficient is calculated to observe how consistent between RNA-seq and FANTOM on a gene. Each gene has the coefficient and high coefficient shows two data source are consistent on the 22 tissues.  
 For the correlation, **spearman method** was used. We round the coefficient at the decimal point with two digit.  
-To extract only high correlated one, we set **threshold as 0.75**. Finally, **5,116 transcripts** are received as high consistent ones from **27,493**. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got **3,738 genes**.  
+To extract only high correlated one, we set **threshold as 0.75**. Finally, **5,116 transcripts** are received as high consistent ones from **27,493** transcripts. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got **3,738 genes**.  
 The list of 3,738 transcripts is in the below link. only double type is used for every calculation. Transcript region are only used that gene and transcript type are protein coding gene from genecode transcripts.  
 [link to see](https://drive.google.com/file/d/1Q9PvJdm1jVIW7zFH2ZE00rXkXMqLzZm4/view?usp=sharing)
 
