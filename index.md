@@ -78,23 +78,6 @@ One tissue can have multiple replicates. Therefore, RNA-seq and FANTOM were aver
 ## Expression data by 22 tissues
 RNA-seq data already contains FPKM while FANTOM does not have expression data. To get the expression data from FANTOM, we calculated expression level of (+/-)100 bp from annotated gene TSS. The expression level is summed by the score sum of cage tags within the region. When the summation, every tags, which are overlapped to the region;  [TSS-100, TSS+100] should be used.
 
-
-## High consistent genes
-RNA-seq and FANTOM data have expression level by a gene on the 22 tissues. Each gene has two 22 length vectors (RNA-seq and FANTOM), which an element show expression level on a tissue. By the two vectors, the correlation coefficient is calculated to observe how consistent between RNA-seq and FANTOM on a gene. Each gene has the coefficient and high coefficient shows two data source are consistent on the 22 tissues.  
-For the correlation, **spearman method** was used. We round the coefficient at the decimal point with two digit.  
-To extract only high correlated one, we set **threshold as 0.75**. Finally, **5,116 transcripts** are received as high consistent ones. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got **3,738 genes**.  
-The list of 3,738 transcripts is in the below link. only double type is used for every calculation. Transcript region are only used that gene and transcript type are protein coding gene from genecode transcripts.  
-[link to see](https://drive.google.com/file/d/1Q9PvJdm1jVIW7zFH2ZE00rXkXMqLzZm4/view?usp=sharing)
-
-
-## High consistent miRNA
-For the consistent miRNAs, we compared eleven papers and retrieved the TSS locations by the miRNA name. The consistent miRNA TSSs are predicted by all papers and the TSS regions are close then we chose the meddle point as the TSS. The number of miRNA TSSs is 330. The name and TSS of 330 miRNAs are in the below link.  
-[link to see](https://drive.google.com/open?id=1qZHBqubcYeJfVk7uvE8lFyzVXZeSknmIOf-qfS5zBmM)
-
-
-Comparison
-============
-
 ## CAGE raw data vs. CAGE tag processed data
 ### Before  vs. After Filter
 
@@ -120,6 +103,19 @@ Therefore, we checked RNA-seq data.
 I aligned sequence using same reference gene and compared but it is still different.
 So, we think only reason is stringtie version difference.
 I updated stringtie as what Amlan use and sent the updated gtf file to Amlan.
+
+
+## High consistent genes
+RNA-seq and FANTOM data have expression level by a gene on the 22 tissues. Each gene has two 22 length vectors (RNA-seq and FANTOM), which an element show expression level on a tissue. By the two vectors, the correlation coefficient is calculated to observe how consistent between RNA-seq and FANTOM on a gene. Each gene has the coefficient and high coefficient shows two data source are consistent on the 22 tissues.  
+For the correlation, **spearman method** was used. We round the coefficient at the decimal point with two digit.  
+To extract only high correlated one, we set **threshold as 0.75**. Finally, **5,116 transcripts** are received as high consistent ones. the transcripts are grouped by gene name and if there are multiple transcripts, we picked one with the maximum score. After this, we got **3,738 genes**.  
+The list of 3,738 transcripts is in the below link. only double type is used for every calculation. Transcript region are only used that gene and transcript type are protein coding gene from genecode transcripts.  
+[link to see](https://drive.google.com/file/d/1Q9PvJdm1jVIW7zFH2ZE00rXkXMqLzZm4/view?usp=sharing)
+
+
+## High consistent miRNA
+For the consistent miRNAs, we compared eleven papers and retrieved the TSS locations by the miRNA name. The consistent miRNA TSSs are predicted by all papers and the TSS regions are close then we chose the meddle point as the TSS. The number of miRNA TSSs is 330. The name and TSS of 330 miRNAs are in the below link.  
+[link to see](https://drive.google.com/open?id=1qZHBqubcYeJfVk7uvE8lFyzVXZeSknmIOf-qfS5zBmM)
 
 
 Methodology
