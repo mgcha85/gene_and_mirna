@@ -114,7 +114,9 @@ we received cell line specific data. The below table shows the url of the data s
 | cell line data list | https://drive.google.com/open?id=1frNwIbWzFwWdvKfThP8DT1mdbPfGRERy|
 
 ### Expression data by 240 cell lines
-sum of cell line data have multiple replications. Thus, we averaged if replications exist as we did before. From the data preparation step, we got high consistent transcripts on gene and miRNA. We extracted the expression level from 240 cell lines. The score sum of the region where (+/-)100bp from annotated gene TSS is the expression level. We calculated this levels about the high consistent genes and miRNAs.
+From the data preparation step, we got high consistent transcripts on gene and miRNA. We extracted the expression level from 240 cell lines. The score sum of the region where (+/-)100bp from annotated gene TSS is the expression level. We calculated this levels about the high consistent genes and miRNAs. 
+some of 240 data does not have chromosomeY so, we did not consider the chromosome. Therefore, the total number of genes is **2,313**.  
+The expression data is [here ](https://drive.google.com/file/d/12CPzPnH-d8bRTFvAtL-mUlsN6mQDnIJV/view?usp=sharing)  
 
 ### Lasso linear regression
 To predict target genes on a miRNA, we used lasso regression. the consistent genes and miRNAs have 240 vector, which are expression level on each cell line. Assume the number of genes and miRNA are m and n respectively. gene matrix **X**: (m x 240) and miRNA matrix **Y**: (n x 240). Lasso calculated the relationship between **X** and **Y**. The coefficient matrix by the Lasso result is **B** (n x m); **Y = BX**. Before, processing Lasso, **X** and **Y** were centered by subtracting mean value by each row. 
