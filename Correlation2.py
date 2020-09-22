@@ -350,7 +350,7 @@ class Correlation2:
             print(tissue)
             df_fan = pd.read_sql("SELECT * FROM '{}'".format(tissue), con_fan, index_col='gene_name')
             for rtname in tname_rna:
-                df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(rtname), con_rna, index_col='gene_name')
+                df_rna = pd.read_sql("SELECT * FROM '{}'".format(rtname), con_rna, index_col='gene_name')
 
                 common_genes = sorted(list(set.intersection(set(df_fan.index), set(df_rna.index))))
                 df_res = pd.concat([df_ref.loc[common_genes], df_fan.loc[common_genes, 'score'],
@@ -385,7 +385,7 @@ class Correlation2:
             print(tname)
             if "/" in tname:
                 continue
-            df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
             df_grp = df.groupby('gene_name')
             print(tname, len(df_grp))
 

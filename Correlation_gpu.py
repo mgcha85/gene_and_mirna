@@ -301,7 +301,7 @@ class Correlation:
         for tname in tlist:
             chromosome, strand = tname.split('_')
             sql = "SELECT transcript_id, start, end, gene_name, MAX(corr) AS corr FROM (SELECT * FROM '{}' WHERE " \
-                  "round(corr, 4)>{}) GROUP BY gene_name".format(tname, thres)
+                  "round(corr, 2)>={}) GROUP BY gene_name".format(tname, thres)
             # sql = "SELECT * FROM '{}' WHERE corr>{}".format(tname, thres)
             df = pd.read_sql(sql, con)
             if df.empty:
@@ -347,7 +347,7 @@ class Correlation:
             if chromosome == 'chrM' or chromosome == 'chrY':
                 continue
 
-            df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
+            df_ref = pd.read_sql("SELECT * FROM '{}'".format(tname), ref_con)
             if df_ref.empty:
                 continue
 
@@ -362,9 +362,9 @@ class Correlation:
 
             for i, cline in enumerate(cell_lines):
                 # print(cline)
-                df_fan = pd.read_sql_query("SELECT start, end, avg_score as score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                df_fan = pd.read_sql("SELECT start, end, avg_score as score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
                                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
-                # df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}_{}_{}'"
+                # df_fan = pd.read_sql("SELECT start, end, score FROM '{}_{}_{}'"
                 #                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
                 if df_fan.shape[0] == 0:
                     continue
@@ -400,7 +400,7 @@ class Correlation:
     #         if chromosome == 'chrM' or chromosome == 'chrY':
     #             continue
     # 
-    #         df_ref = pd.read_sql_query("SELECT * FROM '{}'".format(tname), ref_con)
+    #         df_ref = pd.read_sql("SELECT * FROM '{}'".format(tname), ref_con)
     #         if df_ref.empty:
     #             continue
     # 
@@ -421,7 +421,7 @@ class Correlation:
     #         df_buf[['start', 'end']] = df_ref[['start', 'end']]
     # 
     #         for i, cline in enumerate(cell_lines):
-    #             df_fan = pd.read_sql_query("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+    #             df_fan = pd.read_sql("SELECT start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
     #                                        "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
     #             df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
     #         pd.concat([df_ref['transcript_name'], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=None, if_exists='replace')
@@ -455,12 +455,12 @@ class Correlation:
             end = df_ref.loc[idx, 'end']
             sql = "SELECT chromosome, strand, start, end, score FROM '{}' WHERE chromosome='{}' AND strand='{}' AND " \
                   "start<={} AND end>={}".format(cline, chromosome, strand, end, start)
-            df = pd.read_sql_query(sql, con_fan).sort_values(by=['start'])
+            df = pd.read_sql(sql, con_fan).sort_values(by=['start'])
             contents[i] = df['score'].sum()
         return contents
 
     def get_rna_seq(self, df_ref, tname, con):
-        df = pd.read_sql_query("SELECT * FROM '{}'".format(tname), con)
+        df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
         df.index = df['start'].astype(str) + '-' + df['end'].astype(str)
         ref_index = df_ref['start'].astype(str) + '-' + df_ref['end'].astype(str)
         tns = set.intersection(set(ref_index), set(df.index))
@@ -635,9 +635,9 @@ if __name__ == '__main__':
         for hbw in [100]:
             for opt in ['nz']:
                 # cor.corr_stats(hbw)
-                cor.correlation_fan_rna(hbw)
+                # cor.correlation_fan_rna(hbw)
                 # cor.high_clusters(hbw)
-                # cor.high_correlation(hbw, 0.75)
+                cor.high_correlation(hbw, 0.75)
                 exit(1)
 
                 # cell lines

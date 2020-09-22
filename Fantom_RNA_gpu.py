@@ -367,7 +367,7 @@ class Fantom_RNA:
 
             tsrc = [x for x in tissues_src if tissue in x]
             for t in tsrc:
-                df_rna = pd.read_sql_query("SELECT * FROM '{}'".format(t), con_rna)
+                df_rna = pd.read_sql("SELECT * FROM '{}'".format(t), con_rna)
                 df_rna = df_rna.rename(columns={'stop': 'end'})
                 df_rna = df_rna[df_rna['strand'] != '.']
                 dfs_rna, data_length_rna, df_sorted_rna = self.split_table_for_res(df_rna)
