@@ -219,7 +219,9 @@ where Yactual is miRNA expression level, X is gene expression level and N is the
 
 
 ### FANTOM cell lines vs. RNA-seq tissues
-From EMBL-EBI, we have RNA-seq data on 27 tissues. 22 tissues are the number of common between EBI and FANTOM. using FPKM data, the target genes by miRNA can be calculated. the number of high consistent transcripts of gene and miRNA are m and n respectively. Then, X: (m x 27) and Y: (n x 27). The RNA-seq data contains only 264 miRNAs out of 330 miRNAs. To compare FANTOM and RNA-seq data, we calculated three distances as the below formula.
+To validate 240 cell lines data, we checked out RNA-seq data as well. From EMBL-EBI, we have RNA-seq data on 27 tissues. The number of high consistent transcripts of gene and miRNA are m and n respectively. Then, X: (m x 27) and Y: (n x 27). The RNA-seq data contains only 258 miRNAs out of 330 miRNAs. By using this **X and Y**, we calculated coefficient matrix **B** by Lasso.  
+
+To compare FANTOM and RNA-seq data, we calculated three distances as the below formula.
 
 distance1: ![Image](/images/formula3.gif) and ![Image](/images/formula3-1.gif)
 
