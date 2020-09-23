@@ -250,7 +250,7 @@ we calculated hypergeometic test by comparing this result to other research or o
 Not only we calculated p-value between this result and another result but we also consider the common genes by all three researches by a miRNA and common genes, which are overlapped by at least two methods and the union of the target gene are calculated. Also, GO has q-value by a miRNA so it is used for this comparison.  
 
 The below link contains the all comparison for the hypergeometric test.  
-[link to see](https://drive.google.com/open?id=1QTLmrX6h4n1TCietbyW031_-_n9f_49v)  
+[link to see](https://drive.google.com/file/d/1CA7FK5FSHs_Gd3LjONZLau5QnFNSILx_/view?usp=sharing)  
 
 
 q significant is the multiplication of q-value (GO) and row number.  
