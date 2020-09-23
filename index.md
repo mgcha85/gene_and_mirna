@@ -223,8 +223,8 @@ To validate 240 cell lines data, we checked out RNA-seq data as well. From EMBL-
 
 To compare FANTOM and RNA-seq data, we calculated three distances as the below formula.
 
-distance1: ![Image](/images/formula1-1.gif) and ![Image](/images/formula1-2.gif)
-distance2: ![Image](/images/formula2-1.gif) and ![Image](/images/formula2-2.gif)
+distance1: ![Image](/images/formula1-1.gif) and ![Image](/images/formula1-2.gif)  
+distance2: ![Image](/images/formula2-1.gif) and ![Image](/images/formula2-2.gif)  
 
 where BFANTOM_264 is calculated by using the 264 miRNAs’ expression data on FANTOM 240 cell lines, XRNA is RNA-seq gene expression matrix with size (m x 27), YRNA is RNA-seq miRNA expression matrix with size (n x 27),  BFANTOM_264_from_330 is the 264 miRNAs coefficient from the 330 miRNAs coefficients, which we already calculated before and BRNA_264 is the lasso result of XRNA and YRNA.
 
