@@ -235,9 +235,7 @@ we use three researches; MIRANDA, RNA22 and TargerScan for the comparison. From 
 
 We checked the correlation of expression level between RNA-seq and FANTOM tag using target genes of other researches. The union of target genes are used for this. The expression level are obtained as we have done in *"Expression data by 240 cell lines"*. 
 
-Figure2 shows the correlation coefficient of expression level between RNA-seq and FANTOM tag between target genes and miRNA. the mean value of the figure is 0.02; almost zero, which is the normal distribution.
-
-Furthermore, we checked the Lasso regression if the target genes have many non-zeros values from the coefficient. Based on the result, only 4.06% target genes has non-zeros coefficient from intersection result and 3.55% target genes has non-zeros coefficient from union result
+We checked the Lasso regression if the target genes have many non-zeros values from the coefficient. Based on the result, only 4.06% target genes has non-zeros coefficient from intersection result and 3.55% target genes has non-zeros coefficient from union result
 
 	
 | | % non-zeros | mean of correlation |
