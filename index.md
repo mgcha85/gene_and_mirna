@@ -219,14 +219,14 @@ where Yactual is miRNA expression level, X is gene expression level and N is the
 
 
 ### FANTOM cell lines vs. RNA-seq tissues
-To validate 240 cell lines data, we checked out RNA-seq data as well. From EMBL-EBI, we have RNA-seq data on 27 tissues. The number of high consistent transcripts of gene and miRNA are m and n respectively. Then, X: (m x 27) and Y: (n x 27). The RNA-seq data contains only 258 miRNAs out of 330 miRNAs. By using this **X and Y**, we calculated coefficient matrix **B** by Lasso.  
+To validate 240 cell lines data, we checked out RNA-seq data as well. From EMBL-EBI, we have RNA-seq data on 27 tissues. The number of high consistent transcripts of gene and miRNA are m and n respectively. Then, X: (m x 27) and Y: (n x 27). The RNA-seq data contains only 264 miRNAs out of 330 miRNAs. By using this **X and Y**, we calculated coefficient matrix **B** by Lasso.  
 
 To compare FANTOM and RNA-seq data, we calculated three distances as the below formula.
 
 distance1: ![Image](/images/formula1-1.gif) and ![Image](/images/formula1-2.gif)  
 distance2: ![Image](/images/formula2-1.gif) and ![Image](/images/formula2-2.gif)  
 
-where BFANTOM_264 is calculated by using the 264 miRNAs’ expression data on FANTOM 240 cell lines, XRNA is RNA-seq gene expression matrix with size (m x 27), YRNA is RNA-seq miRNA expression matrix with size (n x 27),  BFANTOM_264_from_330 is the 264 miRNAs coefficient from the 330 miRNAs coefficients, which we already calculated before and BRNA_264 is the lasso result of XRNA and YRNA.
+where B_{CELL} is calculated by using the 264 miRNAs’ expression data on FANTOM 240 cell lines, X_{RNA} is RNA-seq gene expression matrix with size (m x 27), Y_{RNA} is RNA-seq miRNA expression matrix with size (n x 27).  
 
  
 
