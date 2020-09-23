@@ -258,26 +258,6 @@ q significant is the multiplication of q-value (GO) and row number.
 The # significant column shows statistically importance of miRNA. The number shows how many research is important. The importance is considered if the p-value is smaller than 1 / # miRNA; threshold. Therefore, 2 means p-values of two researches are smaller than threshold and important.  
 The result shows only 13 miRNAs are statistically important out of 327.  
 
-### Cross-Validation
-We checked the prediction error by cross-validation. The number of cell lines is 240. So we applied 10 cross validation; 216 (90%) as train and 24 (10%) as test. Then, we calculated coefficient by using Lasso respectively. After we get the coefficient, we calculate B_trn * X_test as Yh_test.  
-E_test = |Y_test – Yh_test|  
-E_trn = |Y_trn – Yh_trn|  
-where Yh_trn = B_trn * X_trn  
-since E_test is not small enough, we calculated other statistics to check out if the cross-validation is valid.  
-The below link is the result.  
-[link to see](https://drive.google.com/open?id=1AP60_tHKeIIKG2klkBknY9-B9Zj-iEDX)  
-
-
-median_diff (test) is median value of E_test. because diff means difference, it shows E matrix.  
-median_expr (test) is the median value of expression data (Y_test).  
-med_diff_expr_ratio (x) is median_diff (x) / median_expr (x).  
-med_der_ratio = med_diff_expr_ratio (test) / mer_diff_expr_ratio (train)  
-median_diff_ratio = median_diff (test) / median_diff (train)  
-
-Every cross-validation set has this table.  
-
-and the median_diff_ratio shows how consistent between test and train by a miRNA. most miRNA has small value, which means consistent. However, several  miRNAs have big value. This means the prediction model is not very well.  
-
 Summary
 =========
 For data preparation,  
