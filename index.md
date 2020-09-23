@@ -233,7 +233,7 @@ where B_{CELL} is calculated by using the 264 miRNAs’ expression data on FANTO
 ### Lasso result vs. other researches
 we use three researches; MIRANDA, RNA22 and TargerScan for the comparison. From the three researches, we extracted target genes by a miRNA. One version is the intersection of three researches and another version is the union of the researches. For example, miRNA1 has gene1, gene2 and gene3 by research1, gene2, gene4 and gene5 by research2 and gene2, gene6 and gene7 by research3. Then the intersection of the researches is gene2 and the union of the researches is gene1, gene2, gene3, gene4, gene5, gene6 and gene7. We applied GSEA and GO on this result.
 
-We checked the correlation of expression level between RNA-seq and FANTOM tag using target genes of other researches. The union of target genes are used for this. The expression level are obtained as we have done in  1.2.2. 
+We checked the correlation of expression level between RNA-seq and FANTOM tag using target genes of other researches. The union of target genes are used for this. The expression level are obtained as we have done in *"Expression data by 240 cell lines"*. 
 
 Figure2 shows the correlation coefficient of expression level between RNA-seq and FANTOM tag between target genes and miRNA. the mean value of the figure is 0.02; almost zero, which is the normal distribution.
 
