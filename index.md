@@ -148,6 +148,9 @@ Figure 2 shows the input of GO by the website.
 ![Image](/images/Figure_2.png)  
 Figure2. GO input set
 
+![Image](/images/Figure_3.png)
+Figure3. GO output  
+
 ### Gene Set Enrichment Analysis
 For GSEA analysis, three inputs are required;  
 
@@ -189,6 +192,10 @@ Figure4. GSEA input profile
 
 ![Image](/images/Figure_5.png)
 Figure5. GSEA parameter set  
+
+![Image](/images/Figure_6.png)
+Figure6. GSEA heat map  
+
 
 Validation
 ============
@@ -268,9 +275,3 @@ For the validation,
 2. lasso result by 240 cell lines and lasso result by 22 tissues comparison: X_cell Y_tissue = Y_pred is compared to Y_cell 
 3. Lasso result vs. other researches: calculated correlation coefficient of expression level between miRNA and target genes and lasso regression to check how many non-zero (target genes for this research) values exist.  
 4. GSEA and GO are calculated to evaluate this result.
-
-
-![Image](/images/Figure_3.png)
-Figure3. GO output  
-![Image](/images/Figure_6.png)
-Figure6. GSEA heat map  
