@@ -174,7 +174,7 @@ continuous file format as peak profile. The peak values are obtained by
 averaging expression levels by cell lines and converted to integer value.  
 
 Finally, molecular signature database (MSigDb) is used for gene set. We
-had high correlated gene set by a miRNA in section 2.2. Through GSEA,
+had target genes by using Lasso. Through GSEA,
 we searched statistically important gene set.  
 
 In this experiment, we used some specific parameters. Since the expres-
