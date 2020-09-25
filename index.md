@@ -213,6 +213,7 @@ For the cross-validation, we split the 240 vector to 216 (90%) as a train and 24
 ![Image](/images/formula2.gif)  
 
 where Yactual is miRNA expression level, X is gene expression level and N is the size of Y matrix (n x 240). The below table shows 10-fold cross validation result.
+(n: 330, N: 79,200)  
 
 
 | # | test | train |
