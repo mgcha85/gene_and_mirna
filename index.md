@@ -73,7 +73,7 @@ The common tissues are listed in the below table.
 Pre-processing
 ============
 ## Averaged data by tissue
-One tissue can have multiple replicates. Therefore, RNA-seq and FANTOM were averaged on same tissues. The average were calculated by the below equation. For this, we  only used chr1, chr2, …chr 22, chrX and chrY. The average is calculated by each chromosome and strand.
+One tissue can have multiple replicates. Therefore, RNA-seq and FANTOM were averaged on same tissues. For this, we  only used chr1, chr2, …chr 22, chrX and chrY. The average is calculated by each chromosome and strand.
 
 ## Expression data by 22 tissues
 RNA-seq data already contains FPKM while FANTOM does not have expression data. To get the expression data from FANTOM, we calculated expression level of (+/-)100 bp from annotated gene TSS. The expression level is summed by the score sum of cage tags within the region. When the summation, every tags, which are overlapped to the region;  [TSS-100, TSS+100] should be used.
