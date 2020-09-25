@@ -25,6 +25,10 @@ Data-preparation
 |RNA-seq by tissues | https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-1733/samples/?s_page=1&s_pagesize=500|
 |FANTOM by tissues | https://fantom.gsc.riken.jp/5/datafiles/latest/extra/CAGE_peaks/hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz|
 
+FANTOM CAGE peaks expression tables for the robust (expression>10TPM) set of peaks.  
+It based expression table (RLE normalized) for human with annotation.  
+RLE normalization is explained on [this paper](https://www.nature.com/articles/sdata2017112).  
+
 ## Converting Data Format
 
 | Convert | Command |
