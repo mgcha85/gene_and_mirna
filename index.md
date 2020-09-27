@@ -142,6 +142,11 @@ When the coefficient is not zero between gene and miRNA From the result, we assu
 The target genes are [here](https://drive.google.com/file/d/1gQlfWrGh_GZEGHGTyeiVxajql9d7dSKL/view?usp=sharing).  
 257 miRNA has target genes out of 330. This means 73 miRNAs has zero coefficients becasue they failed to Lasso convergence.  
 
+To compare the different size of mirRNA TSS region, we got target genes by Lasso regression on (+/-)100, 300, 500 respectively.  
+"gene_name_100" means target genes of (+/-)100 and so on."int/uni" means intersecion of target genes divided by union of target genes from three gene set.  
+the result is [here](https://drive.google.com/file/d/18hn8cc1zu-i2V_57rAbSNLGraeKsb1st/view?usp=sharing).  
+
+
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 [link to see](http://cbl-gorilla.cs.technion.ac.il/)
