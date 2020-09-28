@@ -26,11 +26,13 @@ class Server:
             src_root = os.path.join(self.server, 'source/gene_and_mirna')
 
         script = ['#!/bin/bash', '#SBATCH --nodes=1', '#SBATCH --ntasks-per-node=4', '#SBATCH --cpus-per-task=1',
-                  '#SBATCH --time='+time, '#SBATCH --error=mchajobresults-%J.err',
+                  '#SBATCH --time=' + time, '#SBATCH --error=mchajobresults-%J.err',
                   '#SBATCH --output=mchajobresults-%J.out', '#SBATCH --gres=gpu:1',
                   '#SBATCH --job-name=mcha_tss_map\n\n', '# Load modules',
                   'echo "Slurm nodes assigned :$SLURM_JOB_NODELIST"',
-                  'module load cuda/cuda-9.0', 'module load anaconda/anaconda{}'.format(pversion),
+                  'module load cuda/cuda-9.0',
+                  'source {}/venv/bin/activate'.format(src_root),
+                  "pip install -r requirements.txt --user",
                   'time python {}'.format('/'.join([src_root, fname]))]
         if self.which == 'stokes':
             script.pop(7)

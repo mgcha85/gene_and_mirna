@@ -9,35 +9,31 @@ from Server import Server
 
 
 class data_preparation:
-    def __init__(self):
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        elif self.hostname == 'mingyu-Inspiron-7559':
-            self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.gtf_columns = ['chromosome', 'source', 'feature', 'start', 'end', 'score', 'strand', 'frame', 'attribute']
-        self.bed_columns = ['chromosome', 'start', 'end', 'location', 'score', 'strand']
+    def __init__(self, root):
+        self.root = root
 
-    def to_server(self):
-        which = 'stokes'
-        server = Server(self.root, which=which)
+    def to_server(self, root, tag):
+        from Server import Server
+        import sys
+
+        which = 'newton'
+        server = Server(root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
-        curdir = os.getcwd().split('/')[-1]
-        server_root = os.path.join(server.server, 'source', curdir)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
+        curdir = os.getcwd().split(os.sep)[-1]
+        server_root = os.path.join(server.server, 'source', curdir[:-1]).replace(os.sep, '/')
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='04:00:00')
+        server.job_script(fname, src_root=server_root, time='08:00:00', pversion=3)
         server.upload(local_path, server_path)
-        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+        server.upload('dl-submit.slurm', server_root + '/' + 'dl-submit.slurm')
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {root};sbatch {root}/dl-submit.slurm".format(root=server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -171,8 +167,15 @@ class data_preparation:
                 else:
                     print('{} is not available'.format(tissue__))
 
-    def split_cage_tags2(self):
+    def split_cage_tags2(self, download=False):
         dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines')
+
+        if download:
+            import urllib.request
+            url = 'https://fantom.gsc.riken.jp/5/datafiles/latest/extra/CAGE_peaks/hg19.cage_peak_phase1and2combined_tpm_ann.osc.txt.gz'
+
+            _, fname = os.path.split(url)
+            urllib.request.urlretrieve(url, os.path.join(dirname, fname))
 
         fpath = os.path.join(dirname, 'list', '00_human.cell_line.hCAGE.hg19.assay_sdrf2.xlsx')
         df_list = pd.read_excel(fpath)
@@ -187,6 +190,12 @@ class data_preparation:
                 if cline in no_data:
                     continue
 
+                cline = cline.replace(' ', '%20')
+                cline = cline.replace('/', '%2f')
+                cline = cline.replace('.', '%2e')
+                cline = cline.replace('^', '%5e')
+                cline = cline.replace('(', '%28')
+                cline = cline.replace(')', '%29')
                 columns__ = [col for col in df_sub.columns[7:] if cline in col]
                 if columns__:
                     columns__ = sorted(list(set(columns__)))
@@ -359,13 +368,21 @@ class data_preparation:
 
 
 if __name__ == '__main__':
-    dp = data_preparation()
-    if dp.hostname == 'mingyu-Precision-Tower-7810':
-        # dp.db_to_bed()
-        dp.to_server()
-        # dp.bed_to_db()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
     else:
-        # dp.split_cage_tags2()
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    dp = data_preparation(root)
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        dp.to_server(root, "")
+    else:
+        dp.split_cage_tags2()
         dp.avg_cage_tags2()
         # dp.rna_cage()
         # exit(1)

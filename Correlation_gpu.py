@@ -154,7 +154,7 @@ class Correlation:
         # with open('remain.txt', 'rt') as f:
         #     remains = f.read().split('\n')
 
-        # Fantom5
+        # Fantom5hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg
         fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
         # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'FANTOM_tissue_spt.db')
         con_fan = sqlite3.connect(fan_path)
@@ -357,10 +357,12 @@ class Correlation:
             chromosome, strand = tname.split('_')
             print(chromosome, strand)
             if chromosome == 'chrM' or chromosome == 'chrY':
+                print('[SKIP] chromosome is {}'.format(chromosome))
                 continue
 
             df_ref = pd.read_sql("SELECT * FROM '{}'".format(tname), ref_con)
             if df_ref.empty:
+                print('[SKIP] reference is empty')
                 continue
 
             df_ref['corr'] = None
@@ -379,6 +381,7 @@ class Correlation:
                 # df_fan = pd.read_sql("SELECT start, end, score FROM '{}_{}_{}'"
                 #                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
                 if df_fan.shape[0] == 0:
+                    print('[SKIP] fantom data is empty')
                     continue
                 df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
             pd.concat([df_ref[label], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=False, if_exists='replace')
@@ -627,7 +630,7 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     cor = Correlation(root)
-    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
+    if hostname == '-DLOOJR6' or hostname == '-1NLOLK4':
         cor.to_server(root, "")
     else:
         from Regression import Regression
@@ -653,13 +656,13 @@ if __name__ == '__main__':
                 # exit(1)
 
                 # cell lines
-                cor.sum_fan(hbw, ref='gene')
+                # cor.sum_fan(hbw, ref='gene')
                 # cor.sum_fan(hbw, ref='mir')
-                exit(1)
+                # exit(1)
 
-                rg.regression(hbw, opt)
-                rg.report(hbw, opt)
-                rg.add_gene_name(hbw, opt)
+                # rg.regression(hbw, opt)
+                # rg.report(hbw, opt)
+                # rg.add_gene_name(hbw, opt)
                 # rg.filtering(hbw)
 
                 # cor.correlation_gpu(hbw, opt)
@@ -669,18 +672,18 @@ if __name__ == '__main__':
                 # mg.phypher(hbw)
                 # mg.plot(hbw)
 
-                sg.set_input(hbw, opt)
-                sg.submit_data(hbw, opt, bg=True)
-                sg.extract_genes(hbw, opt)
-
-                sg.result(hbw, opt)
-                sg.to_tg(hbw, opt)
+                # sg.set_input(hbw, opt)
+                # sg.submit_data(hbw, opt, bg=True)
+                # sg.extract_genes(hbw, opt)
+                #
+                # sg.result(hbw, opt)
+                # sg.to_tg(hbw, opt)
 
                 # sg.move(hbw, opt)
-                sg.hyper_test(hbw, opt)
+                # sg.hyper_test(hbw, opt)
                 # sg.plot_hyper_test(hbw, opt)
 
-                rg.cross_regression(100, opt)
-                rg.cross_stats(100, opt)
+                rg.cross_regression(hbw, opt)
+                # rg.cross_stats(100, opt)
 
-                val.wilcox(opt)
+                # val.wilcox(opt)

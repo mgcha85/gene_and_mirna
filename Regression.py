@@ -673,7 +673,7 @@ class Regression(DeepLearning):
                 trn, test = df.drop(dixd, axis=1), df.loc[:, dixd]
             return trn, test
 
-        for i in range(N-1, N):
+        for i in range(N):
             gene_trn, gene_test = get_batch(df_gene, i)
             mir_trn, mir_test = get_batch(df_mir, i)
 
@@ -683,9 +683,13 @@ class Regression(DeepLearning):
                 mt -= mt.mean(axis=0)
                 # gt = (gt - gt.std(axis=0)) / gt.mean(axis=0)
                 # mt = (mt - mt.std(axis=0)) / mt.mean(axis=0)
+                if label == 'train':
+                    max_iter = 9000
+                else:
+                    max_iter = 1000
 
                 clf.fit(gt, mt)
-                Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
+                Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=max_iter,
                       normalize=False, positive=False, precompute=False, random_state=None,
                       selection='cyclic', tol=1e-3, warm_start=False)
 
@@ -754,7 +758,7 @@ class Regression(DeepLearning):
             y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA')
             x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
             coeff = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid')
-            yh = np.dot(x, coeff)
+            yh = np.dot(x.T, coeff).T
             distance = (y - yh).abs().values.sum() / y.size
             print('y.size: {}, distance: {}, type: {}'.format(y.size, distance, type))
             contents[type].append(distance)
@@ -953,16 +957,16 @@ if __name__ == '__main__':
             # rg.add_gene_name('rna')
             # rg.move()
             # rg.get_plugin_distance('nz')
-            # rg.cross_regression(100, 'nz')
+            # rg.cross_regression(100, 'nz', type=type)
 
-            rg.cross_stats(100, 'nz', type=type)
+            # rg.cross_stats(100, 'nz', type=type)
             # rg.check_overlap('nz', type=type)
 
             # rg.cross_regression(100, 'neg')
             # rg.cross_regression(100, 'nz', N=10, type='tissues')
             # rg.cross_regression(100, 'nz', N=10, type='cell_lines')
 
-            # rg.get_distance('nz')
+            rg.get_distance('nz')
             # rg.filtering(0)
 
         # rg.compare_tissue_cross('nz')

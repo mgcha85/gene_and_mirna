@@ -42,6 +42,30 @@ class validation:
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
+    def comparison_by_size(self):
+        dfs = []
+        for s in [100, 300, 500]:
+            fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_nz.db'.format(s))
+            con = sqlite3.connect(fpath)
+            df = pd.read_sql("SELECT miRNA, gene_name AS 'gene_name_{}' FROM 'result'".format(s), con, index_col='miRNA')
+            df['gene_name_{}'.format(s)] = df['gene_name_{}'.format(s)].str.split(';')
+            dfs.append(df)
+
+        df = pd.concat(dfs, axis=1)
+        df = df.dropna(how='any')
+        df_res = pd.DataFrame(index=df.index, columns=df.columns)
+        for mir in df.index:
+            dfs = []
+            for col in df.columns:
+                dfs.append(set(df.loc[mir, col]))
+            intersection = set.intersection(*dfs)
+            union = set.union(*dfs)
+
+            for col in df.columns:
+                df_res.loc[mir, col] = len(df.loc[mir, col]) / len(union)
+            df_res.loc[mir, 'int/uni'] = len(intersection) / len(union)
+        df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'comparison_by_size.xlsx'))
+
     def wilcox(self, opt):
         from joblib import Parallel, delayed
         import multiprocessing
@@ -188,8 +212,9 @@ if __name__ == '__main__':
         # for opt in ['nz', 'neg']:
         #     val.is_similar(opt)
     else:
-        for opt in ['nz']:
+        val.comparison_by_size()
+        # for opt in ['nz']:
             # val.wilcox(opt)
             # val.is_similar(opt)
-            val.sort_diff(opt)
+            # val.sort_diff(opt)
         # val.find_identical_distribution()
