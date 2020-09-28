@@ -12,34 +12,31 @@ from scipy.stats import hypergeom
 
 
 class set_go:
-    def __init__(self):
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+    def __init__(self, root):
+        self.root = root
 
-    def to_server(self):
+    def to_server(self, root, tag):
         from Server import Server
         import sys
 
-        which = 'newton'
-        server = Server(self.root, which=which)
+        which = 'stokes'
+        server = Server(root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
-        curdir = os.getcwd().split('/')[-1]
-        server_root = os.path.join(server.server, 'source', curdir)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
+        curdir = os.getcwd().split(os.sep)[-1]
+        server_root = os.path.join(server.server, 'source', curdir).replace(os.sep, '/')
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='08:00:00')
+        server.job_script(fname, src_root=server_root, time='08:00:00', pversion=3)
         server.upload(local_path, server_path)
-        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+        server.upload('dl-submit.slurm', server_root + '/' + 'dl-submit.slurm')
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {root};sbatch {root}/dl-submit.slurm".format(root=server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -141,7 +138,7 @@ class set_go:
                 except:
                     print('connection error')
                     print('[{} / {}] try'.format(ntry+1, n))
-                    sleep(1)
+                    sleep(0.5)
                     ntry += 1
                     continue
 
@@ -157,7 +154,7 @@ class set_go:
 
             with open(os.path.join(dirname, mir + '.html'), 'wt') as f:
                 f.write(res)
-            sleep(0.5)
+            sleep(1)
 
         if fails:
             with open('failure.txt', 'wt') as f:
@@ -299,7 +296,7 @@ class set_go:
             else:
                 go_gene = None
             result.append([mir, df.loc[mir, 'Transcripts'], df.loc[mir, 'gene_name'], go_gene])
-        pd.DataFrame(result, columns=['miRNA', 'Transcripts', 'gene_lasso', 'gene_go']).to_sql('lasso_go', con, index=None, if_exists='replace')
+        pd.DataFrame(result, columns=['miRNA', 'Transcripts', 'gene_lasso', 'gene_go']).to_sql('lasso_go', con, index=False, if_exists='replace')
 
     def add_mir_type(self):
         fpath = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
@@ -349,7 +346,7 @@ class set_go:
         for tname in Database.load_tableList(con):
             if '_pre' in tname and tname != 'go_pre':
                 df = pd.read_sql("SELECT * FROM '{}'".format(tname), con)
-                df.to_sql(tname, con_out, index=None, if_exists='replace')
+                df.to_sql(tname, con_out, index=False, if_exists='replace')
 
     def hyper_test(self, hbw, opt):
         high_genes = self.get_bg_genes().split('\n')
@@ -575,7 +572,7 @@ class set_go:
                 genes = set(genes)
                 contents.append([pmir, ';'.join(genes)])
             df_res = pd.DataFrame(contents, columns=['pre-miRNA', 'genes'])
-            df_res.to_sql(tname + '_pre', con, index=None, if_exists='replace')
+            df_res.to_sql(tname + '_pre', con, index=False, if_exists='replace')
 
     def validation(self):
         # import matplotlib.pyplot as plt
@@ -586,16 +583,14 @@ class set_go:
 
         # 1
         # prediction RNA-seq Y using FANTOM coefficient
-        fpath_fan1 = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100_264.db')
-        con_fan1 = sqlite3.connect(fpath_fan1)
-        df_fan1 = pd.read_sql("SELECT * FROM 'coefficient'", con_fan1, index_col='transcript_id')
+        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100_nz.db')
+        con_fan = sqlite3.connect(fpath_fan)
+        df_fan1 = pd.read_sql("SELECT * FROM 'coefficient'", con_fan, index_col='transcript_id')
         # df_fanx1 = pd.read_sql("SELECT * FROM 'X'", con_fan1, index_col='transcript_id')
         # df_fany1 = pd.read_sql("SELECT * FROM 'Y'", con_fan1, index_col='miRNA')
 
         # 2
         # prediction RNA-seq Y using FANTOM coefficient
-        fpath_fan = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100.db')
-        con_fan = sqlite3.connect(fpath_fan)
         df_fan = pd.read_sql("SELECT * FROM 'coefficient'", con_fan, index_col='transcript_id')
         # df_fanx = pd.read_sql("SELECT * FROM 'X'", con_fan, index_col='transcript_id')
         # df_fany = pd.read_sql("SELECT * FROM 'Y'", con_fan, index_col='miRNA')
@@ -633,9 +628,19 @@ class set_go:
 
 
 if __name__ == '__main__':
-    sg = set_go()
-    if sg.hostname == 'mingyu-Precision-Tower-781':
-        sg.to_server()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    sg = set_go(root)
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
+        sg.to_server(root, "")
     else:
         # sg.set_input(100, 'neg')
         # sg.submit_data(100, 'neg', bg=True)
@@ -645,10 +650,9 @@ if __name__ == '__main__':
         # sg.to_tg(100, 'neg')
 
         # sg.hyper_gsea()
-        # sg.add_pre_mir()
-        # sg.convert_pre()
-        # sg.move(100, 'nz')
-
+        sg.add_pre_mir()
+        sg.convert_pre()
+        sg.move(100, 'nz')
         sg.hyper_test(100, 'nz')
         # sg.plot_hyper_test(100, 'neg')
 

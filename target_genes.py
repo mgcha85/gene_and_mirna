@@ -50,7 +50,7 @@ class target_genes:
                 genes = ';'.join(sorted(list(set(df_sub['genes']))))
                 contents.append([mir, genes])
             df_res = pd.DataFrame(contents, columns=['mir', 'genes'])
-            df_res.to_sql(tname + '_grp_mir', con, index=None, if_exists='replace')
+            df_res.to_sql(tname + '_grp_mir', con, index=False, if_exists='replace')
 
     def union(self):
         fpath = os.path.join(self.root, 'database/target_genes', 'predictions_processed.db')
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     if tg.hostname == 'mingyu-Precision-Tower-7810':
         tg.to_server()
     else:
-        # tg.group_by_mir()
+        tg.group_by_mir()
         tg.union()
         tg.intersection()
         tg.make_table()

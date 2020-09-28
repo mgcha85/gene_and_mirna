@@ -14,15 +14,9 @@ import matplotlib.pyplot as plt
 
 
 class Regression(DeepLearning):
-    def __init__(self):
+    def __init__(self, root):
         super(DeepLearning, self).__init__()
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+        self.root = root
         self.table_names = {}
 
         self.scope = 500
@@ -399,10 +393,12 @@ class Regression(DeepLearning):
 
     def regression(self, hbw, opt, type='cell_lines'):
         gene, mir = self.get_trn_data(hbw, type)
-        # miRNAs in RNA-seq
-        # with open(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'miRNA_rna_seq.txt'), 'rt') as f:
-        #     mname = f.read().split('\n')
-        # mir = mir[mname]
+
+        # # miRNAs in RNA-seq
+        # fpath = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_mir.db')
+        # con = sqlite3.connect(fpath)
+        # df_rna = pd.read_sql("SELECT * FROM 'MIR_expression'", con, index_col='Name')
+        # mir = mir[df_rna.index]
 
         gene = gene - gene.mean(axis=0)
         mir = mir - mir.mean(axis=0)
@@ -673,7 +669,7 @@ class Regression(DeepLearning):
                 trn, test = df.drop(dixd, axis=1), df.loc[:, dixd]
             return trn, test
 
-        for i in range(N):
+        for i in range(N-1, N):
             gene_trn, gene_test = get_batch(df_gene, i)
             mir_trn, mir_test = get_batch(df_mir, i)
 
@@ -683,13 +679,9 @@ class Regression(DeepLearning):
                 mt -= mt.mean(axis=0)
                 # gt = (gt - gt.std(axis=0)) / gt.mean(axis=0)
                 # mt = (mt - mt.std(axis=0)) / mt.mean(axis=0)
-                if label == 'train':
-                    max_iter = 9000
-                else:
-                    max_iter = 1000
 
                 clf.fit(gt, mt)
-                Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=max_iter,
+                Lasso(alpha=0.1, copy_X=True, fit_intercept=False, max_iter=1000,
                       normalize=False, positive=False, precompute=False, random_state=None,
                       selection='cyclic', tol=1e-3, warm_start=False)
 
@@ -740,7 +732,7 @@ class Regression(DeepLearning):
             X = pd.read_sql("SELECT * FROM 'X'", con_tst, index_col='tid')
             Y = pd.read_sql("SELECT * FROM 'Y'", con_tst, index_col='miRNA')
 
-            Yh = np.dot(X, B)
+            Yh = np.dot(B.T, X)
             distance = (Y - Yh).abs().values.sum() / Y.size
             report.append(distance)
         print(report)
@@ -758,7 +750,7 @@ class Regression(DeepLearning):
             y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA')
             x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
             coeff = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='tid')
-            yh = np.dot(x.T, coeff).T
+            yh = np.dot(x, coeff)
             distance = (y - yh).abs().values.sum() / y.size
             print('y.size: {}, distance: {}, type: {}'.format(y.size, distance, type))
             contents[type].append(distance)
@@ -783,7 +775,7 @@ class Regression(DeepLearning):
             elif opt == 'pos':
                 ser = ser[ser > 0]
             contents.append([col, ';'.join(ser.index)])
-        pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_sql('result', con, if_exists='replace', index=None)
+        pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_sql('result', con, if_exists='replace', index=False)
 
     def add_gene_name(self, hbw, opt):
         fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
@@ -815,7 +807,7 @@ class Regression(DeepLearning):
 
             df_res.loc[idx, 'Transcripts'] = ';'.join(tid)
             df_res.loc[idx, 'gene_name'] = ';'.join(gnames)
-        df_res.to_sql('result', res_con, if_exists='replace', index=None)
+        df_res.to_sql('result', res_con, if_exists='replace', index=False)
 
     def move(self):
         out_con = sqlite3.connect(os.path.join(self.root, 'database/target_genes', 'predictions_processed_result.db'))
@@ -938,16 +930,24 @@ class Regression(DeepLearning):
 
 
 if __name__ == '__main__':
-    rg = Regression()
-    if rg.hostname == 'mingyu-Precision-Tower-7810':
-        # rg.see()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    rg = Regression(root)
+    if hostname == 'mingyu-Precision-Tower-7810':
         rg.to_server()
-        # rg.filter_by_lasso()
-        # rg.dl_pred()
-        # rg.evaluation()
     else:
         # rg.regression(100, 'nz', 'cell_lines')
-        for type in ['cell_lines', 'tissues']:
+        # rg.regression_rna()
+        rg.get_plugin_distance('nz')
+        # for type in ['cell_lines', 'tissues']:
             # rg.regression(100, 'nz', type)
             # rg.regression_rna()
             # rg.compare()
@@ -956,8 +956,7 @@ if __name__ == '__main__':
             # rg.report('rna')
             # rg.add_gene_name('rna')
             # rg.move()
-            # rg.get_plugin_distance('nz')
-            # rg.cross_regression(100, 'nz', type=type)
+            # rg.cross_regression(100, 'nz')
 
             # rg.cross_stats(100, 'nz', type=type)
             # rg.check_overlap('nz', type=type)
@@ -966,7 +965,7 @@ if __name__ == '__main__':
             # rg.cross_regression(100, 'nz', N=10, type='tissues')
             # rg.cross_regression(100, 'nz', N=10, type='cell_lines')
 
-            rg.get_distance('nz')
+            # rg.get_distance('nz')
             # rg.filtering(0)
 
         # rg.compare_tissue_cross('nz')

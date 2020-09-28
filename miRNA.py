@@ -7,14 +7,8 @@ from Database import Database
 
 
 class miRNA:
-    def __init__(self):
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+    def __init__(self, root):
+        self.root = root
 
     def to_server(self):
         from Server import Server
@@ -120,7 +114,7 @@ class miRNA:
                     strand = df_ref.loc[mirname, columns[sidx]]
                     df.loc[idx, 'strand'] = strand
                     break
-        df.to_sql('mean_tss', con, if_exists='replace', index=None)
+        df.to_sql('mean_tss', con, if_exists='replace', index=False)
 
     def from_rna_seq(self):
         from Database import Database
@@ -138,7 +132,7 @@ class miRNA:
 
         out_path = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_mir.db')
         out_con = sqlite3.connect(out_path)
-        df.to_sql('MIR', out_con)
+        df.to_sql('MIR', out_con, if_exists='replace')
 
     def convert_name(self):
         fpath = os.path.join(self.root, 'database/mirbase/22', 'mirbase.db')
@@ -219,6 +213,17 @@ class miRNA:
                 df_buffer.loc[mir, tis] = df_tis.loc[rid, 'FPKM']
         df_buffer.to_sql('MIR_expression', con_rna, if_exists='replace')
 
+    def get_gene_common(self):
+        fpath_rna = os.path.join(self.root, 'database/RNA-seq/out', 'RNA_seq_mir.db')
+        con_rna = sqlite3.connect(fpath_rna)
+        df_rna = pd.read_sql("SELECT * FROM 'MIR_expression'", con_rna, index_col='Name')
+
+        fpath_cell = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100_nz.db')
+        con_cell = sqlite3.connect(fpath_cell)
+        df_cell = pd.read_sql("SELECT * FROM 'Y'", con_cell, index_col='miRNA')
+        df_cell = df_cell.loc[df_rna.index]
+        df_cell.to_sql('Y_264', con_cell, if_exists='replace')
+
     def get_gene_expression(self):
         fpath_gen = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_100.db')
         con_gen = sqlite3.connect(fpath_gen)
@@ -249,11 +254,28 @@ class miRNA:
 
 
 if __name__ == '__main__':
-    mir = miRNA()
-    if mir.hostname == 'mingyu-Precision-Tower-781':
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    mir = miRNA(root)
+    if hostname == 'mingyu-Precision-Tower-7810':
         mir.to_server()
     else:
         # mir.convert()
         # mir.seperate_loc()
         # mir.mean_tss()
-        mir.get_gene_expression()
+
+        # mir.from_rna_seq()
+        # mir.convert_name()
+        # mir.get_consistent_mir()
+        # mir.get_expression()
+
+        mir.get_gene_common()
+        # mir.get_gene_expression()
