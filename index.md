@@ -9,7 +9,7 @@ Table of Contents
   * [Comparison](#Comparison)
   * [Methodology](#Methodology)
   * [Validation](#Validation)
-  * [Point](#Point 1)
+  * [Point](#Point1)
   
   
   
@@ -271,7 +271,7 @@ q significant is the multiplication of q-value (GO) and row number.
 The # significant column shows statistically importance of miRNA. The number shows how many research is important. The importance is considered if the p-value is smaller than 1 / # miRNA; threshold. Therefore, 2 means p-values of two researches are smaller than threshold and important.  
 The result shows only 13 miRNAs are statistically important out of 327.  
 
-Point 1
+Point1
 =========
 
 ### comparison of different TSS regions (500, 300, 100)  
