@@ -142,10 +142,6 @@ When the coefficient is not zero between gene and miRNA From the result, we assu
 The target genes are [here](https://drive.google.com/file/d/1gQlfWrGh_GZEGHGTyeiVxajql9d7dSKL/view?usp=sharing).  
 257 miRNA has target genes out of 330. This means 73 miRNAs has zero coefficients becasue they failed to Lasso convergence.  
 
-To compare the different size of mirRNA TSS region, we got target genes by Lasso regression on (+/-)100, 300, 500 respectively.  
-"gene_name_100" means target genes of (+/-)100 and so on."int/uni" means intersecion of target genes divided by union of target genes from three gene set.  
-the result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941JbUhjo0k/view?usp=sharing).  
-
 
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
@@ -275,13 +271,22 @@ q significant is the multiplication of q-value (GO) and row number.
 The # significant column shows statistically importance of miRNA. The number shows how many research is important. The importance is considered if the p-value is smaller than 1 / # miRNA; threshold. Therefore, 2 means p-values of two researches are smaller than threshold and important.  
 The result shows only 13 miRNAs are statistically important out of 327.  
 
-Summary
+Point 1
 =========
-For data preparation,  
 
-I used raw data from FANTOM and processed data from FANTOM. I calculated correlation  coefficient by a transcript by each data set. The correlation of the correlation coefficient between them is 0.6866. And I also check random generated value, which has same min and max value as raw data. The random generated values for miRNA and gene are computed for correlation and I compared this to correlation from raw data. The result is 0.00229, which means they are almost orthogonal.  
-For the validation, 
-1. 10 cross validation by using lasso result and calculate distance
-2. lasso result by 240 cell lines and lasso result by 22 tissues comparison: X_cell Y_tissue = Y_pred is compared to Y_cell 
-3. Lasso result vs. other researches: calculated correlation coefficient of expression level between miRNA and target genes and lasso regression to check how many non-zero (target genes for this research) values exist.  
-4. GSEA and GO are calculated to evaluate this result.
+### comparison of different TSS regions (500, 300, 100)  
+Table to show for the three different TSS region sizes, the miRNA associated genes (from the lasso non-zero coefficients) are similar. For each miRNA, we compared between 500 and 300, 300 and 100, 500 and 100, how many percent of their associated genes are the same? For each percentage, you will use the number of shared genes to divide the smaller number of genes for a region size, In 300 case. we made a table for this so that in each row, you have the miRNA name, the three percentages for the three comparisons.
+
+To compare the different size of mirRNA TSS region, we got target genes by Lasso regression on (+/-)100, 300, 500 respectively.  
+#100, 300, 500 means the number of size 100, 300, 500 target genes. ∩/∪ means intersection genes of the pair (eg: 100 vs. 300) divided by union genes of the pair. 
+∩/# smaller means intersection genes of the pair and divided by the smaller number of either of the pair.
+"gene_name_100" means target genes of (+/-)100 and so on."int/uni" means intersecion of target genes divided by union of target genes from three gene set.  
+the result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941JbUhjo0k/view?usp=sharing).  
+
+a. statistics of a columne with the larger number of the two numbers in each row of the three tables
+| 100 vs 300 | mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
+| ------------- | ------------- | ------------- |------------- | ------------- | ------------- | ------------- | ------------- | 
+|300 vs 500| mean: 408 | median: 384 | min: 44 | max: 1282 | q70: 440.30 | q80: 484.00 | q90: 605.10|
+|100 vs 500| mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
+
+
