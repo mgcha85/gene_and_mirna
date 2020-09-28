@@ -284,7 +284,7 @@ The result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941Jb
 
 ### a. statistics of a columne with the larger number of the two numbers in each row of the three tables
 (q70, q80, q90 is quantile 70%, 80%, 90%)
-| pair1 | mean of large # of genes | median of large # of genes | min of large # of genes | max of large # of genes | q70 of large # of genes 439.20 | q80 of large # of genes 483.40 | q90 of large of genes 609.20|
+| pair | mean | median | min | max | q70 | q80 | q90|
 | ------------- | ------------- | ------------- |------------- | ------------- | ------------- | ------------- | ------------- | 
 | 100 vs 300 | 409 | 381 | 121 | 1282 | 439.20 | 483.40 | 609.20|
 |300 vs 500| 408 | 384 | 44 | 1282 | 440.30 | 484.00 | 605.10|
