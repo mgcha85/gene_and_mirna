@@ -279,9 +279,8 @@ Table to show for the three different TSS region sizes, the miRNA associated gen
 
 To compare the different size of mirRNA TSS region, we got target genes by Lasso regression on (+/-)100, 300, 500 respectively.  
 #100, 300, 500 means the number of size 100, 300, 500 target genes. ∩/∪ means intersection genes of the pair (eg: 100 vs. 300) divided by union genes of the pair. 
-∩/# smaller means intersection genes of the pair and divided by the smaller number of either of the pair.
-"gene_name_100" means target genes of (+/-)100 and so on."int/uni" means intersecion of target genes divided by union of target genes from three gene set.  
-the result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941JbUhjo0k/view?usp=sharing).  
+∩/# smaller means intersection genes of the pair and divided by the smaller number of either of the pair.  
+The result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941JbUhjo0k/view?usp=sharing).  
 
 a. statistics of a columne with the larger number of the two numbers in each row of the three tables
 | 100 vs 300 | mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
