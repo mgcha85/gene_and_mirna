@@ -282,9 +282,11 @@ To compare the different size of mirRNA TSS region, we got target genes by Lasso
 ∩/# smaller means intersection genes of the pair and divided by the smaller number of either of the pair.  
 The result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941JbUhjo0k/view?usp=sharing).  
 
-a. statistics of a columne with the larger number of the two numbers in each row of the three tables
-| 100 vs 300 | mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
+### a. statistics of a columne with the larger number of the two numbers in each row of the three tables
+(q70, q80, q90 is quantile 70%, 80%, 90%)
+| pair1 | mean of large # of genes | median of large # of genes | min of large # of genes | max of large # of genes | q70 of large # of genes 439.20 | q80 of large # of genes 483.40 | q90 of large of genes 609.20|
 | ------------- | ------------- | ------------- |------------- | ------------- | ------------- | ------------- | ------------- | 
+| 100 vs 300 | mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
 |300 vs 500| mean: 408 | median: 384 | min: 44 | max: 1282 | q70: 440.30 | q80: 484.00 | q90: 605.10|
 |100 vs 500| mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
 
