@@ -286,8 +286,8 @@ The result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941Jb
 (q70, q80, q90 is quantile 70%, 80%, 90%)
 | pair1 | mean of large # of genes | median of large # of genes | min of large # of genes | max of large # of genes | q70 of large # of genes 439.20 | q80 of large # of genes 483.40 | q90 of large of genes 609.20|
 | ------------- | ------------- | ------------- |------------- | ------------- | ------------- | ------------- | ------------- | 
-| 100 vs 300 | mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
-|300 vs 500| mean: 408 | median: 384 | min: 44 | max: 1282 | q70: 440.30 | q80: 484.00 | q90: 605.10|
-|100 vs 500| mean: 409 | median: 381 | min: 121 | max: 1282 | q70: 439.20 | q80: 483.40 | q90: 609.20|
+| 100 vs 300 | 409 | 381 | 121 | 1282 | 439.20 | 483.40 | 609.20|
+|300 vs 500| 408 | 384 | 44 | 1282 | 440.30 | 484.00 | 605.10|
+|100 vs 500| 409 | 381 | 121 | 1282 | 439.20 | 483.40 | 609.20|
 
 
