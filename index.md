@@ -311,6 +311,7 @@ We checked how many target genes are shared by a miRNA.
 The result is in [here](https://drive.google.com/file/d/1w47NbPXd9WfckMIyanS9QYOt5tOhbBEz/view?usp=sharing).  
 The column #∩ is the number of intersection of two target genes and #U is the number of union of two target genes. #∩/#U is the ratio of intersection and union.
 
+The below table shows the statistics of #∩/#  
 | mean | median | min | max | q70 | q80 | q90 | 
 | ---- | ----- | --- | --- | --- | --- | --- | 
 | 0.29 | 0.29 | 0.14 | 0.50 | 0.31 | 0.33 | 0.35 |
