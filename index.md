@@ -293,3 +293,14 @@ The result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941Jb
 |100 vs 500| 422 | 395 | 121 | 1282 | 449.00 | 486.40 | 619.40|
 
 
+## Point 1-b
+
+### summary of lasso regression result
+The target genes from Lasoo regression are obtained by non-zero values.
+The result contains miRNA name, target genes and the number of genes [here](https://drive.google.com/file/d/17FG5ArfkgSZoPBfT0ptUKUIfhn__W1X4/view?usp=sharing).
+
+## Point 1-c
+
+### Identified genes correlate with the miRNAs better than target genes
+
+
