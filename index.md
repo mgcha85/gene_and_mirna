@@ -307,7 +307,7 @@ The result contains miRNA name, target genes and the number of genes [here](http
 ## Point 1-d
 ### Identified genes are similar using tissue or cell line samples
 We compared target genes using 93 tissues and 240 tissues data, which is in section **"File entries by Tissues"**.
-We checked the how many target genes are shared by a miRNA. 
+We checked how many target genes are shared by a miRNA. 
 The result is in [here](https://drive.google.com/file/d/1w47NbPXd9WfckMIyanS9QYOt5tOhbBEz/view?usp=sharing).  
 The column #∩ is the number of intersection of two target genes and #U is the number of union of two target genes. #∩/#U is the ratio of intersection and union.
 
