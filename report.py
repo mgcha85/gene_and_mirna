@@ -5,14 +5,20 @@ import os
 
 
 class Report:
-    def __init__(self):
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+    def __init__(self, root):
+        self.root = root
+
+    def get_lasso_result(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        con = sqlite3.connect(os.path.join(dirname, 'regression_100_nz.db'))
+        df = pd.read_sql("SELECT miRNA, gene_name FROM 'result'".format(), con, index_col='miRNA')
+        gene_name = df['gene_name'].str.split(';')
+
+        n = []
+        for gn in gene_name:
+            n.append(len(gn))
+        df['n_genes'] = n
+        df.to_excel(os.path.join(dirname, 'regression_100_nz.xlsx'))
 
     def get_sample_fan(self):
         columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
@@ -210,7 +216,15 @@ class Report:
 
 
 if __name__ == '__main__':
-    rep = Report()
-    # rep.to_excel()
-    rep.to_sql_each()
-    # rep.scores_by_tissues()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    rep = Report(root)
+    rep.get_lasso_result()

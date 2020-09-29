@@ -343,13 +343,14 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db')
-        # fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
+        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db')
+        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
         con_fan = sqlite3.connect(fan_path)
 
         cell_lines = sorted(list(set([x.split('_')[0] for x in Database.load_tableList(con_fan)])))
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
+        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -630,7 +631,7 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     cor = Correlation(root)
-    if hostname == '-DLOOJR6' or hostname == '-1NLOLK4':
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
         cor.to_server(root, "")
     else:
         from Regression import Regression
@@ -638,10 +639,10 @@ if __name__ == '__main__':
         from set_go import set_go
         from validation import validation
 
-        rg = Regression()
+        rg = Regression(root)
         mg = mir_gene()
-        sg = set_go()
-        val = validation()
+        sg = set_go(root)
+        val = validation(root)
 
         # cor.high_correlation_by_thres(100)
         # cor.get_sample_corr(hbw)
@@ -656,8 +657,8 @@ if __name__ == '__main__':
                 # exit(1)
 
                 # cell lines
-                # cor.sum_fan(hbw, ref='gene')
-                # cor.sum_fan(hbw, ref='mir')
+                cor.sum_fan(hbw, ref='gene')
+                cor.sum_fan(hbw, ref='mir')
                 # exit(1)
 
                 # rg.regression(hbw, opt)
@@ -683,7 +684,7 @@ if __name__ == '__main__':
                 # sg.hyper_test(hbw, opt)
                 # sg.plot_hyper_test(hbw, opt)
 
-                rg.cross_regression(hbw, opt)
+                # rg.cross_regression(hbw, opt)
                 # rg.cross_stats(100, opt)
 
                 # val.wilcox(opt)

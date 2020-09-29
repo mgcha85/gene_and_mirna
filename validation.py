@@ -8,63 +8,78 @@ import numpy as np
 
 
 class validation:
-    def __init__(self):
-        super(validation, self).__init__()
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        elif self.hostname == 'mingyu-Inspiron-7559':
-            self.root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
+    def __init__(self, root):
+        self.root = root
 
-    def to_server(self):
+    def to_server(self, root, tag):
         from Server import Server
         import sys
 
         which = 'newton'
-        server = Server(self.root, which=which)
+        server = Server(root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
-        curdir = os.getcwd().split('/')[-1]
-        server_root = os.path.join(server.server, 'source', curdir)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
+        curdir = os.getcwd().split(os.sep)[-1]
+        server_root = os.path.join(server.server, 'source', curdir).replace(os.sep, '/')
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='08:00:00')
+        server.job_script(fname, src_root=server_root, time='08:00:00', pversion=3)
         server.upload(local_path, server_path)
-        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+        server.upload('dl-submit.slurm', server_root + '/' + 'dl-submit.slurm')
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {root};sbatch {root}/dl-submit.slurm".format(root=server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
     def comparison_by_size(self):
-        dfs = []
-        for s in [100, 300, 500]:
-            fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_nz.db'.format(s))
-            con = sqlite3.connect(fpath)
-            df = pd.read_sql("SELECT miRNA, gene_name AS 'gene_name_{}' FROM 'result'".format(s), con, index_col='miRNA')
-            df['gene_name_{}'.format(s)] = df['gene_name_{}'.format(s)].str.split(';')
-            dfs.append(df)
-
-        df = pd.concat(dfs, axis=1)
-        df = df.dropna(how='any')
-        df_res = pd.DataFrame(index=df.index, columns=df.columns)
-        for mir in df.index:
+        dfList = {}
+        for pair in [[100, 300], [300, 500], [100, 500]]:
             dfs = []
-            for col in df.columns:
-                dfs.append(set(df.loc[mir, col]))
-            intersection = set.intersection(*dfs)
-            union = set.union(*dfs)
+            for i, s in enumerate(pair):
+                fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_nz.db'.format(s))
+                con = sqlite3.connect(fpath)
+                df = pd.read_sql("SELECT miRNA, gene_name AS 'gene_name_{}' FROM 'result'".format(s), con, index_col='miRNA')
+                df['gene_name_{}'.format(s)] = df['gene_name_{}'.format(s)].str.split(';')
+                dfs.append(df)
 
-            for col in df.columns:
-                df_res.loc[mir, col] = len(df.loc[mir, col]) / len(union)
-            df_res.loc[mir, 'int/uni'] = len(intersection) / len(union)
-        df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'comparison_by_size.xlsx'))
+            df = pd.concat(dfs, axis=1)
+            df = df.dropna(how='any')
+            df_res = pd.DataFrame(index=df.index)
+
+            stats = pd.Series(index=range(df.shape[0]))
+            for i, mir in enumerate(df.index):
+                sizes = []
+                dfs = []
+                for col in df.columns:
+                    genes = set(df.loc[mir, col])
+                    sizes.append(len(genes))
+                    dfs.append(genes)
+
+                intersection = set.intersection(*dfs)
+                union = set.union(*dfs)
+
+                min_idx = sizes.index(min(sizes))
+                max_idx = sizes.index(max(sizes))
+                stats[i] = sizes[max_idx]
+                df_res.loc[mir, '# {}'.format(pair[0])] = sizes[0]
+                df_res.loc[mir, '# {}'.format(pair[1])] = sizes[1]
+                df_res.loc[mir, '{} ∩ {}'.format(pair[0], pair[1])] = len(intersection)
+                df_res.loc[mir, '∩/∪'] = len(intersection) / len(union)
+                df_res.loc[mir, '∩/# smaller'] = len(intersection) / sizes[min_idx]
+            dfList['{} vs {}'.format(*pair)] = df_res
+
+            print('[{} vs {}] mean: {:.0f}, median: {:.0f}, min: {:.0f}, max: {:.0f}, q70: {:0.2f}, q80: {:0.2f}, q90: {:0.2f}'.format(*pair, stats.mean(), stats.median(), stats.min(), stats.max(), stats.quantile(q=0.7), stats.quantile(q=0.8), stats.quantile(q=0.9)))
+        writer = pd.ExcelWriter(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'comparison_by_size.xlsx'), engine='xlsxwriter')
+        for key, df in dfList.items():
+            df.to_excel(writer, sheet_name=key)
+            df.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'comparison_by_size.xlsx'))
+        writer.save()
+        writer.close()
 
     def wilcox(self, opt):
         from joblib import Parallel, delayed
@@ -206,11 +221,19 @@ class validation:
 
 
 if __name__ == '__main__':
-    val = validation()
-    if val.hostname == 'mingyu-Precision-Tower-7810':
-        val.to_server()
-        # for opt in ['nz', 'neg']:
-        #     val.is_similar(opt)
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
+    else:
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    val = validation(root)
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
+        val.to_server(root, "")
     else:
         val.comparison_by_size()
         # for opt in ['nz']:
