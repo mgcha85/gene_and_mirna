@@ -385,8 +385,8 @@ class Regression(DeepLearning):
             gene = dfs['gene'].loc[:, '10964C':].T
             mir = dfs['mir'].loc[:, '10964C':].T
         elif type == 'tissues':
-            gene = dfs['gene'].loc[:, 'achilles tendon':].T
-            mir = dfs['mir'].loc[:, 'achilles tendon':].T
+            gene = dfs['gene'].loc[:, 'appendix':].T
+            mir = dfs['mir'].loc[:, 'appendix':].T
         else:
             return
         return gene, mir
@@ -759,8 +759,8 @@ class Regression(DeepLearning):
         print(contents)
         pd.DataFrame(contents, index=index).to_excel(os.path.join(dirname, 'distances.xlsx'))
 
-    def report(self, hbw, opt='nz'):
-        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
+    def report(self, hbw, opt='nz', type='cell_lines'):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
         # df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_name')
         df = pd.read_sql("SELECT * FROM 'coefficient'", con, index_col='transcript_id')
@@ -777,7 +777,7 @@ class Regression(DeepLearning):
             contents.append([col, ';'.join(ser.index)])
         pd.DataFrame(data=contents, columns=['miRNA', 'Transcripts']).to_sql('result', con, if_exists='replace', index=False)
 
-    def add_gene_name(self, hbw, opt):
+    def add_gene_name(self, hbw, opt, type='cell_lines'):
         fpath = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
         con = sqlite3.connect(fpath)
         tlist = Database.load_tableList(con)
@@ -787,7 +787,7 @@ class Regression(DeepLearning):
             dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_id'))
         df = pd.concat(dfs)
 
-        res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt)))
+        res_con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}.db'.format(hbw, opt)))
         df_res = pd.read_sql("SELECT * FROM 'result' WHERE Transcripts>''", res_con)
         df_res['gene_name'] = None
 
@@ -933,7 +933,7 @@ if __name__ == '__main__':
     hostname = socket.gethostname()
     if hostname == 'mingyu-Precision-Tower-7810':
         root = '/home/mingyu/Bioinformatics'
-    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+    elif hostname == '-DLOOJR6' or hostname == '-1NLOLK4':
         root = 'D:/Bioinformatics'
     elif hostname == 'mingyu-Inspiron-7559':
         root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'

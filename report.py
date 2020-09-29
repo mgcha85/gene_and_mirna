@@ -20,6 +20,26 @@ class Report:
         df['n_genes'] = n
         df.to_excel(os.path.join(dirname, 'regression_100_nz.xlsx'))
 
+    def get_compare_cell_tissue(self):
+        dfs = {}
+        for type in ['tissues', 'cell_lines']:
+            fpath = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_100_nz.db')
+            con = sqlite3.connect(fpath)
+            dfs[type] = pd.read_sql("SELECT miRNA, gene_name FROM 'result'", con, index_col='miRNA')
+
+        df_res = pd.DataFrame(index=dfs['cell_lines'].index)
+        for mir in dfs['cell_lines'].index:
+            genes = []
+            for type in ['tissues', 'cell_lines']:
+                genes.append(set(dfs[type].loc[mir, 'gene_name'].split(';')))
+
+            intersection = set.intersection(*genes)
+            union = set.union(*genes)
+            df_res.loc[mir, '#∩'] = len(intersection)
+            df_res.loc[mir, '#U'] = len(union)
+        df_res['#∩/#U'] = df_res['#∩'] / df_res['#U']
+        df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'get_compare_cell_tissue.xlsx'))
+
     def get_sample_fan(self):
         columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
 
@@ -227,4 +247,4 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     rep = Report(root)
-    rep.get_lasso_result()
+    rep.get_compare_cell_tissue()

@@ -329,7 +329,7 @@ class Correlation:
             print(cnt)
             pd.concat(dfs).to_excel(fpath.replace('.db', '.xlsx'), index=None)
 
-    def sum_fan(self, hbw, ref='gene'):
+    def sum_fan(self, hbw, ref='gene', type='cell_lines'):
         if ref == 'mir':
             # reference consistent miRNA
             ref_path = os.path.join(self.root, 'database', 'consistent_miRNA_330_spt.db')
@@ -343,14 +343,18 @@ class Correlation:
             label = 'transcript_id'
 
         # Fantom5
-        # fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db')
-        fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
+        if type == 'cell_lines':
+            fan_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'hg19.cage_peak_phase1and2combined_tpm_ann.osc_avg.db')
+        elif type == 'tissues':
+            fan_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'CAGE_tag_tissue_spt.db')
+        else:
+            raise('wrong type')
+
         con_fan = sqlite3.connect(fan_path)
+        out_path = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_{}_{}.db'.format(ref, hbw))
 
         cell_lines = sorted(list(set([x.split('_')[0] for x in Database.load_tableList(con_fan)])))
         # output
-        out_path = os.path.join(self.root, 'database/Fantom/v5/tissues', 'sum_fan_{}_{}.db'.format(ref, hbw))
-        # out_path = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_{}_{}.db'.format(ref, hbw))
         con_out = sqlite3.connect(out_path)
 
         M_ = len(cell_lines)
@@ -656,14 +660,12 @@ if __name__ == '__main__':
                 # cor.high_correlation(hbw, 0.75)
                 # exit(1)
 
-                # cell lines
-                cor.sum_fan(hbw, ref='gene')
-                cor.sum_fan(hbw, ref='mir')
-                # exit(1)
-
-                # rg.regression(hbw, opt)
-                # rg.report(hbw, opt)
-                # rg.add_gene_name(hbw, opt)
+                for type in ['tissues']:
+                    cor.sum_fan(hbw, ref='gene', type=type)
+                    cor.sum_fan(hbw, ref='mir', type=type)
+                    # rg.regression(hbw, opt, type)
+                    # rg.report(hbw, opt, type)
+                    rg.add_gene_name(hbw, opt, type)
                 # rg.filtering(hbw)
 
                 # cor.correlation_gpu(hbw, opt)
