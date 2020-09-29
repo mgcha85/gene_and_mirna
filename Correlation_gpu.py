@@ -381,10 +381,12 @@ class Correlation:
 
             for i, cline in enumerate(cell_lines):
                 # print(cline)
-                df_fan = pd.read_sql("SELECT start, end, avg_score as score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
-                                           "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
-                # df_fan = pd.read_sql("SELECT start, end, score FROM '{}_{}_{}'"
-                #                            "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
+                if type == 'cell_lines':
+                    df_fan = pd.read_sql("SELECT start, end, avg_score as score FROM '{}' WHERE chromosome='{}' AND strand='{}'"
+                                               "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
+                else:
+                    df_fan = pd.read_sql("SELECT start, end, score FROM '{}_{}_{}'"
+                                               "".format(cline, chromosome, strand), con_fan).sort_values(by=['start'])
                 if df_fan.shape[0] == 0:
                     print('[SKIP] fantom data is empty')
                     continue
