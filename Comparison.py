@@ -6,35 +6,31 @@ import numpy as np
 
 
 class comparison:
-    def __init__(self):
-        self.hostname = socket.gethostname()
-        if self.hostname == 'mingyu-Precision-Tower-7810':
-            self.root = '/home/mingyu/Bioinformatics'
-        elif self.hostname == 'DESKTOP-DLOOJR6':
-            self.root = 'D:/Bioinformatics'
-        else:
-            self.root = '/lustre/fs0/home/mcha/Bioinformatics'
-        self.table_names = {}
+    def __init__(self, root):
+        self.root = root
 
-    def to_server(self):
+    def to_server(self, root, tag):
         from Server import Server
         import sys
 
-        which = 'stokes'
-        server = Server(self.root, which=which)
+        which = 'newton'
+        server = Server(root, which=which)
         server.connect()
 
         local_path = sys.argv[0]
-        dirname, fname = os.path.split(local_path)
-        curdir = os.getcwd().split('/')[-1]
-        server_root = os.path.join(server.server, 'source', curdir)
+        dirname, fname__ = os.path.split(local_path)
+        fname = fname__.replace('.py', '_{}.py'.format(tag))
+
+        curdir = os.getcwd().split(os.sep)[-1]
+        server_root = os.path.join(server.server, 'source', curdir).replace(os.sep, '/')
         server_path = local_path.replace(dirname, server_root)
+        server_path = server_path.replace(fname__, fname)
 
-        server.job_script(fname, src_root=server_root, time='08:00:00')
+        server.job_script(fname, src_root=server_root, time='08:00:00', pversion=3)
         server.upload(local_path, server_path)
-        server.upload('dl-submit.slurm', os.path.join(server_root, 'dl-submit.slurm'))
+        server.upload('dl-submit.slurm', server_root + '/' + 'dl-submit.slurm')
 
-        stdin, stdout, stderr = server.ssh.exec_command("cd {};sbatch {}/dl-submit.slurm".format(server_root, server_root))
+        stdin, stdout, stderr = server.ssh.exec_command("cd {root};sbatch {root}/dl-submit.slurm".format(root=server_root))
         job = stdout.readlines()[0].replace('\n', '').split(' ')[-1]
         print('job ID: {}'.format(job))
 
@@ -85,6 +81,77 @@ class comparison:
             df_rep.sort_values(by=['diff']).to_sql('wilcox_corr_lasso', con_out, index=None, if_exists='replace')
         # Parallel(n_jobs=num_cores)(delayed(processInput)(fname) for fname in flist)
 
+    def convert_pre_to_mir(self):
+        fpath_ref = os.path.join(self.root, 'database/mirbase/22', 'mirbase.db')
+        con_ref = sqlite3.connect(fpath_ref)
+        df_ref = pd.read_sql("SELECT * FROM 'hsa_liftover_hg19'", con_ref)
+        df_ref = df_ref.drop_duplicates(subset=['Name'])
+
+        df_ref['Name'] = df_ref['Name'].str.lower()
+        df_ref = df_ref.set_index('Name', drop=True)
+
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
+        con = sqlite3.connect(fpath)
+
+        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='miRNA')
+            for mir in df.index:
+                if mir != 'hsa-mir-1244':
+                    continue
+                if mir not in df_ref.index:
+                    continue
+                df_mir = df_ref.loc[mir]
+                if isinstance(df_mir, pd.DataFrame):
+                    df_mir = df_mir.reset_index()
+                    idx = df_mir[df_mir['feature'] == 'miRNA_primary_transcript'].index[0]
+                    premir = df_mir.loc[idx, 'Name']
+                else:
+                    if df_mir['feature'] == 'miRNA_primary_transcript' or len(mir.split('-')) < 4:
+                        premir = mir
+                    else:
+                        premir = '-'.join(mir.split('-')[:-1])
+                df.loc[mir, 'pre-miRNA'] = premir
+            df.to_sql(tname, con, if_exists='replace')
+
+    def get_ref_transcripts(self):
+        from Database import Database
+
+        fpath = os.path.join(self.root, 'database', 'target_genes.db')
+        con = sqlite3.connect(fpath)
+
+        fpath_ref = os.path.join(self.root, 'database/gencode', 'gencode.v32lift37.annotation_attr_spt.db')
+        con_ref = sqlite3.connect(fpath_ref)
+        dfs = []
+        for tname in Database.load_tableList(con_ref):
+            chr, str = tname.split('_')
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con_ref)
+            df['chromosome'] = chr
+            df['strand'] = str
+            dfs.append(df)
+
+        con_mir = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100_nz.db'))
+        mir_list = pd.read_sql("SELECT miRNA FROM 'Y'", con_mir)
+        df_ref = pd.concat(dfs)
+        for tname in ['miRTartBase_hsa', 'target_scan_grp']:
+            df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='pre-miRNA')
+            mir = set.intersection(set(mir_list['miRNA']), set(df.index))
+            df = df.loc[mir]
+            df = df.reset_index()
+            contents = []
+
+            for idx, mir in enumerate(df.index):
+                if (idx + 1) % 100 == 0 or idx + 1 == df.shape[0]:
+                    print('{} / {}'.format(idx + 1, df.shape[0]))
+                genes = df.loc[mir, 'genes'].split(';')
+                for gene in genes:
+                    contents.append(df_ref[df_ref['gene_name'] == gene])
+            df_res = pd.concat(contents)
+
+            con_out = sqlite3.connect(os.path.join(self.root, 'database', '{}_tr.db'.format('_'.join(tname.split('_')[:-1]))))
+            for str, df_str in df_res.groupby('strand'):
+                for chr, df_chr in df_str.groupby('chromosome'):
+                    df_chr.drop(['strand', 'chromosome'], axis=1).to_sql('{}_{}'.format(chr, str), con_out, index=False, if_exists='replace')
+
     def run(self):
         import matplotlib.pyplot as plt
 
@@ -124,8 +191,19 @@ class comparison:
 
 
 if __name__ == '__main__':
-    comp = comparison()
-    if comp.hostname == 'mingyu-Precision-Tower-7810':
-        comp.to_server()
+    hostname = socket.gethostname()
+    if hostname == 'mingyu-Precision-Tower-7810':
+        root = '/home/mingyu/Bioinformatics'
+    elif hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+        root = 'D:/Bioinformatics'
+    elif hostname == 'mingyu-Inspiron-7559':
+        root = '/media/mingyu/8AB4D7C8B4D7B4C3/Bioinformatics'
     else:
-        comp.wilcox()
+        root = '/lustre/fs0/home/mcha/Bioinformatics'
+
+    comp = comparison(root)
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
+        comp.to_server(root, "")
+    else:
+        # comp.convert_pre_to_mir()
+        comp.get_ref_transcripts()

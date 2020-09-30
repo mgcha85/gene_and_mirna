@@ -337,8 +337,8 @@ class Correlation:
             label = 'miRNA'
         else:
             # reference CAGE clusters
-            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
-            # ref_path = os.path.join(self.root, 'database/gencode', 'other_researches_union_fan_rna_{}.db'.format(hbw))
+            # ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
+            ref_path = os.path.join(self.root, 'database', 'target_scan_tr.db')
             ref_con = sqlite3.connect(ref_path)
             label = 'transcript_id'
 
@@ -351,7 +351,7 @@ class Correlation:
             raise('wrong type')
 
         con_fan = sqlite3.connect(fan_path)
-        out_path = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_{}_{}.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_{}_{}_ts.db'.format(ref, hbw))
 
         cell_lines = sorted(list(set([x.split('_')[0] for x in Database.load_tableList(con_fan)])))
         # output
@@ -508,7 +508,7 @@ class Correlation:
             dfs[type] = dfs[type].drop(ridx)
         return dfs
 
-    def correlation_gpu(self, hbw, opt, corr='spearman'):
+    def correlation_gpu(self, hbw, opt, type='cell_lines', corr='spearman'):
         if corr == 'spearman':
             from corr_gpu import Spearman
             corr = Spearman(self.root)
@@ -516,13 +516,13 @@ class Correlation:
             from corr_gpu import Pearson
             corr = Pearson(self.root)
 
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_mir_100.db')
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_100.db')
         con_mir = sqlite3.connect(fpath_mir)
 
-        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/cell_lines', 'sum_fan_gene_{}.db'.format(hbw))
+        fpath_gene = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}.db'.format(hbw))
         con_gene = sqlite3.connect(fpath_gene)
 
-        fpath_out = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
+        fpath_out = os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'regression_{}_{}.db'.format(hbw, opt))
         con_out = sqlite3.connect(fpath_out)
 
         def merge(con):
@@ -662,12 +662,14 @@ if __name__ == '__main__':
                 # cor.high_correlation(hbw, 0.75)
                 # exit(1)
 
-                for type in ['tissues']:
+                for type in ['cell_lines']:
                     cor.sum_fan(hbw, ref='gene', type=type)
-                    cor.sum_fan(hbw, ref='mir', type=type)
+                    # cor.sum_fan(hbw, ref='mir', type=type)
                     # rg.regression(hbw, opt, type)
                     # rg.report(hbw, opt, type)
-                    rg.add_gene_name(hbw, opt, type)
+                    # rg.add_gene_name(hbw, opt, type)
+                    # cor.correlation_gpu(hbw, opt, type)
+
                 # rg.filtering(hbw)
 
                 # cor.correlation_gpu(hbw, opt)
