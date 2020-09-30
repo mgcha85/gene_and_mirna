@@ -338,7 +338,7 @@ class Correlation:
         else:
             # reference CAGE clusters
             # ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
-            ref_path = os.path.join(self.root, 'database', 'target_scan_tr.db')
+            ref_path = os.path.join(self.root, 'database', 'miRTartBase_tr.db')
             ref_con = sqlite3.connect(ref_path)
             label = 'transcript_id'
 
@@ -351,7 +351,7 @@ class Correlation:
             raise('wrong type')
 
         con_fan = sqlite3.connect(fan_path)
-        out_path = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_{}_{}_ts.db'.format(ref, hbw))
+        out_path = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_{}_{}_mt.db'.format(ref, hbw))
 
         cell_lines = sorted(list(set([x.split('_')[0] for x in Database.load_tableList(con_fan)])))
         # output
@@ -668,7 +668,7 @@ if __name__ == '__main__':
                     # rg.regression(hbw, opt, type)
                     # rg.report(hbw, opt, type)
                     # rg.add_gene_name(hbw, opt, type)
-                    # cor.correlation_gpu(hbw, opt, type)
+                    cor.correlation_gpu(hbw, opt, type)
 
                 # rg.filtering(hbw)
 
