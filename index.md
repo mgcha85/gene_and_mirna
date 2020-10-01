@@ -366,10 +366,10 @@ The result is in [here](https://drive.google.com/file/d/1rH7RL2rJxF7DODG89PSZ5QZ
 - larger: larger one between #∩/#small and #∩/#large (in this case, #∩/#small is always larger)
 
 
-The below table shows the statistics of #∩/#  
+The below table shows the statistics of larger  
 | mean | median | min | max | q70 | q80 | q90 | 
 | ---- | ----- | --- | --- | --- | --- | --- | 
-| 0.29 | 0.29 | 0.14 | 0.50 | 0.31 | 0.33 | 0.35 |
+| 0.5917 | 0.5864 | 0.4327 | 0.9196 | 0.6212 | 0.6478 | 0.6731 |
 
 
 
