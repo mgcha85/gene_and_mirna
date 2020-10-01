@@ -341,6 +341,10 @@ The below table shows how many miRNAs has smaller than p-value by two researches
 | TargetScan | 30 | 26 | 30 | 26 |
 | miTarBase | 167 | 144 | 159 | 139 |
 
+- #p<0.01: the number of miRNAs with p-value<0.01  
+- #p<0.001: the number of miRNAs with p-value<0.001
+- #p<0.01 (genes>=10): the number of miRNAs with p-value<0.01 and the number of target genes is at least 10.
+- #p<0.001 (genes>=10): the number of miRNAs with p-value<0.001 and the number of target genes is at least 10.
 
 
 ## Point 1-d
