@@ -299,7 +299,7 @@ The target genes from Lasoo regression are obtained by non-zero values.
 The result contains miRNA name, target genes and the number of genes [here](https://drive.google.com/file/d/17FG5ArfkgSZoPBfT0ptUKUIfhn__W1X4/view?usp=sharing).
 
 ### statstics of the number of target genes
-| mean | median | min | max | q20 | q40 | q60|
+| mean | median | min | max | q70 | q80 | q90|
 | ---- | ---- | ---- | ---- | ---- | ---- | ---- | 
 | 409.20 | 381 | 121 | 1282 | 439 | 484 | 606|
 
