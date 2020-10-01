@@ -140,7 +140,7 @@ Figure1. The mean of **B**
 
 When the coefficient is not zero between gene and miRNA From the result, we assume those are target genes by a miRNA.   
 The target genes are [here](https://drive.google.com/file/d/1gQlfWrGh_GZEGHGTyeiVxajql9d7dSKL/view?usp=sharing).  
-257 miRNA has target genes out of 330. This means 73 miRNAs has zero coefficients becasue they failed to Lasso convergence.  
+257 miRNA has target genes out of 330. This means 73 miRNAs has zero coefficients because they failed to Lasso convergence.  
 
 
 ### Gene ontology analysis
