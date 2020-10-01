@@ -301,6 +301,33 @@ The result contains miRNA name, target genes and the number of genes [here](http
 ## Point 1-c
 
 ### Identified genes correlate with the miRNAs better than target genes
+We compared Lasso result to two other researches (TargetScan, MirTarBase).
+Each research has their own result. Each miRNA has target genes.
+
+First, we converted their miRNA to pre-miRNA because we used consistent pre-miRNA TSS.
+Second, gene name is also converted to transcript ID if they only provide gene name. In this process, we use all transcripts of corresponding gene.
+
+After conversion, we calculated expression level by 240 cell-lines as we did in "Expression data by 240 cell lines".
+Now, we have each expression values of miRNAs and genes.
+A miRNA and gene have 240 vector, which is each cell line expression level.
+
+From the expression level, we calculated correlation coefficient between miRNA and a target genes from each research.  
+For example, a miRNA has 80 target genes,the miRNA has 80 length vector, which is correlation coefficient of the miRNA and each target gene.  
+For correlation coefficient, we used spearman correlation.  
+
+To compare the correlation coefficients among three research, we used Mann–Whitney U test.  
+This test shows difference between the distributions of the data samples.  
+
+The result is [here](https://drive.google.com/file/d/197H-CRi6v2dr5g0bA1qbV-tJoOZpI9jv/view?usp=sharing).  
+The table contains the following columns [stat (ts), p-value (ts), # genes (ts), stat (mi), p-value (mi), # genes (mi), # genes (Lasso)]
+
+- stat (ts): U-test of TargetScan  
+- p-value (ts): p-value of TargetScan  
+- # genes (ts): the number of target genes from TargetScan  
+- stat (mi): U-test of miRTarBase  
+- p-value (mi): p-value of miRTarBase  
+- # genes (mi): the number of target genes from miRTarBase  
+- # genes (Lasso): the number of target genes from Lasso result.  
 
 
 ## Point 1-d
