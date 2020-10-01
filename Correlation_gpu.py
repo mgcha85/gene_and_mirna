@@ -3,16 +3,9 @@ import os
 import sqlite3
 import pandas as pd
 import numpy as np
-from copy import deepcopy
 import matplotlib.pyplot as plt
-import scipy.stats
-from Server import Server
-import sys
 from Database import Database
 from copy import deepcopy
-from joblib import Parallel, delayed
-import multiprocessing
-from scipy.stats import spearmanr
 
 
 class Correlation:
@@ -106,7 +99,7 @@ class Correlation:
 
             df_buf = {}
             for src in ['fantom', 'rna-seq']:
-                df_buf[src] = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *tissues])
+                df_buf[src] = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end'] + list(tissues))
                 df_buf[src][['start', 'end']] = df_ref[['start', 'end']]
 
             for i, tissue in enumerate(tissues):
@@ -196,7 +189,7 @@ class Correlation:
 
             df_buf = {}
             for src in ['fantom', 'rna-seq']:
-                df_buf[src] = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *tissues])
+                df_buf[src] = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end'] + list(tissues))
                 df_buf[src][['start', 'end']] = df_ref[['start', 'end']]
 
             for i, tissue in enumerate(tissues):
@@ -337,8 +330,8 @@ class Correlation:
             label = 'miRNA'
         else:
             # reference CAGE clusters
-            # ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
-            ref_path = os.path.join(self.root, 'database', 'miRTartBase_tr.db')
+            ref_path = os.path.join(self.root, 'database/gencode', 'high_correlated_fan_rna_{}.db'.format(hbw))
+            # ref_path = os.path.join(self.root, 'database', 'miRTartBase_tr.db')
             ref_con = sqlite3.connect(ref_path)
             label = 'transcript_id'
 
@@ -376,7 +369,7 @@ class Correlation:
                 df_ref['end'] = df_ref['tss'] + hbw
 
             N_ = df_ref.shape[0]
-            df_buf = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end', *cell_lines])
+            df_buf = pd.DataFrame(data=np.zeros((N_, M_ + 2)), index=df_ref.index, columns=['start', 'end'] + list(cell_lines))
             df_buf[['start', 'end']] = df_ref[['start', 'end']]
 
             for i, cline in enumerate(cell_lines):
@@ -391,7 +384,10 @@ class Correlation:
                     print('[SKIP] fantom data is empty')
                     continue
                 df_buf.loc[:, cline] = self.get_score_sum(df_ref[['start', 'end']], df_fan[['start', 'end', 'score']])
-            pd.concat([df_ref[label], df_buf], axis=1).to_sql('_'.join([chromosome, strand]), con_out, index=False, if_exists='replace')
+
+            df_res = pd.concat([df_ref[label], df_buf], axis=1)
+            print('[{}] {} / {}'.format(tname, df_res.shape[0], df_ref.shape[0]))
+            df_res.to_sql('_'.join([chromosome, strand]), con_out, index=False, if_exists='replace')
 
     # def sum_fan(self, hbw, ref='gene'):
     #     if ref == 'mir':
@@ -510,13 +506,13 @@ class Correlation:
 
     def correlation_gpu(self, hbw, opt, type='cell_lines', corr='spearman'):
         if corr == 'spearman':
-            from corr_gpu import Spearman
+            from corr_cl import Spearman
             corr = Spearman(self.root)
         else:
-            from corr_gpu import Pearson
+            from corr_cl import Pearson
             corr = Pearson(self.root)
 
-        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_100.db')
+        fpath_mir = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_mir_{}.db'.format(hbw))
         con_mir = sqlite3.connect(fpath_mir)
 
         fpath_gene = os.path.join(self.root, 'database/Fantom/v5/{}'.format(type), 'sum_fan_gene_{}.db'.format(hbw))
@@ -637,7 +633,7 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     cor = Correlation(root)
-    if hostname == 'DESKTOP-DLOOJR6' or hostname == 'DESKTOP-1NLOLK4':
+    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
         cor.to_server(root, "")
     else:
         from Regression import Regression
@@ -668,7 +664,7 @@ if __name__ == '__main__':
                     # rg.regression(hbw, opt, type)
                     # rg.report(hbw, opt, type)
                     # rg.add_gene_name(hbw, opt, type)
-                    cor.correlation_gpu(hbw, opt, type)
+                    # cor.correlation_gpu(hbw, opt, type)
 
                 # rg.filtering(hbw)
 

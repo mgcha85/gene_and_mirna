@@ -35,10 +35,45 @@ class Report:
 
             intersection = set.intersection(*genes)
             union = set.union(*genes)
+            df_res.loc[mir, '#tissue'] = len(genes[0])
+            df_res.loc[mir, '#cell_lines'] = len(genes[1])
             df_res.loc[mir, '#∩'] = len(intersection)
             df_res.loc[mir, '#U'] = len(union)
+
         df_res['#∩/#U'] = df_res['#∩'] / df_res['#U']
+        df_res['#∩/#small'] = df_res['#∩'] / df_res[['#tissue', '#cell_lines']].min(axis=1)
+        df_res['#∩/#large'] = df_res['#∩'] / df_res[['#tissue', '#cell_lines']].max(axis=1)
+        df_res['larger'] = df_res[['#∩/#small', '#∩/#large']].max(axis=1)
         df_res.to_excel(os.path.join(self.root, 'database/Fantom/v5/{}/out'.format(type), 'get_compare_cell_tissue.xlsx'))
+
+    def missing_mir(self):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_100_nz.db')
+        con = sqlite3.connect(fpath)
+        df_corr = pd.read_sql("SELECT * FROM 'corr'", con, index_col='transcript_id')
+        df_x = pd.read_sql("SELECT * FROM 'X'", con, index_col='tid')
+        df_y = pd.read_sql("SELECT * FROM 'Y'", con, index_col='miRNA')
+        df_res = pd.read_sql("SELECT * FROM 'result'", con, index_col='miRNA')
+
+        missing_mir = set(df_corr.columns) - set(df_res.index)
+        df_report = pd.Series(index=missing_mir)
+        for m in missing_mir:
+            df_report[m] = df_y.loc[m].sum()
+        df_report.to_excel(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'missing_mir.xlsx'))
+
+    def stats_mannwhitneyu(self):
+        fpath = os.path.join(self.root, "database/Fantom/v5/cell_lines/out", 'mannwhitneyu.xlsx')
+        df = pd.read_excel(fpath, index_col=0)
+        df_stats = pd.DataFrame(index=['ts', 'mi'])
+
+        for lab in df_stats.index:
+            df_sub = df.dropna(subset=['stat ({})'.format(lab)])
+            df_stats.loc[lab, '# <0.01'] = df_sub[df_sub['p-value ({})'.format(lab)] < 0.01].shape[0]
+            df_stats.loc[lab, '# <0.001'] = df_sub[df_sub['p-value ({})'.format(lab)] < 0.001].shape[0]
+
+            df_sub2 = df_sub[df_sub['# genes ({})'.format(lab)] >= 10]
+            df_stats.loc[lab, '# <0.01 (genes>=10)'] = df_sub2[df_sub2['p-value ({})'.format(lab)] < 0.01].shape[0]
+            df_stats.loc[lab, '# <0.001 (genes>=10)'] = df_sub2[df_sub2['p-value ({})'.format(lab)] < 0.001].shape[0]
+        print(df_stats)
 
     def get_sample_fan(self):
         columns = ['chromosome', 'start', 'end', 'loc', 'score', 'strand']
@@ -247,4 +282,6 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     rep = Report(root)
-    rep.get_compare_cell_tissue()
+    # rep.get_compare_cell_tissue()
+    # rep.stats_mannwhitneyu()
+    rep.missing_mir()

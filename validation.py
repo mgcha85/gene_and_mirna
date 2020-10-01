@@ -69,11 +69,11 @@ class validation:
                 df_res.loc[mir, '# {}'.format(pair[0])] = sizes[0]
                 df_res.loc[mir, '# {}'.format(pair[1])] = sizes[1]
                 df_res.loc[mir, '{} ∩ {}'.format(pair[0], pair[1])] = len(intersection)
-                df_res.loc[mir, '∩/∪'] = len(intersection) / len(union)
                 df_res.loc[mir, '∩/# smaller'] = len(intersection) / sizes[min_idx]
+                df_res.loc[mir, '∩/# larger'] = len(intersection) / sizes[max_idx]
+                df_res['larger percentage'] = df_res[['∩/# smaller', '∩/# larger']].max(axis=1)
             dfList['{} vs {}'.format(*pair)] = df_res
-
-            print('[{} vs {}] mean: {:.0f}, median: {:.0f}, min: {:.0f}, max: {:.0f}, q70: {:0.2f}, q80: {:0.2f}, q90: {:0.2f}'.format(*pair, stats.mean(), stats.median(), stats.min(), stats.max(), stats.quantile(q=0.7), stats.quantile(q=0.8), stats.quantile(q=0.9)))
+            print('[{} vs {}] mean: {:0.4f}, median: {:0.4f}, min: {:0.4f}, max: {:0.4f}, q20: {:0.4f}, q40: {:0.4f}, q60: {:0.4f}'.format(*pair, df_res['larger percentage'].mean(), df_res['larger percentage'].median(), df_res['larger percentage'].min(), df_res['larger percentage'].max(), df_res['larger percentage'].quantile(q=0.2), df_res['larger percentage'].quantile(q=0.4), df_res['larger percentage'].quantile(q=0.6)))
         writer = pd.ExcelWriter(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'comparison_by_size.xlsx'), engine='xlsxwriter')
         for key, df in dfList.items():
             df.to_excel(writer, sheet_name=key)

@@ -152,6 +152,64 @@ class comparison:
                 for chr, df_chr in df_str.groupby('chromosome'):
                     df_chr.drop(['strand', 'chromosome'], axis=1).to_sql('{}_{}'.format(chr, str), con_out, index=False, if_exists='replace')
 
+    def compare_corrlation_pair(self):
+        from scipy.stats import mannwhitneyu
+        from itertools import combinations
+        from Database import Database
+
+        fpath = os.path.join(self.root, "database/Fantom/v5/cell_lines/out", 'regression_100_nz.db')
+        con = sqlite3.connect(fpath)
+        pairs = [('corr', 'corr_ts'), ('corr', 'corr_mt')]
+
+        fpath = os.path.join(self.root, "database", 'target_genes.db')
+        con_other = sqlite3.connect(fpath)
+
+        fpath_mt = os.path.join(self.root, "database", 'miRTartBase_tr.db')
+        con_mt = sqlite3.connect(fpath_mt)
+        dfs = []
+        for tname in Database.load_tableList(con_mt):
+            dfs.append(pd.read_sql("SELECT * FROM '{}'".format(tname), con_mt))
+        df_mt_tr = pd.concat(dfs).drop_duplicates(subset=['transcript_id'])
+
+        df_ts = pd.read_sql("SELECT * FROM 'target_scan_grp'", con_other).dropna(subset=['pre-miRNA'])
+        df_mt = pd.read_sql("SELECT * FROM 'miRTartBase_hsa'", con_other).dropna(subset=['pre-miRNA'])
+        df_la = pd.read_sql("SELECT * FROM 'result'", con, index_col='miRNA')
+
+        dfs_corr = {'corr': pd.read_sql("SELECT * FROM 'corr'", con, index_col='transcript_id'),
+                'corr_ts': pd.read_sql("SELECT * FROM 'corr_ts'", con, index_col='transcript_id'),
+                'corr_mt': pd.read_sql("SELECT * FROM 'corr_mt'", con, index_col='transcript_id')}
+        for key, df_corr in dfs_corr.items():
+            dfs_corr[key] = df_corr[~df_corr.index.duplicated(keep='first')]
+
+        dfs_res = []
+        for df_other, label in zip([df_ts, df_mt], ['ts', 'mi']):
+            cmirs = set.intersection(set(df_other['pre-miRNA']), set(df_la.index))
+
+            result = []
+            data_other = {}
+            data_la = {}
+            for i, mir in enumerate(cmirs):
+                print('{} / {}'.format(i+1, len(cmirs)))
+
+                data_other[mir] = []
+                idx = df_other[df_other['pre-miRNA'] == mir].index
+                for i in idx:
+                    genes = df_other.loc[i, 'genes'].split(';')
+                    for gene in genes:
+                        for tr in df_mt_tr[df_mt_tr['gene_name'] == gene]['transcript_id']:
+                            data_other[mir].append(dfs_corr['corr_mt'].loc[tr, mir])
+                # Lasso
+                data_la[mir] = []
+                for tr in df_la.loc[mir, 'Transcripts'].split(';'):
+                    data_la[mir].append(dfs_corr['corr'].loc[tr, mir])
+
+                stat, p = mannwhitneyu(np.array(data_other[mir]), np.array(data_la[mir]))
+                result.append([mir, stat, p, len(data_other[mir]), len(data_la[mir])])
+            dfs_res.append(pd.DataFrame(result, columns=['miRNA', 'stat ({})'.format(label), 'p-value ({})'.format(label), '# genes ({})'.format(label), '# genes (Lasso)']).set_index('miRNA'))
+        df_res = pd.concat(dfs_res, axis=1)
+        df_res.index.name = 'miRNA'
+        df_res.to_excel(os.path.join(self.root, "database/Fantom/v5/cell_lines/out", 'mannwhitneyu.xlsx'))
+
     def run(self):
         import matplotlib.pyplot as plt
 
@@ -206,4 +264,5 @@ if __name__ == '__main__':
         comp.to_server(root, "")
     else:
         # comp.convert_pre_to_mir()
-        comp.get_ref_transcripts()
+        # comp.get_ref_transcripts()
+        comp.compare_corrlation_pair()
