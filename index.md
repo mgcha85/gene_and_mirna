@@ -274,6 +274,7 @@ The result shows only 13 miRNAs are statistically important out of 327.
 Point1
 =========
 
+## Point 1-a
 comparison of different TSS regions (500, 300, 100)  
 Table to show for the three different TSS region sizes, the miRNA associated genes (from the lasso non-zero coefficients) are similar. For each miRNA, we compared between 500 and 300, 300 and 100, 500 and 100, how many percent of their associated genes are the same? For each percentage, you will use the number of shared genes to divide the smaller number of genes for a region size, In 300 case. we made a table for this so that in each row, you have the miRNA name, the three percentages for the three comparisons.
 
@@ -281,8 +282,6 @@ To compare the different size of mirRNA TSS region, we got target genes by Lasso
 #100, 300, 500 means the number of size 100, 300, 500 target genes. ∩/∪ means intersection genes of the pair (eg: 100 vs. 300) divided by union genes of the pair. 
 ∩/# smaller means intersection genes of the pair and divided by the smaller number of either of the pair.  
 The result is [here](https://drive.google.com/file/d/1EcWaVggP6wdElo1MfqUKM941JbUhjo0k/view?usp=sharing).  
-
-## Point 1-a
 
 ### statistics of a column with the larger number of the two numbers in each row of the three tables
 (q70, q80, q90 is quantile 70%, 80%, 90%)
