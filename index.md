@@ -284,12 +284,12 @@ To compare the different size of mirRNA TSS region, we got target genes by Lasso
 The result is [here](https://drive.google.com/file/d/1kWHfbK46wwoB-L5tmn4umf_kIq_zWy0f/view?usp=sharing).  
 
 ### statistics of a column with the larger number of the two numbers in each row of the three tables
-(q70, q80, q90 is quantile 70%, 80%, 90%)
-| pair | mean | median | min | max | q70 | q80 | q90|
-| ------------- | ------------- | ------------- |------------- | ------------- | ------------- | ------------- | ------------- | 
-| 100 vs 300 | 0.9639 | 1 | 0.6313 | 1 | 1 | 1 | 1|
-|300 vs 500| 0.9815 | 1 | 0.6537 | 1 | 1 | 1 | 1|
-|100 vs 500| 0.9513 | 1 | 0.6313 | 1 | 1 | 1 | 1|
+(q20, q40, q60 is quantile 20%, 40%, 60%)
+| pair | mean | median | min | max | q20 | q40 | q60|
+| ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | 
+| 100 vs 300 | 0.9639 | 1 | 0.6313 | 1 | 0.9427 | 1 | 1|
+|300 vs 500| 0.9815 | 1 | 0.6537 | 1 | 0.9952 | 1 | 1|
+|100 vs 500| 0.9513 | 1 | 0.6313 | 1 | 0.9107 | 1 | 1|
 
 
 ## Point 1-b
