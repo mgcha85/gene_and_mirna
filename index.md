@@ -351,10 +351,20 @@ The below table shows how many miRNAs has smaller than p-value by two researches
 
 ## Point 1-d
 ### Identified genes are similar using tissue or cell line samples
-We compared target genes using 93 tissues and 240 tissues data, which is in section **"File entries by Tissues"**.
+We compared target genes using 93 tissues and 240 cell lines data, which is in section **"File entries by Tissues"**.
 We checked how many target genes are shared by a miRNA. 
-The result is in [here](https://drive.google.com/file/d/1w47NbPXd9WfckMIyanS9QYOt5tOhbBEz/view?usp=sharing).  
-The column #∩ is the number of intersection of two target genes and #U is the number of union of two target genes. #∩/#U is the ratio of intersection and union.
+The result is in [here](https://drive.google.com/file/d/1rH7RL2rJxF7DODG89PSZ5QZAWcoTKR1E/view?usp=sharing).  
+
+#### The column description
+- #tissue: the number of target genes by 93 tissues  
+- #cell_lines: the number of target genes by 240 cell lines  
+- #∩: the number of intersection of two target genes
+- #U: the number of union of two target genes  
+- #∩/#U: the ratio of intersection to union  
+- #∩/#small: the ratio of intersection to smaller number of #tissue and #cell_lines.
+- #∩/#large: the ratio of intersection to bigger number of #tissue and #cell_lines.
+- larger: larger one between #∩/#small and #∩/#large (in this case, #∩/#small is always larger)
+
 
 The below table shows the statistics of #∩/#  
 | mean | median | min | max | q70 | q80 | q90 | 
