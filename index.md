@@ -323,11 +323,11 @@ The table contains the following columns [stat (ts), p-value (ts), # genes (ts),
 
 - stat (ts): U-test of TargetScan  
 - p-value (ts): p-value of TargetScan  
-- # genes (ts): the number of target genes from TargetScan  
+- #genes (ts): the number of target genes from TargetScan  
 - stat (mi): U-test of miRTarBase  
 - p-value (mi): p-value of miRTarBase  
-- # genes (mi): the number of target genes from miRTarBase  
-- # genes (Lasso): the number of target genes from Lasso result.  
+- #genes (mi): the number of target genes from miRTarBase  
+- #genes (Lasso): the number of target genes from Lasso result.  
 
 
 ## Point 1-d
