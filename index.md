@@ -373,4 +373,10 @@ The below table shows the statistics of larger
 
 
 
+Point2
+=========
 
+## Point2-a. some have GO significance
+## Point2.b. some have the target significance
+## Point2.c. compare with the GSEA gene sets.
+## Point2.d. overall of the miRNAs with at least one type of supporting evidence
