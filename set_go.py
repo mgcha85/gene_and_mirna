@@ -95,7 +95,7 @@ class set_go:
         df = pd.read_sql("SELECT * FROM 'target_scan'", con)
         return '\n'.join(df.drop_duplicates(subset=['Gene Symbol'])['Gene Symbol'])
 
-    def submit_data(self, hbw, opt, bg=True):
+    def submit_data(self, hbw, opt, bg=True, mode=0):
         from mechanize import Browser
         br = Browser()
 
@@ -130,6 +130,13 @@ class set_go:
                 bg_genes = self.get_bg_genes()
                 background_set.value = bg_genes
 
+            db = br.form.find_control(name="db")
+            for i in range(4):
+                if i == mode:
+                    db.items[i].selected = True
+                else:
+                    db.items[i].selected = False
+
             ntry, n = 0, 3
             while ntry < n:
                 try:
@@ -148,7 +155,7 @@ class set_go:
                 continue
 
             res = response.read().decode('utf-8')
-            dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', opt)
+            dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', opt, db.items[mode].name)
             if not os.path.exists(dirname):
                 os.mkdir(dirname)
 

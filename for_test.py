@@ -6,5 +6,5 @@ con = sqlite3.connect("D:/Bioinformatics/database/gencode/high_correlated_fan_rn
 cnt = 0
 for tname in Database.load_tableList(con):
 	df = pd.read_sql("SELECT * FROM '{}'".format(tname), con, index_col='transcript_id')
-	cnt += df.shape[0]
+	print(tname, df.shape[0])
 print(cnt)

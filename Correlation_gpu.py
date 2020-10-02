@@ -658,8 +658,8 @@ if __name__ == '__main__':
                 # cor.high_correlation(hbw, 0.75)
                 # exit(1)
 
-                for type in ['cell_lines']:
-                    cor.sum_fan(hbw, ref='gene', type=type)
+                # for type in ['cell_lines']:
+                #     cor.sum_fan(hbw, ref='gene', type=type)
                     # cor.sum_fan(hbw, ref='mir', type=type)
                     # rg.regression(hbw, opt, type)
                     # rg.report(hbw, opt, type)
@@ -676,11 +676,12 @@ if __name__ == '__main__':
                 # mg.plot(hbw)
 
                 # sg.set_input(hbw, opt)
-                # sg.submit_data(hbw, opt, bg=True)
-                # sg.extract_genes(hbw, opt)
-                #
-                # sg.result(hbw, opt)
-                # sg.to_tg(hbw, opt)
+                for i in range(3):
+                    sg.submit_data(hbw, opt, bg=True, mode=i)
+                sg.extract_genes(hbw, opt)
+
+                sg.result(hbw, opt)
+                sg.to_tg(hbw, opt)
 
                 # sg.move(hbw, opt)
                 # sg.hyper_test(hbw, opt)
