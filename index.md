@@ -405,9 +405,21 @@ and so on.
 
 
 ## Point2.c. compare with the GSEA gene sets.
+-n: target genes by Lasso
+-N: consistent genes
+-m: Lasso genes ∩ GSEA gene set
+-M: consistent genes ∩ GSEA gene set
+-K: the number of miRNAs (257)
 
+We calculated the p-value as phyper(m,M, N-M, n).  
+If this p-value is smaller than 0.01/K, you think the lasso genes of this miRNA is significantly overlapping with the first GSEA gene set.  
+I repeated this for every GSEA gene set (h, c1, ..., c8) and record those significant GSEA gene set names and their p-values. 
+I got a table with the first column as the miRNAs, the second column is signficant and third column is p-values and phyper input parmameter in the last column.  
+The corresponding GSEA gene set name or index is sheet name. 
 
-The result is [here](https://drive.google.com/file/d/1jy5q1oEWMVZJSgrznwMbbJOqXmhSofeR/view?usp=sharing)  
+The table is [here](https://drive.google.com/file/d/1jy5q1oEWMVZJSgrznwMbbJOqXmhSofeR/view?usp=sharing)  
+
+The below table shows how many miRNAs are significant out of K by a gene set. 
 | - | h | c1 | c2 | c3 | c4 | c5 | c6 | c7 | c8 | 
 | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- |
 | **#** | 1 | 152 | 51 | 257 | 255 | 257 | 24 | 257 | 257 |
