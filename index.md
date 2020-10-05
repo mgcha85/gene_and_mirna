@@ -406,10 +406,10 @@ The below table shows the statistics of the above table.
 - mean of %: mean of the percent of shared genes  
 and so on.
 
-| research | mean of # | mean of % | median of # | median of % |  min of # | min of % | max of # | max of % | 
+| research | mean of # | mean of % | median of # | median of % |  min of # | min of % | max of # | max of % | q70 of # | q70 of % | q80 of # | q80 of % | q90 of # | q90 of % | 
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **miTarBase** | 5.829 | 0.0143 | 4 | 0.0088| 1 | 0.0014 | 153 | 0.1839 |
-| **TargetScan** | 13.55 | 0.034 | 11.5 | 0.026 | 1 | 0.0025 | 47 | 0.1 |
+| **miTarBase** | 5.829 | 0.0143 | 4 | 0.0088| 1 | 0.0014 | 153 | 0.1839 | 5 | 0.0147 | 7 | 0.0176 | 10 | 0.025 |
+| **TargetScan** | 13.55 | 0.034 | 11.5 | 0.026 | 1 | 0.0025 | 47 | 0.1 | 13 | 0.036 | 15 | 0.052 | 29 | 0.059 |
 
 
 ## Point2.c. compare with the GSEA gene sets.
