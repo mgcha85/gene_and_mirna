@@ -385,8 +385,8 @@ We processed all modes and compared.
 [molecular function](https://drive.google.com/file/d/1iXdJEZMNka1IPPpf2XgyOOP7_hw_Q_g4/view?usp=sharing)  
 [biological process](https://drive.google.com/file/d/17pYj7d4mlzy-r4gMeWyM25ADZvBR3Sqk/view?usp=sharing)  
 
-and then we chceck their significance. for this, we checked corrected p-value <0.01 by each miRNA.
-If one of three at least has >0.01, the miRNA is not significant.
+And then we chceck their significance. for this, we checked corrected p-value <0.01 by each miRNA.  
+If one of three at least has >0.01, the miRNA is not significant.  
 The result if [here](https://drive.google.com/file/d/1JXhQbQLv6scJV88k3499GNvHKP8zWBtk/view?usp=sharing)  
 
 
