@@ -397,7 +397,13 @@ The below table shows how many significant miRNA is by each mode out of 258 miRN
 
 
 ## Point2.b. some have the target significance
+I made one more table how many of the lasso genes are from other researches (targetscan and miTarBase) and how many percent of the lasso genes are from them.
+
 The result is [here](https://drive.google.com/file/d/1DBqGdCx-RZR_ytQ4k5vrCgdaAmVtWBwd/view?usp=sharing)  
+
+| mean (mt) | median (mt) | min (mt) | max (mt) | mean (ts) | median (ts) | min (ts) | max (ts)| 
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.5829 | 4 | 1 | 153 | 13.55 | 11.5 | 1 | 47 |
 
 
 ## Point2.c. compare with the GSEA gene sets.
