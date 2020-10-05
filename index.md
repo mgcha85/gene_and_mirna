@@ -401,10 +401,10 @@ I made one more table how many of the lasso genes are from other researches (tar
 
 The result is [here](https://drive.google.com/file/d/1DBqGdCx-RZR_ytQ4k5vrCgdaAmVtWBwd/view?usp=sharing)  
 
-| research | mean of shared genes | mean of percent | median of shared genes | median of percent |  min of shared genes | min of percent | max of shared genes | max of percent | 
+| research | mean of # | mean of % | median of # | median of % |  min of # | min of % | max of # | max of % | 
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| miTarBase | 5.829 | 0.0143 | 4 | 0.0088| 1 | 0.0014 | 153 | 0.1839 |
-| TargetScan | 13.55 | 0.034 | 11.5 | 0.026 | 1 | 0.0025 | 47 | 0.1 |
+| **miTarBase** | 5.829 | 0.0143 | 4 | 0.0088| 1 | 0.0014 | 153 | 0.1839 |
+| **TargetScan** | 13.55 | 0.034 | 11.5 | 0.026 | 1 | 0.0025 | 47 | 0.1 |
 
 
 ## Point2.c. compare with the GSEA gene sets.
