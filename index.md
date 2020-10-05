@@ -405,4 +405,8 @@ and so on.
 
 
 ## Point2.c. compare with the GSEA gene sets.
+
+
+The result is [here](https://drive.google.com/file/d/1jy5q1oEWMVZJSgrznwMbbJOqXmhSofeR/view?usp=sharing)  
+
 ## Point2.d. overall of the miRNAs with at least one type of supporting evidence
