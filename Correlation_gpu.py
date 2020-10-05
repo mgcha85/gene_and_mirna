@@ -633,7 +633,7 @@ if __name__ == '__main__':
         root = '/lustre/fs0/home/mcha/Bioinformatics'
 
     cor = Correlation(root)
-    if hostname == 'DESKTOP-DLOOJR6' or hostname == '-1NLOLK4':
+    if hostname == '-DLOOJR6' or hostname == '-1NLOLK4':
         cor.to_server(root, "")
     else:
         from Regression import Regression
@@ -675,13 +675,15 @@ if __name__ == '__main__':
                 # mg.phypher(hbw)
                 # mg.plot(hbw)
 
+                modes = {0: 'proc', 1: 'func', 2: 'comp'}
                 # sg.set_input(hbw, opt)
-                for i in range(3):
-                    sg.submit_data(hbw, opt, bg=True, mode=i)
-                sg.extract_genes(hbw, opt)
+                # for i, mode in modes.items():
+                    # sg.submit_data(hbw, opt, bg=True, mode=i)
+                    # sg.extract_genes(hbw, opt, mode=mode)
 
-                sg.result(hbw, opt)
-                sg.to_tg(hbw, opt)
+                    # sg.result(hbw, opt, mode)
+                    # sg.to_tg(hbw, opt, mode)
+                sg.merge_results(hbw, opt)
 
                 # sg.move(hbw, opt)
                 # sg.hyper_test(hbw, opt)

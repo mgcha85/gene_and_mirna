@@ -20,6 +20,46 @@ class Report:
         df['n_genes'] = n
         df.to_excel(os.path.join(dirname, 'regression_100_nz.xlsx'))
 
+    def compare_others(self):
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out')
+        fpath = os.path.join(dirname, 'regression_100_nz.xlsx')
+
+        df = pd.read_excel(fpath, index_col=0)
+
+        con_ref = sqlite3.connect(os.path.join(self.root, 'database', 'target_genes.db'))
+        df_ts = pd.read_sql("SELECT * FROM 'target_scan_grp'", con_ref)
+        df_mt = pd.read_sql("SELECT * FROM 'miRTartBase_hsa'", con_ref)
+
+        df_res = pd.DataFrame(index=df.index)
+        for mir in df.index:
+            lgenes = df.loc[mir, 'gene_name'].split(';')
+            tidx = df_ts[df_ts['pre-miRNA'] == mir].index
+
+            intersection = None
+            max = 0
+            for t in tidx:
+                genes = df_ts.loc[t, 'genes'].split(';')
+                inter = set.intersection(set(lgenes), set(genes))
+                if max < len(inter):
+                    intersection = inter
+            if intersection:
+                df_res.loc[mir, '∩ ts'] = ';'.join(intersection)
+                df_res.loc[mir, '# ∩ ts'] = len(intersection)
+
+            tidx = df_mt[df_mt['pre-miRNA'] == mir].index
+
+            intersection = None
+            max = 0
+            for t in tidx:
+                genes = df_mt.loc[t, 'genes'].split(';')
+                inter = set.intersection(set(lgenes), set(genes))
+                if max < len(inter):
+                    intersection = inter
+            if intersection:
+                df_res.loc[mir, '∩ mt'] = ';'.join(intersection)
+                df_res.loc[mir, '# ∩ mt'] = len(intersection)
+        df_res.to_excel(os.path.join(dirname, 'regression_100_nz2.xlsx'))
+
     def get_compare_cell_tissue(self):
         dfs = {}
         for type in ['tissues', 'cell_lines']:
@@ -284,4 +324,5 @@ if __name__ == '__main__':
     rep = Report(root)
     # rep.get_compare_cell_tissue()
     # rep.stats_mannwhitneyu()
-    rep.missing_mir()
+    rep.compare_others()
+    # rep.missing_mir()

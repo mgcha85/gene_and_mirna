@@ -385,8 +385,8 @@ class Regression(DeepLearning):
             gene = dfs['gene'].loc[:, '10964C':].T
             mir = dfs['mir'].loc[:, '10964C':].T
         elif type == 'tissues':
-            gene = dfs['gene'].loc[:, 'appendix':].T
-            mir = dfs['mir'].loc[:, 'appendix':].T
+            gene = dfs['gene'].loc[:, 'Fingernail':].T
+            mir = dfs['mir'].loc[:, 'Fingernail':].T
         else:
             return
         return gene, mir

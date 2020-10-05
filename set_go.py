@@ -95,7 +95,7 @@ class set_go:
         df = pd.read_sql("SELECT * FROM 'target_scan'", con)
         return '\n'.join(df.drop_duplicates(subset=['Gene Symbol'])['Gene Symbol'])
 
-    def submit_data(self, hbw, opt, bg=True, mode=0):
+    def submit_data(self, hbw, opt, bg=True, mode='proc'):
         from mechanize import Browser
         br = Browser()
 
@@ -167,7 +167,7 @@ class set_go:
             with open('failure.txt', 'wt') as f:
                 f.write('\n'.join(fails))
 
-    def extract_genes(self, hbw, opt):
+    def extract_genes(self, hbw, opt, mode):
         def trim_genes(df):
             for idx in df.index:
                 genes = df.loc[idx, 'Genes']
@@ -184,7 +184,7 @@ class set_go:
 
         # thres = 0.1
         # dirname = os.path.join(self.root, 'database/mirTarBase/go_result')
-        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', opt)
+        dirname = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', opt, mode)
         flist = [x for x in os.listdir(dirname) if x.endswith('.html')]
         con = sqlite3.connect(os.path.join(dirname, 'gene_list_{}_{}.db'.format(hbw, opt)))
         for fname in flist:
@@ -289,11 +289,11 @@ class set_go:
         df_res = pd.concat(report, axis=1)
         df_res.to_excel(os.path.join(self.root, 'database', 'confusion.xlsx'))
 
-    def result(self, hbw, opt):
+    def result(self, hbw, opt, mode):
         fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
         con = sqlite3.connect(fpath)
 
-        con_go = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', opt, 'gene_list_{}_{}.db'.format(hbw, opt)))
+        con_go = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out/go_result', opt, mode, 'gene_list_{}_{}.db'.format(hbw, opt)))
         df = pd.read_sql("SELECT * FROM 'result'", con, index_col='miRNA')
         result = []
         for mir in df.index:
@@ -302,8 +302,26 @@ class set_go:
                 go_gene = df_go.loc[0, 'Genes']
             else:
                 go_gene = None
-            result.append([mir, df.loc[mir, 'Transcripts'], df.loc[mir, 'gene_name'], go_gene])
-        pd.DataFrame(result, columns=['miRNA', 'Transcripts', 'gene_lasso', 'gene_go']).to_sql('lasso_go', con, index=False, if_exists='replace')
+            result.append([mir, df.loc[mir, 'Transcripts'], df.loc[mir, 'gene_name'], go_gene, df_go.loc[0, 'q-value']])
+        pd.DataFrame(result, columns=['miRNA', 'Transcripts', 'gene_lasso', 'gene_go', 'q-value']).to_sql('lasso_go_{}'.format(mode), con, index=False, if_exists='replace')
+
+    def merge_results(self, hbw, opt):
+        fpath = os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt))
+        con = sqlite3.connect(fpath)
+
+        dfs = []
+        sig_mir = []
+        for tname in ['lasso_go_comp', 'lasso_go_func', 'lasso_go_proc']:
+            cname = 'q-value ({})'.format(tname.split('_')[-1])
+            df = pd.read_sql('SELECT "miRNA", "q-value" AS "{}" FROM "{}"'.format(cname, tname),
+                        con, index_col='miRNA')
+            sig_mir.append(set(df[df[cname] < 0.01].index))
+            dfs.append(df)
+        df_res = pd.concat(dfs, axis=1)
+        df_res['significant'] = 'N'
+        sig_mir = set.union(*sig_mir)
+        df_res.loc[sig_mir, 'significant'] = 'Y'
+        df_res.to_sql('lasso_go', con, if_exists='replace')
 
     def add_mir_type(self):
         fpath = os.path.join(self.root, 'database', 'consistent_miRNA_330.db')
@@ -515,7 +533,7 @@ class set_go:
         df__['q significant'] = df__['q-value (GO)'] * np.arange(1, df__.shape[0]+1)
         return df__
 
-    def to_tg(self, hbw, opt):
+    def to_tg(self, hbw, opt, mode):
         con = sqlite3.connect(os.path.join(self.root, 'database/Fantom/v5/cell_lines/out', 'regression_{}_{}.db'.format(hbw, opt)))
         df = pd.read_sql("SELECT miRNA, gene_go FROM 'lasso_go' WHERE gene_go IS NOT NULL", con, index_col='miRNA')
         df.index.name = "pre-miRNA"
