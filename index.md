@@ -408,5 +408,8 @@ and so on.
 
 
 The result is [here](https://drive.google.com/file/d/1jy5q1oEWMVZJSgrznwMbbJOqXmhSofeR/view?usp=sharing)  
+| - | h | c1 | c2 | c3 | c4 | c5 | c6 | c7 | c8 | 
+| -- | -- | -- | -- | -- | -- | -- | -- | -- | -- |
+| **#** | 1 | 152 | 51 | 257 | 255 | 257 | 24 | 257 | 257 |
 
 ## Point2.d. overall of the miRNAs with at least one type of supporting evidence
