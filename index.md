@@ -425,3 +425,7 @@ The below table shows how many miRNAs are significant out of K by a gene set.
 | **#** | 1 | 152 | 51 | 257 | 255 | 257 | 24 | 257 | 257 |
 
 ## Point2.d. overall of the miRNAs with at least one type of supporting evidence
+
+[This table](https://drive.google.com/file/d/1CEfCuN7WmJMj7wC6TeiKeILO1TNa9o9A/view?usp=sharing) is the summary for how many miRNAs, we have either significant GO or significant GSEA. 
+
+how many of these miRNAs have target genes from targetScan or mirTarbase.
