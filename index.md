@@ -389,9 +389,10 @@ And then we chceck their significance. for this, we checked corrected p-value <0
 If one of three at least has >0.01, the miRNA is not significant.  
 The result if [here](https://drive.google.com/file/d/1JXhQbQLv6scJV88k3499GNvHKP8zWBtk/view?usp=sharing)  
 
+The below table shows how many significant miRNA is by each mode  
 | | cellular component | molecular function | biological process | 
 | --- | --- | --- | --- |
-| # | 254 | 217 | 244 |
+| **#** | 254 | 217 | 244 |
 
 
 
