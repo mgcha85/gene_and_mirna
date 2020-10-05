@@ -146,11 +146,6 @@ Therefore, 73 miRNAs failed to Lasso convergence.
 ### Gene ontology analysis
 From the lasso result, we got the target genes by a miRNA. To investigate the reliability of the result, we processed gene ontology analysis using the result. For the GO analysis, the high consistent genes are used as background genes. Target genes is the lasso result.  For the analysis, we use the below website.  
 [link to see](http://cbl-gorilla.cs.technion.ac.il/)
-There are three ontology mode "biological process, molecular function, cellular components".
-We processed all modes and compared.
-[cellular component](https://drive.google.com/file/d/1G_aoYpLlh7rzcWHPbwBazO4h2xfKgAve/view?usp=sharing)
-[molecular function](https://drive.google.com/file/d/1iXdJEZMNka1IPPpf2XgyOOP7_hw_Q_g4/view?usp=sharing)
-[biological process](https://drive.google.com/file/d/17pYj7d4mlzy-r4gMeWyM25ADZvBR3Sqk/view?usp=sharing)
 
 From this analysis, we recevied another gene set based on the Lasso result.  
 The result is [here](https://drive.google.com/file/d/1JXhQbQLv6scJV88k3499GNvHKP8zWBtk/view?usp=sharing).  
@@ -383,6 +378,19 @@ Point2
 =========
 
 ## Point2-a. some have GO significance
+There are three ontology mode "biological process, molecular function, cellular components".
+We processed all modes and compared.  
+
+[cellular component](https://drive.google.com/file/d/1G_aoYpLlh7rzcWHPbwBazO4h2xfKgAve/view?usp=sharing)  
+[molecular function](https://drive.google.com/file/d/1iXdJEZMNka1IPPpf2XgyOOP7_hw_Q_g4/view?usp=sharing)  
+[biological process](https://drive.google.com/file/d/17pYj7d4mlzy-r4gMeWyM25ADZvBR3Sqk/view?usp=sharing)  
+
+and then we chceck their significance. for this, we checked corrected p-value <0.01 by each miRNA.
+If one of three at least has >0.01, the miRNA is not significant.
+The result if [here](https://drive.google.com/file/d/1JXhQbQLv6scJV88k3499GNvHKP8zWBtk/view?usp=sharing)  
+
+
+
 ## Point2.b. some have the target significance
 ## Point2.c. compare with the GSEA gene sets.
 ## Point2.d. overall of the miRNAs with at least one type of supporting evidence
