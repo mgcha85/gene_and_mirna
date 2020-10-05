@@ -179,15 +179,7 @@ Finally, molecular signature database (MSigDb) is used for gene set. We
 had target genes by using Lasso. Through GSEA,
 we searched statistically important gene set.  
 
-In this experiment, we used some specific parameters. Since the expres-
-sion dataset is already gene level data, we did not collapse dataset to gene
-symbols. GSEA ranks the genes and analyzes ranked list of genes. For the
-rank, various options exist. In this experiment, we used continuous phe-
-notypes and Pearson, Cosine, Manhattan and Euclidean are available for
-the phenotypes. For this model, Manhattan is proper ranking method since
-it calculates similarity through distance with only one direction. The
-GSEA software is v3.0 from broadinstitute.  
-
+In this experiment, we used some specific parameters. Since the expression dataset is already gene level data, we did not collapse dataset to gene symbols. GSEA ranks the genes and analyzes ranked list of genes. For the rank, various options exist. In this experiment, we used continuous phenotypes and Pearson, Cosine, Manhattan and Euclidean are available for the phenotypes. For this model, Manhattan is proper ranking method since it calculates similarity through distance with only one direction. The GSEA software is v3.0 from broadinstitute.  
 The GSEA analysis result are in the below link.  
 
 [link to see](https://drive.google.com/open?id=1SfNwJtYHWc1oRLbuy4lcu8Fd9cTsgpJj)  
