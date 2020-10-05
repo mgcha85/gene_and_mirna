@@ -401,6 +401,11 @@ I made one more table how many of the lasso genes are from other researches (tar
 
 The result is [here](https://drive.google.com/file/d/1DBqGdCx-RZR_ytQ4k5vrCgdaAmVtWBwd/view?usp=sharing)  
 
+The below table shows the statistics of the above table.  
+- mean of #: mean of the number of shared genes  
+- mean of %: mean of the percent of shared genes  
+and so on.
+
 | research | mean of # | mean of % | median of # | median of % |  min of # | min of % | max of # | max of % | 
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **miTarBase** | 5.829 | 0.0143 | 4 | 0.0088| 1 | 0.0014 | 153 | 0.1839 |
