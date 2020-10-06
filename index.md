@@ -422,7 +422,7 @@ The table is [here](https://drive.google.com/file/d/1jVnaqS3lHda-QBkhXRj26Wa6ogg
 The below table shows how many miRNAs are significant out of K by a gene set. 
 | - | h | c1 | c2 | c3 | c4 | c5 | c6 | c7 | c8 | 
 | -- | -- | -- | -- | -- | -- | -- | -- | -- | -- |
-| **#** | 0 | 94 | 14 | 257 | 253 | 257 | 6 | 257 | 257 |
+| **#** | 257 | 0 | 94 | 14 | 257 | 253 | 257 | 6 | 257 |
 
 ## Point2.d. overall of the miRNAs with at least one type of supporting evidence
 
