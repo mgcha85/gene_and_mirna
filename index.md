@@ -430,4 +430,4 @@ c1, c2, ... and c8 have not many common genes with consistent genes (M), so I ch
 
 [This table](https://drive.google.com/file/d/1CEfCuN7WmJMj7wC6TeiKeILO1TNa9o9A/view?usp=sharing) is the summary for how many miRNAs, we have either significant GO or significant GSEA. 
 255 miRNAs are significant in both GO and GSEA out of 257 (significant (both)).  
-The table also include a miRNA has how mnay target genes from targetScan (#genes(ts)) or mirTarbase (#genes(mi)).  
+The table also include a miRNA has how many target genes from targetScan (#genes(ts)) or mirTarbase (#genes(mi)).  
