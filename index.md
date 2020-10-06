@@ -414,7 +414,8 @@ and so on.
 We calculated the p-value as phyper(m,M, N-M, n).  
 If this p-value is smaller than 0.01/K, we think the lasso genes of this miRNA is significantly overlapping with a GSEA gene set.  
 we repeated this for every GSEA gene set (h, c1, ..., c8) and record those significant GSEA gene set names and their p-values. 
-I got a table with the first column as the miRNAs, the second column is signficant and third column is p-values and phyper input parmameter in the last column.  
+I got a table with the first column as the miRNAs, the second column is signficant and third column is p-values and phyper input parmameter in the fourth column.  
+#genes (mi) and #genes (ts) mean >=10 common genes between mirtarbase/targetScan and the lasso genes of corresponding miRNA.  
 The corresponding GSEA gene set name is sheet name. 
 
 The table is [here](https://drive.google.com/file/d/1jVnaqS3lHda-QBkhXRj26Wa6oggOD93T/view?usp=sharing)  
