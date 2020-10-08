@@ -431,3 +431,11 @@ The below table shows how many miRNAs are significant out of K by a gene set.
 
 The table also include a miRNA has how many target genes from targetScan (#genes(ts)) or mirTarbase (#genes(mi)).  
 
+
+## Point3.a. 10-fold cross-validation on the 240 cell lines
+
+We trained the model with the 240*0.9=216 cell lines and then test the trained model on the remaining 24 cell lines.  
+For each of the 10 tests, we used the trained matrix B from the 216 cell lines to the data in the remaining 24 cell lines to calculate the difference between the predicted miRNA expression and the actual miRNA expression in the 24 cell lines. 
+
+
+In the text of 3a, you will describe how these difference is compared with the difference of the true expression of the 257 miRNAs across the 240 cell lines. That is, you will give a summary statistics of how many miRNAs have their average difference between the predicted and the true expression smaller than the average difference of the true expression of this miRNA across the 240 cell lines. When we consider the average difference, you can consider mean and median of the corresponding differences so that you have two different statements about these difference. Similarly, you can study the two types of average difference between 10 different testings to give a summary of such a comparison.
