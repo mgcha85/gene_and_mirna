@@ -436,6 +436,7 @@ The table also include a miRNA has how many target genes from targetScan (#genes
 
 We trained the model with the 240x0.9=216 cell lines and then test the trained model on the remaining 24 cell lines.  
 For each of the 10 tests, we used the trained matrix B from the 216 cell lines to the data in the remaining 24 cell lines to calculate the difference between the predicted miRNA expression and the actual miRNA expression in the 24 cell lines.   
+  
 ![Image](/images/formula6.gif)    
 ![Image](/images/formula7.gif)    
 
