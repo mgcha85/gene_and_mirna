@@ -449,8 +449,8 @@ sheet name means cross validation number.
 
 avg(distance) column shows average of Y_{diff} on the corresponding miRNA.
 
+The below table shows how many miRNAs have smaller average distance than entire average distance.
 |  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-| - | - | - | - | - | - | - | - | - | - |
-| # of smaller than avg_diff | 189 | 204 | 198 | 204 | 197 | 203 | 192 | 201 | 206 | 203 |
+| - | - | - | - | - | - | - | - | - | - | - |
+| # | 189 | 204 | 198 | 204 | 197 | 203 | 192 | 201 | 206 | 203 |
 
-In the text of 3a, you will describe how these difference is compared with the difference of the true expression of the 257 miRNAs across the 240 cell lines. That is, you will give a summary statistics of how many miRNAs have their average difference between the predicted and the true expression smaller than the average difference of the true expression of this miRNA across the 240 cell lines. When we consider the average difference, you can consider mean and median of the corresponding differences so that you have two different statements about these difference. Similarly, you can study the two types of average difference between 10 different testings to give a summary of such a comparison.
