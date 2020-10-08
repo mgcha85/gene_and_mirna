@@ -439,6 +439,6 @@ For each of the 10 tests, we used the trained matrix B from the 216 cell lines t
 ![Image](/images/formula6.gif)    
 ![Image](/images/formula7.gif)    
 
-In [hhis table](https://drive.google.com/file/d/1_7teMWi_IHfIjL2sKeqLPGiFuRJJatFk/view?usp=sharing), each cell shows  Y_{trn}, Y_{pred}, Y_{diff}. 
+In [this table](https://drive.google.com/file/d/1_7teMWi_IHfIjL2sKeqLPGiFuRJJatFk/view?usp=sharing), each cell shows  Y_{trn}, Y_{pred}, Y_{diff}.  
 sheet name means cross validation number.  
 
