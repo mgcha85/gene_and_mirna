@@ -443,8 +443,14 @@ For each of the 10 tests, we used the trained matrix B from the 216 cell lines t
 In [this table](https://drive.google.com/file/d/1_7teMWi_IHfIjL2sKeqLPGiFuRJJatFk/view?usp=sharing), each cell shows  Y_{trn}, Y_{pred}, Y_{diff}.  
 sheet name means cross validation number.  
 - X_{tst): (2312 x 24)
-- B_{trn}: (330 x 2312)
-- Y_{pred}: (330 x 24)
-- Y_{tst}: (330 x 24)
+- B_{trn}: (257 x 2312)
+- Y_{pred}: (257 x 24)
+- Y_{tst}: (257 x 24)
+
+avg(distance) column shows average of Y_{diff} on the corresponding miRNA.
+
+|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+| - | - | - | - | - | - | - | - | - | - |
+| # of smaller than avg_diff | 189 | 204 | 198 | 204 | 197 | 203 | 192 | 201 | 206 | 203 |
 
 In the text of 3a, you will describe how these difference is compared with the difference of the true expression of the 257 miRNAs across the 240 cell lines. That is, you will give a summary statistics of how many miRNAs have their average difference between the predicted and the true expression smaller than the average difference of the true expression of this miRNA across the 240 cell lines. When we consider the average difference, you can consider mean and median of the corresponding differences so that you have two different statements about these difference. Similarly, you can study the two types of average difference between 10 different testings to give a summary of such a comparison.
