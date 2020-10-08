@@ -435,9 +435,9 @@ The table also include a miRNA has how many target genes from targetScan (#genes
 ## Point3.a. 10-fold cross-validation on the 240 cell lines
 
 We trained the model with the 240x0.9=216 cell lines and then test the trained model on the remaining 24 cell lines.  
-For each of the 10 tests, we used the trained matrix B from the 216 cell lines to the data in the remaining 24 cell lines to calculate the difference between the predicted miRNA expression and the actual miRNA expression in the 24 cell lines. 
-![Image](/images/formula6.gif)  
-![Image](/images/formula7.gif)  
+For each of the 10 tests, we used the trained matrix B from the 216 cell lines to the data in the remaining 24 cell lines to calculate the difference between the predicted miRNA expression and the actual miRNA expression in the 24 cell lines.   
+![Image](/images/formula6.gif)    
+![Image](/images/formula7.gif)    
 
 In [hhis table](https://drive.google.com/file/d/1_7teMWi_IHfIjL2sKeqLPGiFuRJJatFk/view?usp=sharing), each cell shows  Y_{trn}, Y_{pred}, Y_{diff}. 
 sheet name means cross validation number.  
