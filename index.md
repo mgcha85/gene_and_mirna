@@ -447,7 +447,9 @@ sheet name means cross validation number.
 - Y_{pred}: (257 x 24)
 - Y_{tst}: (257 x 24)
 
-avg(distance) column shows average of Y_{diff} on the corresponding miRNA.
+avg(distance) column shows average of Y_{diff} on the corresponding miRNA.  
+entire average distance = average(avg(distance))  
+we count how many avg(distance) of miRNAs < entire average distance.
 
 The below table shows how many miRNAs have smaller average distance than entire average distance.
 |  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
