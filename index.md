@@ -317,7 +317,7 @@ For correlation coefficient, we used spearman correlation.
 To compare the correlation coefficients among three research, we used Mann–Whitney U test.  
 This test shows difference between the distributions of the data samples.  
 
-The result is [here](https://drive.google.com/file/d/197H-CRi6v2dr5g0bA1qbV-tJoOZpI9jv/view?usp=sharing).  
+The result is [here](https://drive.google.com/file/d/1RkeB0SrE29iVR-MSnlQZjw-QJDmXzFP_/view?usp=sharing).  
 The table contains the following columns [stat (ts), p-value (ts), # genes (ts), stat (mi), p-value (mi), # genes (mi), # genes (Lasso)]
 
 - stat (ts): U-test of TargetScan  
