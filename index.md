@@ -483,7 +483,7 @@ For example, test 0 has 189 miRNA and test 1 is 204 and so on.
 We extracted intersection and uninon from 10 miRNA sets. the number of intersection is 160 and the number of union 219. 
 73% miRNAs are common across 10 data sets. we call these miRNAs "miRNAs_com_10cv"
 
-From 3.b, we also got Y_{pred_ct}. we also received miRNAs whose distance is smaller than average distance. Then, we compared this miRNAs to miRNAs_com_10cv.
+From 3.b, we also got Y_{pred_ct}. we also received miRNAs whose distance is smaller than average distance. Then, we compared this miRNAs to miRNAs_com_10cv.  
 #intersection: 116  
 #union: 192  
 Total 60% miRNAs are common these to cross validation result. 
