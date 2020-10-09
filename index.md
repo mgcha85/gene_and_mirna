@@ -456,3 +456,24 @@ The below table shows how many miRNAs have smaller average distance than entire 
 | - | - | - | - | - | - | - | - | - | - | - |
 | # | 189 | 204 | 198 | 204 | 197 | 203 | 192 | 201 | 206 | 203 |
 
+
+## Point3.b. 10-fold cross-validation on the 240 cell lines
+
+We trained the matrix B with the 240 cell lines. we call this B_{cell}.  
+We applied B_{cell} to Y_{pred_ct} to see how the difference between the predicted expression and the true expression.  
+Y_{pred_ct} measn predicted miRNA expression by B **c**ell line and X **t**issue
+
+The difference between Y_{pred_ct} and Y_{tis} are in [This table](https://drive.google.com/file/d/1KFGrGpgn_3YLOqT0Ar18TRAjZ2Lr8Bnf/view?usp=sharing).  
+Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.
+
+
+In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
+- distance_ct = |Y_{tis} - Y_{pred_ct}|
+- distance_tt = |Y_{pred_tt} - Y_{tis}|
+- Y_{pred_tt} measn predicted miRNA expression by B **t**issue line and X **t**issue
+
+So we compared distance_ct to distance_tt.  
+[This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
+Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
+
+
