@@ -457,7 +457,7 @@ The below table shows how many miRNAs have smaller average distance than entire 
 | # | 189 | 204 | 198 | 204 | 197 | 203 | 192 | 201 | 206 | 203 |
 
 
-## Point3.b. 10-fold cross-validation on the 240 cell lines
+## Point3.b. prediction (Y) by tissue data (B) and cell line (X)
 
 We trained the matrix B with the 240 cell lines. we call this B_{cell}.  
 We applied B_{cell} to Y_{pred_ct} to see how the difference between the predicted expression and the true expression.  
@@ -475,5 +475,20 @@ In addition, we trained the matrix B with the new tissue data; B_{tis} and then 
 So we compared distance_ct to distance_tt.  
 [This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
 Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
+
+
+## Point3.c. the statistics of small distance
+From 3.a, we got miRNAs whose distance is smaller than average distance across 10 data set.  
+For example, test 0 has 189 miRNA and test 1 is 204 and so on.
+We extracted intersection and uninon from 10 miRNA sets. the number of intersection is 160 and the number of union 219. 
+73% miRNAs are common across 10 data sets. we call these miRNAs "miRNAs_com_10cv"
+
+From 3.b, we also got Y_{pred_ct}. we also received miRNAs whose distance is smaller than average distance. Then, we compared this miRNAs to miRNAs_com_10cv.
+#intersection: 116  
+#union: 192  
+Total 60% miRNAs are common these to cross validation result. 
+Therefore, 116 miRNAs are overlapped by 10 cross validation sets and tissue data.
+
+
 
 
