@@ -462,7 +462,7 @@ The avg(distance) is the average of the 276 values.
 
 we count how many avg(diff) < avg(distance) of miRNAs are there.
 
-The below table shows how many miRNAs have smaller average distance than entire average distance.
+The below table shows the result across 10 test sets.
 |  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 | - | - | - | - | - | - | - | - | - | - | - |
 | # | 75 | 89 | 80 | 87 | 73 | 189 | 94 | 93 | 81 | 84 |
