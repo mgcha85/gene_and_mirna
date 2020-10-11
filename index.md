@@ -447,6 +447,8 @@ sheet name means cross validation number.
 - Y_{pred}: (257 x 24)
 - Y_{tst}: (257 x 24)
 
+**trn: train, tst: test**  
+
 The three last column in the table,  
 avg(diff): avgerage(|Y_{tis} - Y_{pred_ct}|)  
 avg(distance): the average of a pair from 24 cell lines. In this case, Y_{tst} has 24 cell lines.  
