@@ -465,7 +465,7 @@ we count how many avg(diff) < avg(distance) of miRNAs are there.
 The below table shows how many miRNAs have smaller average distance than entire average distance.
 |  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 | - | - | - | - | - | - | - | - | - | - | - |
-| # | 189 | 204 | 198 | 204 | 197 | 203 | 192 | 201 | 206 | 203 |
+| # | 75 | 89 | 80 | 87 | 73 | 189 | 94 | 93 | 81 | 84 |
 
 
 ## Point3.b. prediction (Y) by tissue data (B) and cell line (X)
