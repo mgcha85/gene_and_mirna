@@ -447,9 +447,20 @@ sheet name means cross validation number.
 - Y_{pred}: (257 x 24)
 - Y_{tst}: (257 x 24)
 
-avg(distance) column shows average of Y_{diff} on the corresponding miRNA.  
-entire average distance = average(avg(distance))  
-we count how many avg(distance) of miRNAs < entire average distance.
+The three last column in the table,  
+avg(diff): avgerage(|Y_{tis} - Y_{pred_ct}|)  
+avg(distance): the average of a pair from 24 cell lines. In this case, Y_{tst} has 24 cell lines.  
+
+pair1: |cell line1 - cell line2|  
+pair2: |cell line1 - cell line3|  
+pair3: |cell line1 - cell line4|  
+.  
+.  
+.  
+pair276: |cell line23 - cell line24|  
+The avg(distance) is the average of the 276 values.  
+
+we count how many avg(diff) < avg(distance) of miRNAs are there.
 
 The below table shows how many miRNAs have smaller average distance than entire average distance.
 |  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
@@ -467,20 +478,6 @@ Y_{pred_ct} measn predicted miRNA expression by B **c**ell line and X **t**issue
 
 The difference between Y_{pred_ct} and Y_{tis} are in [This table](https://drive.google.com/file/d/1KFGrGpgn_3YLOqT0Ar18TRAjZ2Lr8Bnf/view?usp=sharing).  
 Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.  
-
-The three last column in the table,  
-avg(diff): avgerage(|Y_{tis} - Y_{pred_ct}|)  
-avg(distance): the average of a pair from 24 cell lines. In this case, Y_{tst} has 24 cell lines.  
-
-pair1: |cell line1 - cell line2|  
-pair2: |cell line1 - cell line3|  
-pair3: |cell line1 - cell line4|  
-.  
-.  
-.  
-pair276: |cell line23 - cell line24|  
-The avg(distance) is the average of the 276 values.  
-
 
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
 - distance_ct = |Y_{tis} - Y_{pred_ct}|
