@@ -492,21 +492,13 @@ Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
 
 
 ## Point3.c. the statistics of small distance
-From 3.a, we got miRNAs whose distance is smaller than average distance across 10 data set.  
-For example, test 0 has 189 miRNA and test 1 is 204 and so on.
-We extracted intersection and uninon from 10 miRNA sets. the number of intersection is 160 and the number of union 219.   
-73% miRNAs are common across 10 data sets. we call these miRNAs "miRNAs_com_10cv"
-
-From 3.b, we also got Y_{pred_ct}. we also received miRNAs whose distance is smaller than average distance. Then, we compared this miRNAs to miRNAs_com_10cv.  
-#intersection: 116  
-#union: 192  
-Total 60% miRNAs are common these to cross validation result. 
-Therefore, 116 miRNAs are overlapped by 10 cross validation sets and tissue data.
-
 The avg(distance) and std(distance) are very similar. the correlation coefficient of two is 0.98 on the 3.b data, which means vert similar.  
-The below figure shows the histogram of avg(distance).  
+The below figure shows the histogram of avg(distance). the y-axis is log-scale.    
 most of them are in 200.  
-![Image](/images/formula8.gif)  
+![Image](/images/Figure7.png)    
+
+The below figure is the histogram of avg(distance) < 200.  
+![Image](/images/Figure8.png)  
 
 
 
