@@ -503,6 +503,7 @@ From 3.b, we also got Y_{pred_ct}. we also received miRNAs whose distance is sma
 Total 60% miRNAs are common these to cross validation result. 
 Therefore, 116 miRNAs are overlapped by 10 cross validation sets and tissue data.
 
+The avg(distance) and std(distance) are very similar. the correlation coefficient of two is 0.98 on the 3.b data, which means vert similar.
 
 
 
