@@ -490,6 +490,7 @@ So we compared distance_ct to distance_tt.
 [This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
 Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
 
+92 miRNAs are meets avg(diff)<avg(distance).  
 
 ## Point3.c. the statistics of small distance
 The avg(distance) and std(distance) are very similar. the correlation coefficient of two is 0.98 on the 3.b data, which means vert similar.  
