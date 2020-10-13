@@ -474,8 +474,8 @@ The below table shows the result across 10 test sets.
 
 We trained the matrix B with the 240 cell lines. we call this B_{cell}.  
 We applied B_{cell} to Y_{pred_ct} to see how the difference between the predicted expression and the true expression.  
-Y_{pred_ct} means predicted miRNA expression by B **c**ell line and X **t**issue.  
-Y_{tis} is miRNA expression of tissue data.  
+- Y_{pred_ct} means predicted miRNA expression by B **c**ell line and X **t**issue.  
+- Y_{tis} is miRNA expression of tissue data.  
 
 ![Image](/images/formula8.gif)    
 
