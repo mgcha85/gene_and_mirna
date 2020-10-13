@@ -450,7 +450,7 @@ sheet name means cross validation number.
 **trn: train, tst: test**  
 
 The three last column in the table,  
-avg(diff): avgerage(|Y_{tis} - Y_{pred_ct}|)  
+avg(diff): avgerage(|Y_{tst} - Y_{pred}|)
 avg(distance): the average of a pair from 24 cell lines. In this case, Y_{tst} has 24 cell lines.  
 
 pair1: |cell line1 - cell line2|  
@@ -474,7 +474,8 @@ The below table shows the result across 10 test sets.
 
 We trained the matrix B with the 240 cell lines. we call this B_{cell}.  
 We applied B_{cell} to Y_{pred_ct} to see how the difference between the predicted expression and the true expression.  
-Y_{pred_ct} measn predicted miRNA expression by B **c**ell line and X **t**issue  
+Y_{pred_ct} means predicted miRNA expression by B **c**ell line and X **t**issue.  
+Y_{tis} is miRNA expression of tissue data.  
 
 ![Image](/images/formula8.gif)    
 
