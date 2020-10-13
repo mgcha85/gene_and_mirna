@@ -480,7 +480,12 @@ We applied B_{cell} to Y_{pred_ct} to see how the difference between the predict
 ![Image](/images/formula8.gif)    
 
 The difference between Y_{pred_ct} and Y_{tis} are in [This table](https://drive.google.com/file/d/1KFGrGpgn_3YLOqT0Ar18TRAjZ2Lr8Bnf/view?usp=sharing).  
+
+The three last column in the table,  
+avg(diff): avgerage(|Y_{tis} - Y_{pred_ct}|)
+avg(distance): the average of a pair from 93 tissues. In this case, Y_{tis} has 93 tissues.  
 Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.  
+
 
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
 - distance_ct = |Y_{tis} - Y_{pred_ct}|
