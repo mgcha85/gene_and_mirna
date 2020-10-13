@@ -450,8 +450,8 @@ sheet name means cross validation number.
 **trn: train, tst: test**  
 
 The three last column in the table,  
-- avg(diff): avgerage(|Y_{tst} - Y_{pred}|)
-- avg(distance): the average of a pair from 24 cell lines. In this case, Y_{tst} has 24 cell lines.  
+- **avg(diff)**: avgerage(|Y_{tst} - Y_{pred}|)
+- **avg(distance)**: the average of a pair from 24 cell lines. In this case, Y_{tst} has 24 cell lines.  
 
 pair1: |cell line1 - cell line2|  
 pair2: |cell line1 - cell line3|  
@@ -482,8 +482,8 @@ We applied B_{cell} to Y_{pred_ct} to see how the difference between the predict
 The difference between Y_{pred_ct} and Y_{tis} are in [This table](https://drive.google.com/file/d/1KFGrGpgn_3YLOqT0Ar18TRAjZ2Lr8Bnf/view?usp=sharing).  
 
 The three last column in the table,  
-- avg(diff): avgerage(|Y_{tis} - Y_{pred_ct}|)  
-- avg(distance): the average of a pair from 93 tissues. In this case, Y_{tis} has 93 tissues.  
+- **avg(diff)**: avgerage(|Y_{tis} - Y_{pred_ct}|)  
+- **avg(distance)**: the average of a pair from 93 tissues. In this case, Y_{tis} has 93 tissues.  
 Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.  
 
 
