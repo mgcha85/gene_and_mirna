@@ -508,9 +508,9 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 
 <br>
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
-- distance_ct = |Y_{tis} - Y_{pred_ct}|   
-- distance_tt = |Y_{pred_tt} - Y_{tis}|    
-- Y_{pred_tt} means predicted miRNA expression by B **t**issue line and X **t**issue    
+- distance_ct = |Y_{tis} - Y_{pred_ct}|
+- distance_tt = |Y_{pred_tt} - Y_{tis}|
+- Y_{pred_tt} means predicted miRNA expression by B **t**issue line and X **t**issue
 
 So we compared distance_ct to distance_tt.  
 [This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
