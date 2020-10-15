@@ -471,7 +471,10 @@ The below table shows the result across 10 test sets.
 
 Also,  
 The avg(distance) is |Y_{trn} - Y_{pred}| in the 216 training cell lines instead of the 24 testing cell lines.  
-Y_{trn} = B_{tst} * X_{trn}  
+ 
+![Image](/images/formula6-1.gif)    
+![Image](/images/formula7-1.gif)    
+
 
 
 ## Point3.b. prediction (Y) by tissue data (B) and cell line (X)
