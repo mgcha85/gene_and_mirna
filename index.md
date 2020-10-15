@@ -469,8 +469,7 @@ The below table shows the result across 10 test sets.
 | - | - | - | - | - | - | - | - | - | - | - |
 | # | 75 | 89 | 80 | 87 | 73 | 189 | 94 | 93 | 81 | 84 |
 
-<br><br>
-
+<br>
 Also,  
 The avg(distance) is |Y_{trn} - Y_{pred}| in the 216 training cell lines instead of the 24 testing cell lines.  
  
@@ -479,7 +478,7 @@ The avg(distance) is |Y_{trn} - Y_{pred}| in the 216 training cell lines instead
 
 In this [table](https://drive.google.com/file/d/1MAW7xrooPExHp9FYR8zLtMwN18_IkOry/view?usp=sharing), each cell shows Y_{trn}, Y_{pred}, Y_{diff} as the above table.
 
-The below table shows the result across 10 test sets.
+The below table shows the result across 10 train sets.
 |  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 | - | - | - | - | - | - | - | - | - | - | - |
 | # | 100 | 112 | 121 | 113 | 90 | 102 | 100 | 114 | 101 | 98 |
