@@ -475,6 +475,8 @@ The avg(distance) is |Y_{trn} - Y_{pred}| in the 216 training cell lines instead
 ![Image](/images/formula6-1.gif)    
 ![Image](/images/formula7-1.gif)    
 
+In this [table](https://drive.google.com/file/d/1MAW7xrooPExHp9FYR8zLtMwN18_IkOry/view?usp=sharing), each cell shows Y_{trn}, Y_{pred}, Y_{diff} as the above table.
+
 
 
 ## Point3.b. prediction (Y) by tissue data (B) and cell line (X)
