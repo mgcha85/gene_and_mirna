@@ -508,8 +508,6 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 
 <br>
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
-- **avg(diff)**: avgerage(|Y_{tis} - Y_{pred_ct}|)  
-- **avg(distance)**: the average of a pair from 93 tissues. In this case, Y_{tis} has 93 tissues.  
 
 - distance_ct = |Y_{tis} - Y_{pred_ct}|
 - distance_tt = |Y_{pred_tt} - Y_{tis}|
