@@ -493,9 +493,6 @@ We applied B_{cell} to Y_{pred_ct} to see how the difference between the predict
 
 ![Image](/images/formula8.gif)    
 
-the number of avg(diff) < avg(distance) is 92 in this table.  
-
-
 The difference between Y_{pred_ct} and Y_{tis} are in [This table](https://drive.google.com/file/d/1KFGrGpgn_3YLOqT0Ar18TRAjZ2Lr8Bnf/view?usp=sharing).  
 
 The three last column in the table,  
@@ -503,7 +500,9 @@ The three last column in the table,
 - **avg(distance)**: the average of a pair from 93 tissues. In this case, Y_{tis} has 93 tissues.  
 Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.  
 
+**92 miRNAs** are meets avg(diff)<avg(distance).  
 
+<br>
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
 - distance_ct = |Y_{tis} - Y_{pred_ct}|
 - distance_tt = |Y_{pred_tt} - Y_{tis}|
@@ -513,7 +512,6 @@ So we compared distance_ct to distance_tt.
 [This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
 Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
 
-**92 miRNAs** are meets avg(diff)<avg(distance).  
 
 ## Point3.c. the statistics of small distance
 The avg(distance) and std(distance) are very similar. the correlation coefficient of two is 0.98 on the 3.b data, which means vert similar.  
