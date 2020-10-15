@@ -493,6 +493,9 @@ We applied B_{cell} to Y_{pred_ct} to see how the difference between the predict
 
 ![Image](/images/formula8.gif)    
 
+the number of avg(diff) < avg(distance) is 92 in this table.  
+
+
 The difference between Y_{pred_ct} and Y_{tis} are in [This table](https://drive.google.com/file/d/1KFGrGpgn_3YLOqT0Ar18TRAjZ2Lr8Bnf/view?usp=sharing).  
 
 The three last column in the table,  
