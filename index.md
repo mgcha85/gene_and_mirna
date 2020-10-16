@@ -484,6 +484,10 @@ The below table shows the result across 10 train sets.
 | # | 100 | 112 | 121 | 113 | 90 | 102 | 100 | 114 | 101 | 98 |
 
 
+<br>
+this [table](https://drive.google.com/file/d/1NlkXbPSoMAATgeAqKidWvT6aU71wlpAf/view?usp=sharing) shows how many miRNAs are selected in at least one of the cross-validation. # column represents the number of cross-validation set of the corresponding miRNA.  
+
+
 ## Point3.b. prediction (Y) by tissue data (B) and cell line (X)
 
 We trained the matrix B with the 240 cell lines. we call this B_{cell}.  
