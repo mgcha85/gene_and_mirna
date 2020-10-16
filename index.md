@@ -491,8 +491,9 @@ The ratio of average distance; Y_{ratio} = |Y_{pred} - Y_{tst}| / Y_{tst} is sho
 | # | 83 | 105 | 93 | 81 | 107 | 86 | 87 | 74 | 84 | 92 |
  
 
+<br>
 
-This [table](https://drive.google.com/file/d/1NlkXbPSoMAATgeAqKidWvT6aU71wlpAf/view?usp=sharing) shows how many miRNAs are selected in at least one of the cross-validation. # column represents the number of cross-validation set of the corresponding miRNA from the table including avgerage(|Y_{tst} - Y_{pred}|).  
+Finally, this [table](https://drive.google.com/file/d/1NlkXbPSoMAATgeAqKidWvT6aU71wlpAf/view?usp=sharing) shows how many miRNAs are selected in at least one of the cross-validation. # column represents the number of cross-validation set of the corresponding miRNA from the table including avgerage(|Y_{tst} - Y_{pred}|).  
 
 
 ## Point3.b. prediction (Y) by tissue data (B) and cell line (X)
