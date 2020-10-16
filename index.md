@@ -514,10 +514,6 @@ Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.
 
 **92 miRNAs** are meets avg(diff)<avg(distance).  
 
-We also measured the absolute difference of the predicted expression and the true expression of a miRNA in a tissue compared with the absolute value of the true expression of this miRNA in this tissue.  
-Y_{ratio} = |Y_{pred_ct} - Y_{trn}| / Y_{trn}  
-This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/view?usp=sharing) and a summary of the ratios.  
-
 <br>
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
 
@@ -531,6 +527,10 @@ Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
 
 **74 miRNAs** are satisfied with avg(distance_ct)<avg(distance_tt).  
 **138 miRNAs** satisfy either avg(diff)< avg(distance) or avg(distance_ct)<avg(distance_tt).  
+
+We also measured the absolute difference of the predicted expression and the true expression of a miRNA in a tissue compared with the absolute value of the true expression of this miRNA in this tissue.  
+Y_{ratio} = |Y_{pred_ct} - Y_{trn}| / Y_{trn}  
+This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/view?usp=sharing) and a summary of the ratios.  
 
 
 ## Point3.c. the statistics of small distance
