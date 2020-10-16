@@ -536,7 +536,7 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 
 From the three sets; 92, 74, 107 miRNAs, I check how many overlapped each other.  
 The below figure shows the result.  
-![Image](/images/Figure9.gif)    
+![Image](/images/Figure9.png)    
 
 
 ## Point3.c. the statistics of small distance
