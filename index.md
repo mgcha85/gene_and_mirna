@@ -532,7 +532,7 @@ We also measured the absolute difference of the predicted expression and the tru
 Y_{ratio} = |Y_{pred_ct} - Y_{trn}| / Y_{trn}  
 This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/view?usp=sharing) and a summary of the ratios.  
 
-**107 miRNA** satisfy avg(diff) < avg(distance) from the above table.  
+**107 miRNA** satisfy avg(diff_ratio) < avg(distance_ratio) from the above table.  
 
 
 ## Point3.c. the statistics of small distance
