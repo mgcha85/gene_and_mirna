@@ -534,6 +534,10 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 
 **107 miRNA** satisfy avg(diff_ratio) < avg(distance_ratio) from the above table.  
 
+From the three sets; 92, 74, 107 miRNAs, I check how many overlapped each other.  
+The below figure shows the result.  
+![Image](/images/Figure9.gif)    
+
 
 ## Point3.c. the statistics of small distance
 The avg(distance) and std(distance) are very similar. the correlation coefficient of two is 0.98 on the 3.b data, which means vert similar.  
