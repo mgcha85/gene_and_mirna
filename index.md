@@ -486,10 +486,6 @@ The below table shows the result across 10 train sets.
 
 Another table is [here](https://drive.google.com/file/d/1erA1fyT0CLxiaLDLYxtnGTiYXBFcS8v3/view?usp=sharing).  
 The ratio of average distance; Y_{ratio} = |Y_{pred} - Y_{tst}| / Y_{tst} is shown in the table. the format is same as the above tables.  
-|  | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-| - | - | - | - | - | - | - | - | - | - | - |
-| # | 83 | 105 | 93 | 81 | 107 | 86 | 87 | 74 | 84 | 92 |
- 
 
 <br>
 
