@@ -492,12 +492,12 @@ The ratio of average distance; Y_{ratio} = |Y_{pred} - Y_{tst}| / Y_{tst} is sho
 Finally, this [table](https://drive.google.com/file/d/1NlkXbPSoMAATgeAqKidWvT6aU71wlpAf/view?usp=sharing) shows how many miRNAs are selected in at least one of the cross-validation. # column represents the number of cross-validation set of the corresponding miRNA from the table including avgerage(|Y_{tst} - Y_{pred}|).  
 And this [table](https://drive.google.com/file/d/1gGpczYqe30gudTOxYNC0mrhL4R3RtPnK/view?usp=sharing) shows the statistics of the ratio table by miRNA.  
 
-The below table shows how many miRNA < 0.01 by each statistics.  
+The below table shows how many **miRNA < 0.01** by each statistics.  
 |  | mean | median | min | max | q70 | q80 | q90 |
 | - | - | - | - | - | - | - | - |
 | # | 175 | 254 | 257 | 0 | 55 | 17 | 2 |
 
-The below table shows how many miRNA < 0.1 by each statistics.  
+The below table shows how many **miRNA < 0.1** by each statistics.  
 |  | mean | median | min | max | q70 | q80 | q90 |
 | - | - | - | - | - | - | - | - |
 | # | 181 | 255 | 257 | 1 | 61 | 20 | 4 |
