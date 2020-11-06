@@ -533,7 +533,7 @@ So we compared distance_ct to distance_tt.
 [This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
 Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
 
-**74 miRNAs** are satisfied with avg(distance_ct)<avg(distance_tt).  
+**74 miRNAs** are satisfied with avg(diff)<avg(distance) from the above table.  
 **138 miRNAs** satisfy either avg(diff)< avg(distance) or avg(distance_ct)<avg(distance_tt).  
 
 We also measured the absolute difference of the predicted expression and the true expression of a miRNA in a tissue compared with the absolute value of the true expression of this miRNA in this tissue.  
