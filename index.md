@@ -526,7 +526,7 @@ Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.
 We also calculate the error of Lasso regression.  
 Y_pred_tt = B_{tis}X_{tis}  
 distance_tt = |Y_pred_tt - Y_{tis}|  
-The threee last column are same as the above.
+The threee last column are same as the above.  
 [This table](https://drive.google.com/file/d/14jfgpl3vll1X6WKITtI_lJ78QSWSStig/view?usp=sharing) shows the result.
 
 **74 miRNAs** are satisfied with avg(diff_tt)<avg(distance_tt) from the above table. (from "plugin_distance_tis_tt")  
@@ -540,6 +540,8 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 
 From the three sets; 92, 74, 107 miRNAs, I check how many overlapped each other.  
 The below figure shows the result.  
+
+<br>
 ![Image](/images/Figure9-2.png)    
 
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
