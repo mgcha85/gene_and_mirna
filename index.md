@@ -520,7 +520,7 @@ The three last column in the table,
 - **avg(distance)**: the average of a pair from 93 tissues. In this case, Y_{tis} has 93 tissues.  
 Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.  
 
-**92 miRNAs** are meets avg(diff)<avg(distance).  
+**92 miRNAs** are meets avg(diff)<avg(distance). (from "plugin_distance_tis")  
 
 <br>
 We also calculate the error of Lasso regression.  
@@ -529,8 +529,8 @@ distance_tt = |Y_pred_tt - Y_{tis}|
 The threee last column are same as the above.
 [This table](https://drive.google.com/file/d/14jfgpl3vll1X6WKITtI_lJ78QSWSStig/view?usp=sharing) shows the result.
 
-**74 miRNAs** are satisfied with avg(diff)<avg(distance) from the above table.  
-**138 miRNAs** satisfy either avg(diff)< avg(distance) or avg(distance_ct)<avg(distance_tt).  
+**74 miRNAs** are satisfied with avg(diff_tt)<avg(distance_tt) from the above table. (from "plugin_distance_tis_tt")  
+**138 miRNAs** satisfy either avg(diff_ct)< avg(distance_ct) or avg(diff_tt)<avg(distance_tt).
 
 We also measured the absolute difference of the predicted expression and the true expression of a miRNA in a tissue compared with the absolute value of the true expression of this miRNA in this tissue.  
 Y_{ratio} = |Y_{pred_ct} - Y_{trn}| / Y_{trn}  
@@ -540,7 +540,7 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 
 From the three sets; 92, 74, 107 miRNAs, I check how many overlapped each other.  
 The below figure shows the result.  
-![Image](/images/Figure9.png)    
+![Image](/images/Figure9-2.png)    
 
 In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
 
