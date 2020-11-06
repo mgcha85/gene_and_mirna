@@ -523,15 +523,11 @@ Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.
 **92 miRNAs** are meets avg(diff)<avg(distance).  
 
 <br>
-In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
-
-- distance_ct = |Y_{tis} - Y_{pred_ct}|
-- distance_tt = |Y_{pred_tt} - Y_{tis}|
-- Y_{pred_tt} means predicted miRNA expression by B **t**issue line and X **t**issue
-
-So we compared distance_ct to distance_tt.  
-[This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
-Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
+We also calculate the error of Lasso regression.  
+Y_pred_tt = B_{tis}X_{tis}  
+distance_tt = |Y_pred_tt - Y_{tis}|  
+The threee last column are same as the above.
+[This table](https://drive.google.com/file/d/14jfgpl3vll1X6WKITtI_lJ78QSWSStig/view?usp=sharing) shows the result.
 
 **74 miRNAs** are satisfied with avg(diff)<avg(distance) from the above table.  
 **138 miRNAs** satisfy either avg(diff)< avg(distance) or avg(distance_ct)<avg(distance_tt).  
@@ -545,6 +541,16 @@ This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/v
 From the three sets; 92, 74, 107 miRNAs, I check how many overlapped each other.  
 The below figure shows the result.  
 ![Image](/images/Figure9.png)    
+
+In addition, we trained the matrix B with the new tissue data; B_{tis} and then calculated |Y_{pred_tt} - Y_{tis}|, where Y_{pred_tt} the predicted expression and Y_{tis} is  true expression of miRNAs across the tissues.  
+
+- distance_ct = |Y_{tis} - Y_{pred_ct}|
+- distance_tt = |Y_{pred_tt} - Y_{tis}|
+- Y_{pred_tt} means predicted miRNA expression by B **t**issue line and X **t**issue
+
+So we compared distance_ct to distance_tt.  
+[This shows](https://drive.google.com/file/d/1TOTZeGrePZCZqvFZKKrm37BIr8rNlM-9/view?usp=sharing) is the result.
+Each cell has distance_ct, distance_tt, |distance_ct - distance_tt|.
 
 
 ## Point3.c. the statistics of small distance
