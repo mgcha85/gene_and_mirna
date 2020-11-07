@@ -526,7 +526,8 @@ Each cell has Y_{tis}, Y_{pred}, |Y_{tis} - Y_{pred_ct}|.
 We also calculate the error of Lasso regression.  
 Y_pred_tt = B_{tis}X_{tis}  
 distance_tt = |Y_pred_tt - Y_{tis}|  
-The threee last column are same as the above.  
+The threee last column are same as the above.          
+
 [This table](https://drive.google.com/file/d/14jfgpl3vll1X6WKITtI_lJ78QSWSStig/view?usp=sharing) shows the result.
 
 **74 miRNAs** are satisfied with avg(diff_tt)<avg(distance_tt) from the above table. (from "plugin_distance_tis_tt")  
