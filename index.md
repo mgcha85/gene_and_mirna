@@ -533,7 +533,7 @@ The threee last column are same as the above.
 **138 miRNAs** satisfy either avg(diff_ct)< avg(distance_ct) or avg(diff_tt)<avg(distance_tt).  
 
 We also measured the absolute difference of the predicted expression and the true expression of a miRNA in a tissue compared with the absolute value of the true expression of this miRNA in this tissue.  
-Y_{ratio} = |Y_{pred_ct} - Y_{trn}| / Y_{trn}  
+Y_{ratio} = |Y_{pred_ct} - Y_{trn}| / Y_{trn}.    
 This [table](https://drive.google.com/file/d/1BUZDMlkq6Z0L_K12XLHo7talvkaqZdem/view?usp=sharing) and a summary of the ratios.  
 
 **107 miRNA** satisfy avg(diff_ratio) < avg(distance_ratio) from the above table.  
